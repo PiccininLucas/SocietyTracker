@@ -1,4 +1,4 @@
-import { t as supabase } from "./supabaseClient_BWZ6C-d6.mjs";
+import { t as supabase } from "./supabaseClient_BrqKuFUM.mjs";
 //#region src/core/domain/entities/Team.ts
 var Team = class {
 	props;
