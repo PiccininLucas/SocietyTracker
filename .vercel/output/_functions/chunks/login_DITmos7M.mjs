@@ -2,7 +2,7 @@ import { t as __exportAll } from "./rolldown-runtime_D7D4PA-g.mjs";
 import { C as createAstro, i as renderComponent, m as maybeRenderHead, u as renderTemplate } from "./server_DNJHvdY8.mjs";
 import { t as createComponent } from "./compiler_Cige1B-f.mjs";
 import { i as isAuthenticatedFromRequest } from "./pinAuth_B8z-2-vC.mjs";
-import { t as $$Layout } from "./Layout_BQmvqKSy.mjs";
+import { t as $$Layout } from "./Layout_7_u9jphL.mjs";
 import { t as cn } from "./utils_7hA_0p5v.mjs";
 import { n as soundFx, t as hapticFeedback } from "./vibration_DEhdHpvZ.mjs";
 import { useCallback, useEffect, useState } from "react";

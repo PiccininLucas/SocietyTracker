@@ -63,4 +63,18 @@
     transform: scale(0.96);
     filter: brightness(0.9);
   }
+
+  /* Safe Area Inset Utilities for mobile notches and gesture bars */
+  .pb-safe {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+  }
+
+  .pt-safe {
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0.75rem));
+  }
+
+  .min-h-screen-safe {
+    min-height: calc(100dvh - env(safe-area-inset-bottom, 0px));
+  }
 }
+
