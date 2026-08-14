@@ -5,34 +5,6 @@ import { SupabasePlayerRepository } from '../../core/infrastructure/repositories
 
 export const prerender = false;
 
-// Fallback de 24 atletas clássicos da pelada
-const FALLBACK_PLAYERS: PlayerItem[] = [
-  { id: 'p1', name: 'Lucas Piccinin', nickname: 'Lucas' },
-  { id: 'p2', name: 'Gabriel Silva', nickname: 'Gabriel' },
-  { id: 'p3', name: 'Igor Rocha', nickname: 'Igor' },
-  { id: 'p4', name: 'Mateus Lima', nickname: 'Mateus' },
-  { id: 'p5', name: 'Bruno Dias', nickname: 'Bruno' },
-  { id: 'p6', name: 'Rodrigo Alves', nickname: 'Rodrigo' },
-  { id: 'p7', name: 'Felipe Santos', nickname: 'Felipe' },
-  { id: 'p8', name: 'Thiago Martins', nickname: 'Thiago' },
-  { id: 'p9', name: 'Rafael Costa', nickname: 'Rafael' },
-  { id: 'p10', name: 'Danilo Souza', nickname: 'Danilo' },
-  { id: 'p11', name: 'Leonardo Moura', nickname: 'Léo' },
-  { id: 'p12', name: 'Gustavo Nunes', nickname: 'Gustavo' },
-  { id: 'p13', name: 'Caio Castro', nickname: 'Caio' },
-  { id: 'p14', name: 'Vinicius Jr', nickname: 'Vini' },
-  { id: 'p15', name: 'Arthur Melo', nickname: 'Arthur' },
-  { id: 'p16', name: 'Bernardo Silva', nickname: 'Bernardo' },
-  { id: 'p17', name: 'Diego Ribas', nickname: 'Diego' },
-  { id: 'p18', name: 'Enzo Ferrari', nickname: 'Enzo' },
-  { id: 'p19', name: 'Pedro Henrique', nickname: 'Pedro' },
-  { id: 'p20', name: 'Lucas Paquetá', nickname: 'Paquetá' },
-  { id: 'p21', name: 'Richarlison', nickname: 'Pombo' },
-  { id: 'p22', name: 'Casemiro', nickname: 'Case' },
-  { id: 'p23', name: 'Marquinhos', nickname: 'Marquinhos' },
-  { id: 'p24', name: 'Alisson Becker', nickname: 'Alisson' },
-];
-
 let players: PlayerItem[] = [];
 
 try {
@@ -46,11 +18,9 @@ try {
       nickname: p.nickname || null,
       avatarUrl: p.avatarUrl || null,
     }));
-  } else {
-    players = FALLBACK_PLAYERS;
   }
 } catch {
-  players = FALLBACK_PLAYERS;
+  players = [];
 }
 ---
 

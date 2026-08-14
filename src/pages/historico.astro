@@ -6,106 +6,6 @@ import type { MatchSummary } from '../core/domain/repositories/IMatchRepository'
 
 export const prerender = false;
 
-// Fallback de histórico de confrontos
-const FALLBACK_MATCHES: MatchSummary[] = [
-  {
-    matchId: 'm-1',
-    sessionId: 's-1',
-    sessionDate: '2026-08-08',
-    homeTeamName: 'Time Preto',
-    homeTeamColor: '#1f2937',
-    homeScore: 2,
-    awayTeamName: 'Time Branco',
-    awayTeamColor: '#e5e7eb',
-    awayScore: 1,
-    durationSeconds: 385,
-    endReason: 'two_goals',
-    status: 'finished',
-    startedAt: '2026-08-08T20:05:00Z',
-    finishedAt: '2026-08-08T20:11:25Z',
-  },
-  {
-    matchId: 'm-2',
-    sessionId: 's-1',
-    sessionDate: '2026-08-08',
-    homeTeamName: 'Time Preto',
-    homeTeamColor: '#1f2937',
-    homeScore: 2,
-    awayTeamName: 'Time Azul',
-    awayTeamColor: '#3b82f6',
-    awayScore: 0,
-    durationSeconds: 240,
-    endReason: 'two_goals',
-    status: 'finished',
-    startedAt: '2026-08-08T20:15:00Z',
-    finishedAt: '2026-08-08T20:19:00Z',
-  },
-  {
-    matchId: 'm-3',
-    sessionId: 's-1',
-    sessionDate: '2026-08-08',
-    homeTeamName: 'Time Preto',
-    homeTeamColor: '#1f2937',
-    homeScore: 1,
-    awayTeamName: 'Time Vermelho',
-    awayTeamColor: '#ef4444',
-    awayScore: 2,
-    durationSeconds: 410,
-    endReason: 'two_goals',
-    status: 'finished',
-    startedAt: '2026-08-08T20:22:00Z',
-    finishedAt: '2026-08-08T20:28:50Z',
-  },
-  {
-    matchId: 'm-4',
-    sessionId: 's-1',
-    sessionDate: '2026-08-08',
-    homeTeamName: 'Time Vermelho',
-    homeTeamColor: '#ef4444',
-    homeScore: 1,
-    awayTeamName: 'Time Branco',
-    awayTeamColor: '#e5e7eb',
-    awayScore: 1,
-    durationSeconds: 420,
-    endReason: 'time_limit',
-    status: 'finished',
-    startedAt: '2026-08-08T20:32:00Z',
-    finishedAt: '2026-08-08T20:39:00Z',
-  },
-  {
-    matchId: 'm-5',
-    sessionId: 's-2',
-    sessionDate: '2026-08-01',
-    homeTeamName: 'Time Azul',
-    homeTeamColor: '#3b82f6',
-    homeScore: 2,
-    awayTeamName: 'Time Preto',
-    awayTeamColor: '#1f2937',
-    awayScore: 1,
-    durationSeconds: 360,
-    endReason: 'two_goals',
-    status: 'finished',
-    startedAt: '2026-08-01T20:00:00Z',
-    finishedAt: '2026-08-01T20:06:00Z',
-  },
-  {
-    matchId: 'm-6',
-    sessionId: 's-2',
-    sessionDate: '2026-08-01',
-    homeTeamName: 'Time Azul',
-    homeTeamColor: '#3b82f6',
-    homeScore: 0,
-    awayTeamName: 'Time Vermelho',
-    awayTeamColor: '#ef4444',
-    awayScore: 2,
-    durationSeconds: 310,
-    endReason: 'two_goals',
-    status: 'finished',
-    startedAt: '2026-08-01T20:10:00Z',
-    finishedAt: '2026-08-01T20:15:10Z',
-  },
-];
-
 let matches: MatchSummary[] = [];
 
 try {
@@ -114,11 +14,9 @@ try {
 
   if (dbMatches && dbMatches.length > 0) {
     matches = dbMatches;
-  } else {
-    matches = FALLBACK_MATCHES;
   }
 } catch {
-  matches = FALLBACK_MATCHES;
+  matches = [];
 }
 
 // Agrupamento por data da sessão
@@ -186,36 +84,46 @@ const formatDate = (dateStr: string) => {
 
     <!-- Lista de Sessões Agrupadas por Data -->
     <div class="space-y-8">
-      {Object.entries(groupedMatches).map(([dateStr, sessionMatches]) => {
-        const totalSessionGoals = sessionMatches.reduce((acc, m) => acc + m.homeScore + m.awayScore, 0);
+      {matches.length === 0 ? (
+        <div class="p-12 text-center rounded-3xl glass-card bg-surface-100/90 border border-white/10 shadow-2xl flex flex-col items-center justify-center gap-3">
+          <span class="text-4xl">📜</span>
+          <h3 class="font-display font-bold text-lg text-white">Nenhum confronto realizado ainda</h3>
+          <p class="text-xs sm:text-sm text-gray-400 max-w-md">
+            O histórico de partidas, placares e tempos será preenchido automaticamente à medida que as partidas forem concluídas na área do mesário.
+          </p>
+        </div>
+      ) : (
+        Object.entries(groupedMatches).map(([dateStr, sessionMatches]) => {
+          const totalSessionGoals = sessionMatches.reduce((acc, m) => acc + m.homeScore + m.awayScore, 0);
 
-        return (
-          <section class="space-y-4">
-            <!-- Header da Sessão / Data -->
-            <div class="flex items-center justify-between gap-2 px-2 pb-2 border-b border-white/10">
-              <div class="flex items-center gap-2.5">
-                <span class="w-3 h-3 rounded-full bg-emerald-400 shadow shadow-emerald-500/50"></span>
-                <h2 class="font-display font-black text-base sm:text-lg text-white capitalize">
-                  {formatDate(dateStr)}
-                </h2>
+          return (
+            <section class="space-y-4">
+              <!-- Header da Sessão / Data -->
+              <div class="flex items-center justify-between gap-2 px-2 pb-2 border-b border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-3 h-3 rounded-full bg-emerald-400 shadow shadow-emerald-500/50"></span>
+                  <h2 class="font-display font-black text-base sm:text-lg text-white capitalize">
+                    {formatDate(dateStr)}
+                  </h2>
+                </div>
+
+                <div class="flex items-center gap-2 text-xs text-gray-400 font-semibold">
+                  <span>{sessionMatches.length} jogos</span>
+                  <span>•</span>
+                  <span class="text-emerald-400">{totalSessionGoals} gols</span>
+                </div>
               </div>
 
-              <div class="flex items-center gap-2 text-xs text-gray-400 font-semibold">
-                <span>{sessionMatches.length} jogos</span>
-                <span>•</span>
-                <span class="text-emerald-400">{totalSessionGoals} gols</span>
+              <!-- Grid de Confrontos daquela Data -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {sessionMatches.map((match) => (
+                  <MatchHistoryCard match={match} />
+                ))}
               </div>
-            </div>
-
-            <!-- Grid de Confrontos daquela Data -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sessionMatches.map((match) => (
-                <MatchHistoryCard match={match} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+            </section>
+          );
+        })
+      )}
     </div>
   </div>
 </Layout>

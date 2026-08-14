@@ -8,98 +8,6 @@ import type { LeaderboardItemDTO } from '../core/application/dtos/LeaderboardDTO
 
 export const prerender = false;
 
-// Fallback de dados para demonstração caso o banco ainda não tenha registros
-const FALLBACK_LEADERBOARD: LeaderboardItemDTO[] = [
-  {
-    playerId: 'p1',
-    name: 'Lucas Piccinin',
-    nickname: 'Lucas',
-    displayName: 'Lucas',
-    avatarUrl: null,
-    totalGoals: 14,
-    totalAssists: 8,
-    totalContributions: 22,
-    totalSessionsPlayed: 6,
-  },
-  {
-    playerId: 'p2',
-    name: 'Gabriel Silva',
-    nickname: 'Gabriel',
-    displayName: 'Gabriel',
-    avatarUrl: null,
-    totalGoals: 11,
-    totalAssists: 9,
-    totalContributions: 20,
-    totalSessionsPlayed: 6,
-  },
-  {
-    playerId: 'p3',
-    name: 'Igor Rocha',
-    nickname: 'Igor',
-    displayName: 'Igor',
-    avatarUrl: null,
-    totalGoals: 9,
-    totalAssists: 7,
-    totalContributions: 16,
-    totalSessionsPlayed: 5,
-  },
-  {
-    playerId: 'p4',
-    name: 'Mateus Lima',
-    nickname: 'Mateus',
-    displayName: 'Mateus',
-    avatarUrl: null,
-    totalGoals: 8,
-    totalAssists: 5,
-    totalContributions: 13,
-    totalSessionsPlayed: 6,
-  },
-  {
-    playerId: 'p7',
-    name: 'Felipe Santos',
-    nickname: 'Felipe',
-    displayName: 'Felipe',
-    avatarUrl: null,
-    totalGoals: 7,
-    totalAssists: 6,
-    totalContributions: 13,
-    totalSessionsPlayed: 5,
-  },
-  {
-    playerId: 'p14',
-    name: 'Vinicius Jr',
-    nickname: 'Vini',
-    displayName: 'Vini',
-    avatarUrl: null,
-    totalGoals: 7,
-    totalAssists: 4,
-    totalContributions: 11,
-    totalSessionsPlayed: 4,
-  },
-  {
-    playerId: 'p5',
-    name: 'Bruno Dias',
-    nickname: 'Bruno',
-    displayName: 'Bruno',
-    avatarUrl: null,
-    totalGoals: 5,
-    totalAssists: 8,
-    totalContributions: 13,
-    totalSessionsPlayed: 6,
-  },
-  {
-    playerId: 'p8',
-    name: 'Thiago Martins',
-    nickname: 'Thiago',
-    displayName: 'Thiago',
-    avatarUrl: null,
-    totalGoals: 4,
-    totalAssists: 5,
-    totalContributions: 9,
-    totalSessionsPlayed: 4,
-  },
-];
-
 let leaderboard: LeaderboardItemDTO[] = [];
 
 try {
@@ -109,30 +17,25 @@ try {
 
   if (result && result.length > 0) {
     leaderboard = result;
-  } else {
-    leaderboard = FALLBACK_LEADERBOARD;
   }
 } catch {
-  // Em caso de falha ou banco offline, usa dados simulados
-  leaderboard = FALLBACK_LEADERBOARD;
+  leaderboard = [];
 }
 
 // Estatísticas Agregadas
-const totalGoalsAll = leaderboard.reduce((acc, p) => acc + p.totalGoals, 0);
-const totalAssistsAll = leaderboard.reduce((acc, p) => acc + p.totalAssists, 0);
+const totalGoalsAll = leaderboard.reduce((acc, p) => acc + (p.totalGoals || 0), 0);
+const totalAssistsAll = leaderboard.reduce((acc, p) => acc + (p.totalAssists || 0), 0);
 
 // Top 3 do Pódio:
-// 1º Artilheiro (Mais gols)
 const sortedByGoals = [...leaderboard].sort((a, b) => b.totalGoals - a.totalGoals);
-const topScorer = sortedByGoals[0] || FALLBACK_LEADERBOARD[0];
+const topScorer = sortedByGoals[0];
 
-// 2º Garçom (Mais assistências)
 const sortedByAssists = [...leaderboard].sort((a, b) => b.totalAssists - a.totalAssists);
-const topAssister = sortedByAssists[0] || FALLBACK_LEADERBOARD[1];
+const topAssister = sortedByAssists[0];
 
-// 3º Rei da Pelada (Mais G+A)
 const sortedByContributions = [...leaderboard].sort((a, b) => b.totalContributions - a.totalContributions);
-const topContributor = sortedByContributions[0] || FALLBACK_LEADERBOARD[0];
+const topContributor = sortedByContributions[0];
+const hasPodium = leaderboard.length > 0 && topScorer;
 ---
 
 <Layout
@@ -178,63 +81,65 @@ const topContributor = sortedByContributions[0] || FALLBACK_LEADERBOARD[0];
       </div>
     </div>
 
-    <!-- Pódio Visual: Top 3 Destaques da Temporada -->
-    <div>
-      <div class="flex items-center justify-between gap-2 mb-4 px-1">
-        <h2 class="font-display font-black text-xl sm:text-2xl text-white flex items-center gap-2">
-          <span>👑</span>
-          <span>Destaques da Pelada</span>
-        </h2>
-        <span class="text-xs text-gray-400 font-semibold">Os líderes da temporada</span>
+    <!-- Pódio Visual: Top 3 Destaques da Temporada (Exibido apenas quando houver partidas) -->
+    {hasPodium && topScorer && topAssister && topContributor && (
+      <div>
+        <div class="flex items-center justify-between gap-2 mb-4 px-1">
+          <h2 class="font-display font-black text-xl sm:text-2xl text-white flex items-center gap-2">
+            <span>👑</span>
+            <span>Destaques da Pelada</span>
+          </h2>
+          <span class="text-xs text-gray-400 font-semibold">Os líderes da temporada</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-end">
+          <!-- 2º Lugar: Garçom de Ouro -->
+          <div class="order-2 md:order-1">
+            <PodiumCard
+              rank={2}
+              title="Garçom da Pelada"
+              category="garcom"
+              playerName={topAssister.name}
+              playerNickname={topAssister.nickname}
+              avatarUrl={topAssister.avatarUrl}
+              statValue={topAssister.totalAssists}
+              statLabel="Assistências"
+              secondaryStat={`${topAssister.totalGoals} gols anotados`}
+            />
+          </div>
+
+          <!-- 1º Lugar: Artilheiro / Chuteira de Ouro (Central) -->
+          <div class="order-1 md:order-2">
+            <PodiumCard
+              rank={1}
+              title="Chuteira de Ouro"
+              category="artilheiro"
+              playerName={topScorer.name}
+              playerNickname={topScorer.nickname}
+              avatarUrl={topScorer.avatarUrl}
+              statValue={topScorer.totalGoals}
+              statLabel="Gols Marcados"
+              secondaryStat={`Média de ${(topScorer.totalGoals / (topScorer.totalSessionsPlayed || 1)).toFixed(1)} gols/rodada`}
+            />
+          </div>
+
+          <!-- 3º Lugar: Destaque Geral G+A -->
+          <div class="order-3 md:order-3">
+            <PodiumCard
+              rank={3}
+              title="Rei da Pelada (G+A)"
+              category="destaque"
+              playerName={topContributor.name}
+              playerNickname={topContributor.nickname}
+              avatarUrl={topContributor.avatarUrl}
+              statValue={topContributor.totalContributions}
+              statLabel="Participações"
+              secondaryStat={`${topContributor.totalGoals}G + ${topContributor.totalAssists}A`}
+            />
+          </div>
+        </div>
       </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-end">
-        <!-- 2º Lugar: Garçom de Ouro -->
-        <div class="order-2 md:order-1">
-          <PodiumCard
-            rank={2}
-            title="Garçom da Pelada"
-            category="garcom"
-            playerName={topAssister.name}
-            playerNickname={topAssister.nickname}
-            avatarUrl={topAssister.avatarUrl}
-            statValue={topAssister.totalAssists}
-            statLabel="Assistências"
-            secondaryStat={`${topAssister.totalGoals} gols anotados`}
-          />
-        </div>
-
-        <!-- 1º Lugar: Artilheiro / Chuteira de Ouro (Central) -->
-        <div class="order-1 md:order-2">
-          <PodiumCard
-            rank={1}
-            title="Chuteira de Ouro"
-            category="artilheiro"
-            playerName={topScorer.name}
-            playerNickname={topScorer.nickname}
-            avatarUrl={topScorer.avatarUrl}
-            statValue={topScorer.totalGoals}
-            statLabel="Gols Marcados"
-            secondaryStat={`Média de ${(topScorer.totalGoals / (topScorer.totalSessionsPlayed || 1)).toFixed(1)} gols/rodada`}
-          />
-        </div>
-
-        <!-- 3º Lugar: Destaque Geral G+A -->
-        <div class="order-3 md:order-3">
-          <PodiumCard
-            rank={3}
-            title="Rei da Pelada (G+A)"
-            category="destaque"
-            playerName={topContributor.name}
-            playerNickname={topContributor.nickname}
-            avatarUrl={topContributor.avatarUrl}
-            statValue={topContributor.totalContributions}
-            statLabel="Participações"
-            secondaryStat={`${topContributor.totalGoals}G + ${topContributor.totalAssists}A`}
-          />
-        </div>
-      </div>
-    </div>
+    )}
 
     <!-- Tabela Geral de Classificação SSR -->
     <LeaderboardTable players={leaderboard} />

@@ -5,70 +5,8 @@ import { SupabaseSessionRepository } from '../../core/infrastructure/repositorie
 
 export const prerender = false;
 
-// Fallback padrão com os 4 times clássicos da pelada
-const FALLBACK_SESSION: SessionData = {
-  id: 'session-demo',
-  sessionDate: new Date().toISOString().split('T')[0],
-  status: 'ongoing',
-  notes: 'Rodada de Demonstração',
-  teams: [
-    {
-      id: 'team-preto',
-      name: 'Time Preto',
-      colorHex: '#1f2937',
-      players: [
-        { id: 'p1', name: 'Lucas Piccinin', nickname: 'Lucas' },
-        { id: 'p2', name: 'Gabriel Silva', nickname: 'Gabriel' },
-        { id: 'p3', name: 'Igor Rocha', nickname: 'Igor' },
-        { id: 'p4', name: 'Mateus Lima', nickname: 'Mateus' },
-        { id: 'p5', name: 'Bruno Dias', nickname: 'Bruno' },
-        { id: 'p6', name: 'Rodrigo Alves', nickname: 'Rodrigo' },
-      ],
-    },
-    {
-      id: 'team-branco',
-      name: 'Time Branco',
-      colorHex: '#e5e7eb',
-      players: [
-        { id: 'p7', name: 'Felipe Santos', nickname: 'Felipe' },
-        { id: 'p8', name: 'Thiago Martins', nickname: 'Thiago' },
-        { id: 'p9', name: 'Rafael Costa', nickname: 'Rafael' },
-        { id: 'p10', name: 'Danilo Souza', nickname: 'Danilo' },
-        { id: 'p11', name: 'Leonardo Moura', nickname: 'Léo' },
-        { id: 'p12', name: 'Gustavo Nunes', nickname: 'Gustavo' },
-      ],
-    },
-    {
-      id: 'team-azul',
-      name: 'Time Azul',
-      colorHex: '#3b82f6',
-      players: [
-        { id: 'p13', name: 'Caio Castro', nickname: 'Caio' },
-        { id: 'p14', name: 'Vinicius Jr', nickname: 'Vini' },
-        { id: 'p15', name: 'Arthur Melo', nickname: 'Arthur' },
-        { id: 'p16', name: 'Bernardo Silva', nickname: 'Bernardo' },
-        { id: 'p17', name: 'Diego Ribas', nickname: 'Diego' },
-        { id: 'p18', name: 'Enzo Ferrari', nickname: 'Enzo' },
-      ],
-    },
-    {
-      id: 'team-vermelho',
-      name: 'Time Vermelho',
-      colorHex: '#ef4444',
-      players: [
-        { id: 'p19', name: 'Pedro Henrique', nickname: 'Pedro' },
-        { id: 'p20', name: 'Lucas Paquetá', nickname: 'Paquetá' },
-        { id: 'p21', name: 'Richarlison', nickname: 'Pombo' },
-        { id: 'p22', name: 'Casemiro', nickname: 'Case' },
-        { id: 'p23', name: 'Marquinhos', nickname: 'Marquinhos' },
-        { id: 'p24', name: 'Alisson Becker', nickname: 'Alisson' },
-      ],
-    },
-  ],
-};
-
 const sessionIdParam = Astro.url.searchParams.get('sessionId');
-let sessionData: SessionData = FALLBACK_SESSION;
+let sessionData: SessionData | null = null;
 
 try {
   const sessionRepo = new SupabaseSessionRepository();
@@ -98,7 +36,7 @@ try {
     };
   }
 } catch {
-  sessionData = FALLBACK_SESSION;
+  sessionData = null;
 }
 ---
 
@@ -107,5 +45,22 @@ try {
   description="Controle o placar, cronômetro de 7 minutos, gols e assistências em tempo real na beira do campo."
   activeNav="mesario"
 >
-  <MesarioSessionWrapper client:load session={sessionData} />
+  {sessionData ? (
+    <MesarioSessionWrapper client:load session={sessionData} />
+  ) : (
+    <div class="p-12 text-center rounded-3xl glass-card bg-surface-100/90 border border-white/10 shadow-2xl flex flex-col items-center justify-center gap-4 max-w-xl mx-auto my-12">
+      <span class="text-5xl">⏱️</span>
+      <h2 class="font-display font-black text-2xl text-white">Nenhuma Rodada Ativa</h2>
+      <p class="text-sm text-gray-400">
+        Para iniciar o cronômetro, gerenciar confrontos e registrar gols no Modo Mesário, monte os 4 times da rodada primeiro.
+      </p>
+      <a
+        href="/rodada/nova"
+        class="mt-2 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-95 transition-all"
+      >
+        <span>➕</span>
+        <span>Montar Times da Rodada</span>
+      </a>
+    </div>
+  )}
 </Layout>
