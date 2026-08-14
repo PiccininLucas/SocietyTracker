@@ -152,7 +152,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       });
 
       if (!res.ok) {
-        throw new Error('Falha ao cadastrar jogador.');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao cadastrar jogador.');
       }
 
       const created: PlayerItem = await res.json();

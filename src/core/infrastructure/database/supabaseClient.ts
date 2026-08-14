@@ -17,9 +17,9 @@ const supabaseUrl =
   'https://society-tracker-placeholder.supabase.co';
 
 const supabaseAnonKey =
+  getEnv('SUPABASE_SERVICE_ROLE_KEY') ||
   getEnv('PUBLIC_SUPABASE_ANON_KEY') ||
   getEnv('SUPABASE_ANON_KEY') ||
-  getEnv('SUPABASE_SERVICE_ROLE_KEY') ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder';
 
 export const isSupabaseConfigured =
