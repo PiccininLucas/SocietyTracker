@@ -1,0 +1,24 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { PinLoginPad } from '../components/live/PinLoginPad';
+import { isAuthenticatedFromRequest } from '../core/infrastructure/auth/pinAuth';
+
+export const prerender = false;
+
+const redirectParam = Astro.url.searchParams.get('redirect') || '/rodada/mesario';
+
+// Se o usuário já possui sessão válida, redireciona direto
+const isAuth = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
+if (isAuth) {
+  return Astro.redirect(redirectParam);
+}
+---
+
+<Layout
+  title="SocietyTracker • Acesso do Mesário"
+  description="Digite seu PIN de 4 dígitos para gerenciar os jogos e lançar gols no Modo Mesário."
+>
+  <div class="min-h-[75vh] flex flex-col items-center justify-center py-4">
+    <PinLoginPad client:load redirectUrl={redirectParam} />
+  </div>
+</Layout>

@@ -1,5 +1,6 @@
 import { C as LocalImageUsedWrongly, J as UnsupportedImageFormat, X as AstroError, k as MissingImageDimension, q as UnsupportedImageConversion, s as ExpectedImage, v as IncompatibleDescriptorOptions } from "./errors-data_BJ4JQ9fH.mjs";
-import { c as isRemotePath, f as removeQueryString, g as inferRemoteSize, l as joinPaths, y as isRemoteAllowed } from "./path_s5bQmA_7.mjs";
+import { i as isRemoteAllowed, t as inferRemoteSize } from "./remoteProbe_pctxpEg4.mjs";
+import { c as isRemotePath, f as removeQueryString, l as joinPaths } from "./path_D91BQv73.mjs";
 //#region node_modules/astro/dist/assets/utils/imageKind.js
 function isESMImportedImage(src) {
 	return typeof src === "object" || typeof src === "function" && "src" in src;

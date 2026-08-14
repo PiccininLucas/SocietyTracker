@@ -1,7 +1,8 @@
 import { t as __exportAll } from "./rolldown-runtime_D7D4PA-g.mjs";
 import { O as MissingGetFontFileRequestUrl, S as InvalidImageService, V as RemoteImageNotAllowed, X as AstroError, _ as ImageMissingAlt, c as ExpectedImageOptions, d as FontFamilyNotFound, l as ExpectedNotESMImage, s as ExpectedImage } from "./errors-data_BJ4JQ9fH.mjs";
-import { _ as fetchWithRedirects, c as isRemotePath, g as inferRemoteSize$1, y as isRemoteAllowed } from "./path_s5bQmA_7.mjs";
-import { a as DEFAULT_HASH_PROPS, c as resolveSrc, i as resolveDefaultOutputFormat, n as isLocalService, o as isESMImportedImage, s as isRemoteImage } from "./service_SU8pz4H7.mjs";
+import { i as isRemoteAllowed, n as fetchWithRedirects, t as inferRemoteSize$1 } from "./remoteProbe_pctxpEg4.mjs";
+import { a as DEFAULT_HASH_PROPS, c as resolveSrc, i as resolveDefaultOutputFormat, n as isLocalService, o as isESMImportedImage, s as isRemoteImage } from "./service_DRQvPmU7.mjs";
+import { c as isRemotePath } from "./path_D91BQv73.mjs";
 import { C as createAstro, g as addAttribute, m as maybeRenderHead, t as spreadAttributes, u as renderTemplate, x as unescapeHTML } from "./server_DNJHvdY8.mjs";
 import { t as createComponent } from "./compiler_Cige1B-f.mjs";
 import * as mime from "mrmime";
@@ -80,7 +81,7 @@ var cssFitValues = [
 ];
 async function getConfiguredImageService() {
 	if (!globalThis?.astroAsset?.imageService) {
-		const { default: service } = await import("./sharp_CMfN-Awy.mjs").catch((e) => {
+		const { default: service } = await import("./sharp_nhDJx1xF.mjs").catch((e) => {
 			const error = new AstroError(InvalidImageService);
 			error.cause = e;
 			throw error;

@@ -2,7 +2,7 @@ import { t as __exportAll } from "./rolldown-runtime_D7D4PA-g.mjs";
 import { C as createAstro, g as addAttribute, i as renderComponent, m as maybeRenderHead, u as renderTemplate } from "./server_DNJHvdY8.mjs";
 import { t as createComponent } from "./compiler_Cige1B-f.mjs";
 import { t as SupabaseMatchRepository } from "./SupabaseMatchRepository_BVgvsesk.mjs";
-import { t as $$Layout } from "./Layout_CdFAs0f-.mjs";
+import { t as $$Layout } from "./Layout_BQmvqKSy.mjs";
 //#region src/components/ui/MatchHistoryCard.astro
 createAstro("https://astro.build");
 var $$MatchHistoryCard = createComponent(($$result, $$props, $$slots) => {

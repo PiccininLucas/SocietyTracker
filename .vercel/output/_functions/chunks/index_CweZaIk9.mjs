@@ -3,7 +3,7 @@ import { C as createAstro, g as addAttribute, i as renderComponent, m as maybeRe
 import { t as createComponent } from "./compiler_Cige1B-f.mjs";
 import { t as SupabaseMatchRepository } from "./SupabaseMatchRepository_BVgvsesk.mjs";
 import { t as GetLeaderboardUseCase } from "./GetLeaderboardUseCase_CU9_dacI.mjs";
-import { t as $$Layout } from "./Layout_CdFAs0f-.mjs";
+import { t as $$Layout } from "./Layout_BQmvqKSy.mjs";
 //#region src/components/ui/PodiumCard.astro
 createAstro("https://astro.build");
 var $$PodiumCard = createComponent(($$result, $$props, $$slots) => {

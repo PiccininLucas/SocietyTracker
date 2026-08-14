@@ -20,6 +20,18 @@
 			"dest": "_render"
 		},
 		{
+			"src": "^/api/auth/login/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/auth/logout/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/auth/status/?$",
+			"dest": "_render"
+		},
+		{
 			"src": "^/api/leaderboard/?$",
 			"dest": "_render"
 		},
@@ -49,6 +61,10 @@
 		},
 		{
 			"src": "^/historico/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/login/?$",
 			"dest": "_render"
 		},
 		{
