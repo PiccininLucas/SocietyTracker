@@ -1,17 +1,5 @@
 import { X as AstroError, y as InvalidComponentArgs } from "./errors-data_BJ4JQ9fH.mjs";
-import "./server_BimzntT8.mjs";
-//#region \0rolldown/runtime.js
-var __defProp = Object.defineProperty;
-var __exportAll = (all, no_symbols) => {
-	let target = {};
-	for (var name in all) __defProp(target, name, {
-		get: all[name],
-		enumerable: true
-	});
-	if (!no_symbols) __defProp(target, Symbol.toStringTag, { value: "Module" });
-	return target;
-};
-//#endregion
+import "./server_DNJHvdY8.mjs";
 //#region node_modules/astro/dist/runtime/server/astro-component.js
 function validateArgs(args) {
 	if (args.length !== 3) return false;
@@ -44,4 +32,4 @@ function createComponent(arg1, moduleId, propagation) {
 	else return createComponentWithOptions(arg1);
 }
 //#endregion
-export { __exportAll as n, createComponent as t };
+export { createComponent as t };

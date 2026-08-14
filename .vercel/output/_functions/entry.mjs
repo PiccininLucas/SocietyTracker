@@ -1,6 +1,6 @@
 import { B as PrerenderDynamicEndpointPathCollide, D as MiddlewareNotAResponse, E as MiddlewareNoDataOrNextCalled, G as StaticClientAddressNotAvailable, H as ReservedSlotName, I as NoMatchingStaticPathFound, R as PageNumberParamNotFound, T as LocalsReassigned, U as ResponseSentError, W as RewriteWithBodyUsed, X as AstroError, Y as i18nNoLocaleFoundInPath, a as ClientAddressNotAvailable, b as InvalidGetStaticPathsEntry, g as GetStaticPathsRequired, h as GetStaticPathsInvalidRouteParam, i as CacheNotEnabled, m as GetStaticPathsExpectedParams, n as ActionsReturnedInvalidDataError, p as ForbiddenRewrite, r as AstroResponseHeadersReassigned, t as ActionNotFoundError, w as LocalsNotAnObject, x as InvalidGetStaticPathsReturn, z as PrerenderClientAddressNotAvailable } from "./chunks/errors-data_BJ4JQ9fH.mjs";
 import { a as fileExtension, b as matchPattern, d as removeLeadingForwardSlash, h as trimSlashes, i as collapseDuplicateTrailingSlashes, l as joinPaths, m as slash, n as collapseDuplicateLeadingSlashes, o as hasFileExtension, p as removeTrailingForwardSlash, r as collapseDuplicateSlashes, s as isInternalPath, t as appendForwardSlash, u as prependForwardSlash } from "./chunks/path_s5bQmA_7.mjs";
-import { A as appSymbol, C as isRoute404, D as DEFAULT_404_COMPONENT, E as ASTRO_GENERATOR, F as responseSentSymbol$1, M as fetchStateSymbol, N as originPathnameSymbol, O as REDIRECT_STATUS_CODES, P as pipelineSymbol, T as ASTRO_ERROR_HEADER, _ as normalizeCspResourceEntry, a as chunkToString, c as isRenderTemplateResult, d as decryptString, f as generateCspDigest, g as isRenderInstruction, i as renderComponent, j as clientAddressSymbol, k as REROUTABLE_STATUS_CODES, l as renderTemplate, n as renderPage, o as createSlotValueFromString, r as renderJSX, s as renderSlotToString, u as decodeKey, v as pushDirective, w as isRoute500, x as renderEndpoint, y as isAstroComponentFactory } from "./chunks/server_BimzntT8.mjs";
+import { A as REROUTABLE_STATUS_CODES, D as ASTRO_GENERATOR, E as ASTRO_ERROR_HEADER, F as pipelineSymbol, I as responseSentSymbol$1, M as clientAddressSymbol, N as fetchStateSymbol, O as DEFAULT_404_COMPONENT, P as originPathnameSymbol, S as renderEndpoint, T as isRoute500, _ as isRenderInstruction, a as chunkToString, b as isAstroComponentFactory, c as renderSlotToString, d as decodeKey, f as decryptString, i as renderComponent, j as appSymbol, k as REDIRECT_STATUS_CODES, l as isRenderTemplateResult, n as renderPage, o as createSlotValueFromString, p as generateCspDigest, r as renderJSX, u as renderTemplate, v as normalizeCspResourceEntry, w as isRoute404, y as pushDirective } from "./chunks/server_DNJHvdY8.mjs";
 import nodePath from "node:path";
 import "@vercel/routing-utils";
 import colors from "piccolore";
@@ -21,7 +21,7 @@ var ASTRO_LOCALS_HEADER = "x-astro-locals";
 var ASTRO_MIDDLEWARE_SECRET_HEADER = "x-astro-middleware-secret";
 //#endregion
 //#region \0virtual:astro-vercel:config
-var middlewareSecret = "4f97bd58-176a-42a9-a78c-b70a7610f080";
+var middlewareSecret = "1c309642-8f50-4314-a6a9-1d81a7f6db72";
 //#endregion
 //#region node_modules/astro/dist/actions/consts.js
 var ACTION_QUERY_PARAMS = {
@@ -137,8 +137,8 @@ function deserializeActionResult(res) {
 			"DEV": false,
 			"MODE": "production",
 			"PROD": true,
-			"PUBLIC_SUPABASE_ANON_KEY": "your-anon-key-here",
-			"PUBLIC_SUPABASE_URL": "https://your-project.supabase.co",
+			"PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByZmhtY3JoY3lla2VnZWVmcWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTE4MjIsImV4cCI6MjEwMjI4NzgyMn0.mu7IvBoEVaRJ08dnEkrgvOAx12up_pib6nF6UBwCEHw",
+			"PUBLIC_SUPABASE_URL": "https://prfhmcrhcyekegeefqcq.supabase.co/rest/v1/",
 			"SITE": void 0,
 			"SSR": true
 		}, { OS: "Windows_NT" })?.PROD) return {
@@ -353,8 +353,8 @@ function serializeActionResult(res) {
 			"DEV": false,
 			"MODE": "production",
 			"PROD": true,
-			"PUBLIC_SUPABASE_ANON_KEY": "your-anon-key-here",
-			"PUBLIC_SUPABASE_URL": "https://your-project.supabase.co",
+			"PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByZmhtY3JoY3lla2VnZWVmcWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTE4MjIsImV4cCI6MjEwMjI4NzgyMn0.mu7IvBoEVaRJ08dnEkrgvOAx12up_pib6nF6UBwCEHw",
+			"PUBLIC_SUPABASE_URL": "https://prfhmcrhcyekegeefqcq.supabase.co/rest/v1/",
 			"SITE": void 0,
 			"SSR": true
 		}, { OS: "Windows_NT" })?.DEV) actionResultErrorStack.set(res.error.stack);
@@ -5029,6 +5029,336 @@ var renderers = [Object.assign({
 		"scripts": [],
 		"styles": [],
 		"routeData": {
+			"route": "/api/leaderboard",
+			"isIndex": true,
+			"type": "endpoint",
+			"pattern": "^\\/api\\/leaderboard\\/?$",
+			"segments": [[{
+				"content": "api",
+				"dynamic": false,
+				"spread": false
+			}], [{
+				"content": "leaderboard",
+				"dynamic": false,
+				"spread": false
+			}]],
+			"params": [],
+			"component": "src/pages/api/leaderboard/index.ts",
+			"pathname": "/api/leaderboard",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/api/matches/start",
+			"isIndex": false,
+			"type": "endpoint",
+			"pattern": "^\\/api\\/matches\\/start\\/?$",
+			"segments": [
+				[{
+					"content": "api",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "matches",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "start",
+					"dynamic": false,
+					"spread": false
+				}]
+			],
+			"params": [],
+			"component": "src/pages/api/matches/start.ts",
+			"pathname": "/api/matches/start",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/api/matches/[id]/finish",
+			"isIndex": false,
+			"type": "endpoint",
+			"pattern": "^\\/api\\/matches\\/([^/]+?)\\/finish\\/?$",
+			"segments": [
+				[{
+					"content": "api",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "matches",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "id",
+					"dynamic": true,
+					"spread": false
+				}],
+				[{
+					"content": "finish",
+					"dynamic": false,
+					"spread": false
+				}]
+			],
+			"params": ["id"],
+			"component": "src/pages/api/matches/[id]/finish.ts",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/api/matches/[id]/goals",
+			"isIndex": false,
+			"type": "endpoint",
+			"pattern": "^\\/api\\/matches\\/([^/]+?)\\/goals\\/?$",
+			"segments": [
+				[{
+					"content": "api",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "matches",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "id",
+					"dynamic": true,
+					"spread": false
+				}],
+				[{
+					"content": "goals",
+					"dynamic": false,
+					"spread": false
+				}]
+			],
+			"params": ["id"],
+			"component": "src/pages/api/matches/[id]/goals.ts",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/api/players",
+			"isIndex": true,
+			"type": "endpoint",
+			"pattern": "^\\/api\\/players\\/?$",
+			"segments": [[{
+				"content": "api",
+				"dynamic": false,
+				"spread": false
+			}], [{
+				"content": "players",
+				"dynamic": false,
+				"spread": false
+			}]],
+			"params": [],
+			"component": "src/pages/api/players/index.ts",
+			"pathname": "/api/players",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/api/sessions/[id]/transfer",
+			"isIndex": false,
+			"type": "endpoint",
+			"pattern": "^\\/api\\/sessions\\/([^/]+?)\\/transfer\\/?$",
+			"segments": [
+				[{
+					"content": "api",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "sessions",
+					"dynamic": false,
+					"spread": false
+				}],
+				[{
+					"content": "id",
+					"dynamic": true,
+					"spread": false
+				}],
+				[{
+					"content": "transfer",
+					"dynamic": false,
+					"spread": false
+				}]
+			],
+			"params": ["id"],
+			"component": "src/pages/api/sessions/[id]/transfer.ts",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/api/sessions",
+			"isIndex": true,
+			"type": "endpoint",
+			"pattern": "^\\/api\\/sessions\\/?$",
+			"segments": [[{
+				"content": "api",
+				"dynamic": false,
+				"spread": false
+			}], [{
+				"content": "sessions",
+				"dynamic": false,
+				"spread": false
+			}]],
+			"params": [],
+			"component": "src/pages/api/sessions/index.ts",
+			"pathname": "/api/sessions",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/historico",
+			"isIndex": false,
+			"type": "page",
+			"pattern": "^\\/historico\\/?$",
+			"segments": [[{
+				"content": "historico",
+				"dynamic": false,
+				"spread": false
+			}]],
+			"params": [],
+			"component": "src/pages/historico.astro",
+			"pathname": "/historico",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/rodada/mesario",
+			"isIndex": false,
+			"type": "page",
+			"pattern": "^\\/rodada\\/mesario\\/?$",
+			"segments": [[{
+				"content": "rodada",
+				"dynamic": false,
+				"spread": false
+			}], [{
+				"content": "mesario",
+				"dynamic": false,
+				"spread": false
+			}]],
+			"params": [],
+			"component": "src/pages/rodada/mesario.astro",
+			"pathname": "/rodada/mesario",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
+			"route": "/rodada/nova",
+			"isIndex": false,
+			"type": "page",
+			"pattern": "^\\/rodada\\/nova\\/?$",
+			"segments": [[{
+				"content": "rodada",
+				"dynamic": false,
+				"spread": false
+			}], [{
+				"content": "nova",
+				"dynamic": false,
+				"spread": false
+			}]],
+			"params": [],
+			"component": "src/pages/rodada/nova.astro",
+			"pathname": "/rodada/nova",
+			"prerender": false,
+			"fallbackRoutes": [],
+			"distURL": [],
+			"origin": "project",
+			"_meta": { "trailingSlash": "ignore" }
+		}
+	},
+	{
+		"file": "",
+		"links": [],
+		"scripts": [],
+		"styles": [],
+		"routeData": {
 			"route": "/",
 			"isIndex": true,
 			"type": "page",
@@ -5047,12 +5377,35 @@ var renderers = [Object.assign({
 ].map(deserializeRouteInfo);
 //#endregion
 //#region \0virtual:astro:pages
-var _page0 = () => import("./chunks/generic_Bh-k8NNN.mjs");
-var _page1 = () => import("./chunks/index_B-nxyFou.mjs");
-var pageMap = /* @__PURE__ */ new Map([["node_modules/astro/dist/assets/endpoint/generic.js", _page0], ["src/pages/index.astro", _page1]]);
+var _page0 = () => import("./chunks/generic_CunJAX0c.mjs");
+var _page1 = () => import("./chunks/index_Clg5mdbh.mjs");
+var _page2 = () => import("./chunks/start_Ss5G4p61.mjs");
+var _page3 = () => import("./chunks/finish_D06-05hF.mjs");
+var _page4 = () => import("./chunks/goals_Bed5zWQf.mjs");
+var _page5 = () => import("./chunks/index_DQ59msVy.mjs");
+var _page6 = () => import("./chunks/transfer_B4ZqyG0W.mjs");
+var _page7 = () => import("./chunks/index_ADHcbE_t.mjs");
+var _page8 = () => import("./chunks/historico_DTWJZLvj.mjs");
+var _page9 = () => import("./chunks/mesario_afsMnQTW.mjs");
+var _page10 = () => import("./chunks/nova_DpcqQwiq.mjs");
+var _page11 = () => import("./chunks/index_Dtganxl0.mjs");
+var pageMap = /* @__PURE__ */ new Map([
+	["node_modules/astro/dist/assets/endpoint/generic.js", _page0],
+	["src/pages/api/leaderboard/index.ts", _page1],
+	["src/pages/api/matches/start.ts", _page2],
+	["src/pages/api/matches/[id]/finish.ts", _page3],
+	["src/pages/api/matches/[id]/goals.ts", _page4],
+	["src/pages/api/players/index.ts", _page5],
+	["src/pages/api/sessions/[id]/transfer.ts", _page6],
+	["src/pages/api/sessions/index.ts", _page7],
+	["src/pages/historico.astro", _page8],
+	["src/pages/rodada/mesario.astro", _page9],
+	["src/pages/rodada/nova.astro", _page10],
+	["src/pages/index.astro", _page11]
+]);
 //#endregion
 //#region \0virtual:astro:manifest
-var _manifest = deserializeManifest({"rootDir":"file:///C:/Projetos/SocietyTracker/","cacheDir":"file:///C:/Projetos/SocietyTracker/node_modules/.astro/","outDir":"file:///C:/Projetos/SocietyTracker/dist/","srcDir":"file:///C:/Projetos/SocietyTracker/src/","publicDir":"file:///C:/Projetos/SocietyTracker/public/","buildClientDir":"file:///C:/Projetos/SocietyTracker/dist/client/","buildServerDir":"file:///C:/Projetos/SocietyTracker/dist/server/","adapterName":"@astrojs/vercel","assetsDir":"_astro","routes":[{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"type":"page","component":"_server-islands.astro","params":["name"],"segments":[[{"content":"_server-islands","dynamic":false,"spread":false}],[{"content":"name","dynamic":true,"spread":false}]],"pattern":"^\\/_server-islands\\/([^/]+?)\\/?$","prerender":false,"isIndex":false,"fallbackRoutes":[],"route":"/_server-islands/[name]","origin":"internal","distURL":[],"_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/_image","component":"node_modules/astro/dist/assets/endpoint/generic.js","params":[],"pathname":"/_image","pattern":"^\\/_image\\/?$","segments":[[{"content":"_image","dynamic":false,"spread":false}]],"type":"endpoint","prerender":false,"fallbackRoutes":[],"distURL":[],"isIndex":false,"origin":"internal","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[{"type":"inline","content":"*,:before,:after,::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:#3b82f680;--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }*,:before,:after{box-sizing:border-box;border:0 solid #e5e7eb}:before,:after{--tw-content:\"\"}html,:host{-webkit-text-size-adjust:100%;tab-size:4;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent;font-family:ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji;line-height:1.5}body{line-height:inherit;margin:0}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,samp,pre{font-feature-settings:normal;font-variation-settings:normal;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:1em}small{font-size:80%}sub,sup{vertical-align:baseline;font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-feature-settings:inherit;font-variation-settings:inherit;font-family:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:#0000;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button{height:auto}::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dl,dd,h1,h2,h3,h4,h5,h6,hr,figure,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}ol,ul,menu{margin:0;padding:0;list-style:none}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder{opacity:1;color:#9ca3af}textarea::-moz-placeholder{opacity:1;color:#9ca3af}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}button,[role=button]{cursor:pointer}:disabled{cursor:default}img,svg,video,canvas,audio,iframe,embed,object{vertical-align:middle;display:block}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}\n"}],"routeData":{"route":"/","isIndex":true,"type":"page","pattern":"^\\/$","segments":[],"params":[],"component":"src/pages/index.astro","pathname":"/","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}}],"serverLike":true,"middlewareMode":"classic","base":"/","trailingSlash":"ignore","compressHTML":"jsx","componentMetadata":[["C:/Projetos/SocietyTracker/src/pages/index.astro",{"propagation":"none","containsHead":true}]],"renderers":[],"clientDirectives":[["idle","(()=>{var l=(n,t)=>{let i=async()=>{await(await n())()},e=typeof t.value==\"object\"?t.value:void 0,s={timeout:e==null?void 0:e.timeout};\"requestIdleCallback\"in window?window.requestIdleCallback(i,s):setTimeout(i,s.timeout||200)};(self.Astro||(self.Astro={})).idle=l;window.dispatchEvent(new Event(\"astro:idle\"));})();"],["load","(()=>{var e=async t=>{await(await t())()};(self.Astro||(self.Astro={})).load=e;window.dispatchEvent(new Event(\"astro:load\"));})();"],["media","(()=>{var n=(a,t)=>{let i=async()=>{await(await a())()};if(t.value){let e=matchMedia(t.value);e.matches?i():e.addEventListener(\"change\",i,{once:!0})}};(self.Astro||(self.Astro={})).media=n;window.dispatchEvent(new Event(\"astro:media\"));})();"],["only","(()=>{var e=async t=>{await(await t())()};(self.Astro||(self.Astro={})).only=e;window.dispatchEvent(new Event(\"astro:only\"));})();"],["visible","(()=>{var a=(s,i,o)=>{let r=async()=>{await(await s())()},t=typeof i.value==\"object\"?i.value:void 0,c={rootMargin:t==null?void 0:t.rootMargin},n=new IntersectionObserver(e=>{for(let l of e)if(l.isIntersecting){n.disconnect(),r();break}},c);for(let e of o.children)n.observe(e)};(self.Astro||(self.Astro={})).visible=a;window.dispatchEvent(new Event(\"astro:visible\"));})();"]],"entryModules":{"astro/entrypoints/prerender":"prerender-entry.Dp-3Kuh9.mjs","\u0000noop-middleware":"virtual_astro_middleware.mjs","\u0000virtual:astro:server-island-manifest":"chunks/_virtual_astro_server-island-manifest_C1Q2srgE.mjs","\u0000virtual:astro:session-driver":"chunks/_virtual_astro_session-driver_C-PI1Pas.mjs","\u0000virtual:astro:actions/noop-entrypoint":"chunks/noop-entrypoint_Z3zFhrGC.mjs","C:/Projetos/SocietyTracker/node_modules/@astrojs/react/dist/vnode-children.js":"chunks/vnode-children_B6vVcKTz.mjs","@astrojs/vercel/entrypoint":"entry.mjs","\u0000virtual:astro:page:node_modules/astro/dist/assets/endpoint/generic@_@js":"chunks/generic_Bh-k8NNN.mjs","\u0000virtual:astro:page:src/pages/index@_@astro":"chunks/index_B-nxyFou.mjs","C:/Projetos/SocietyTracker/node_modules/astro/dist/assets/services/sharp.js":"chunks/sharp_CMfN-Awy.mjs","@astrojs/react/client.js":"_astro/client.ChYG-O0T.js","astro:scripts/before-hydration.js":""},"inlinedScripts":[],"assets":["/favicon.ico","/favicon.svg","/_astro/client.ChYG-O0T.js"],"buildFormat":"directory","checkOrigin":true,"actionBodySizeLimit":1048576,"serverIslandBodySizeLimit":1048576,"allowedDomains":[],"key":"J0TIIRHwVmlhHYhfeCfQGIjjikoy0IYpYnXTXK1zBpo=","image":{},"devToolbar":{"enabled":false,"debugInfoOutput":""},"logLevel":"info","shouldInjectCspMetaTags":false});
+var _manifest = deserializeManifest({"rootDir":"file:///C:/Projetos/SocietyTracker/","cacheDir":"file:///C:/Projetos/SocietyTracker/node_modules/.astro/","outDir":"file:///C:/Projetos/SocietyTracker/dist/","srcDir":"file:///C:/Projetos/SocietyTracker/src/","publicDir":"file:///C:/Projetos/SocietyTracker/public/","buildClientDir":"file:///C:/Projetos/SocietyTracker/dist/client/","buildServerDir":"file:///C:/Projetos/SocietyTracker/dist/server/","adapterName":"@astrojs/vercel","assetsDir":"_astro","routes":[{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"type":"page","component":"_server-islands.astro","params":["name"],"segments":[[{"content":"_server-islands","dynamic":false,"spread":false}],[{"content":"name","dynamic":true,"spread":false}]],"pattern":"^\\/_server-islands\\/([^/]+?)\\/?$","prerender":false,"isIndex":false,"fallbackRoutes":[],"route":"/_server-islands/[name]","origin":"internal","distURL":[],"_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/_image","component":"node_modules/astro/dist/assets/endpoint/generic.js","params":[],"pathname":"/_image","pattern":"^\\/_image\\/?$","segments":[[{"content":"_image","dynamic":false,"spread":false}]],"type":"endpoint","prerender":false,"fallbackRoutes":[],"distURL":[],"isIndex":false,"origin":"internal","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/api/leaderboard","isIndex":true,"type":"endpoint","pattern":"^\\/api\\/leaderboard\\/?$","segments":[[{"content":"api","dynamic":false,"spread":false}],[{"content":"leaderboard","dynamic":false,"spread":false}]],"params":[],"component":"src/pages/api/leaderboard/index.ts","pathname":"/api/leaderboard","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/api/matches/start","isIndex":false,"type":"endpoint","pattern":"^\\/api\\/matches\\/start\\/?$","segments":[[{"content":"api","dynamic":false,"spread":false}],[{"content":"matches","dynamic":false,"spread":false}],[{"content":"start","dynamic":false,"spread":false}]],"params":[],"component":"src/pages/api/matches/start.ts","pathname":"/api/matches/start","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/api/matches/[id]/finish","isIndex":false,"type":"endpoint","pattern":"^\\/api\\/matches\\/([^/]+?)\\/finish\\/?$","segments":[[{"content":"api","dynamic":false,"spread":false}],[{"content":"matches","dynamic":false,"spread":false}],[{"content":"id","dynamic":true,"spread":false}],[{"content":"finish","dynamic":false,"spread":false}]],"params":["id"],"component":"src/pages/api/matches/[id]/finish.ts","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/api/matches/[id]/goals","isIndex":false,"type":"endpoint","pattern":"^\\/api\\/matches\\/([^/]+?)\\/goals\\/?$","segments":[[{"content":"api","dynamic":false,"spread":false}],[{"content":"matches","dynamic":false,"spread":false}],[{"content":"id","dynamic":true,"spread":false}],[{"content":"goals","dynamic":false,"spread":false}]],"params":["id"],"component":"src/pages/api/matches/[id]/goals.ts","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/api/players","isIndex":true,"type":"endpoint","pattern":"^\\/api\\/players\\/?$","segments":[[{"content":"api","dynamic":false,"spread":false}],[{"content":"players","dynamic":false,"spread":false}]],"params":[],"component":"src/pages/api/players/index.ts","pathname":"/api/players","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/api/sessions/[id]/transfer","isIndex":false,"type":"endpoint","pattern":"^\\/api\\/sessions\\/([^/]+?)\\/transfer\\/?$","segments":[[{"content":"api","dynamic":false,"spread":false}],[{"content":"sessions","dynamic":false,"spread":false}],[{"content":"id","dynamic":true,"spread":false}],[{"content":"transfer","dynamic":false,"spread":false}]],"params":["id"],"component":"src/pages/api/sessions/[id]/transfer.ts","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[],"routeData":{"route":"/api/sessions","isIndex":true,"type":"endpoint","pattern":"^\\/api\\/sessions\\/?$","segments":[[{"content":"api","dynamic":false,"spread":false}],[{"content":"sessions","dynamic":false,"spread":false}]],"params":[],"component":"src/pages/api/sessions/index.ts","pathname":"/api/sessions","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[{"type":"external","src":"_astro/Layout.D-oNqs1t.css"}],"routeData":{"route":"/historico","isIndex":false,"type":"page","pattern":"^\\/historico\\/?$","segments":[[{"content":"historico","dynamic":false,"spread":false}]],"params":[],"component":"src/pages/historico.astro","pathname":"/historico","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[{"type":"external","src":"_astro/Layout.D-oNqs1t.css"}],"routeData":{"route":"/rodada/mesario","isIndex":false,"type":"page","pattern":"^\\/rodada\\/mesario\\/?$","segments":[[{"content":"rodada","dynamic":false,"spread":false}],[{"content":"mesario","dynamic":false,"spread":false}]],"params":[],"component":"src/pages/rodada/mesario.astro","pathname":"/rodada/mesario","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[{"type":"external","src":"_astro/Layout.D-oNqs1t.css"}],"routeData":{"route":"/rodada/nova","isIndex":false,"type":"page","pattern":"^\\/rodada\\/nova\\/?$","segments":[[{"content":"rodada","dynamic":false,"spread":false}],[{"content":"nova","dynamic":false,"spread":false}]],"params":[],"component":"src/pages/rodada/nova.astro","pathname":"/rodada/nova","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}},{"file":"","links":[],"scripts":[],"styles":[{"type":"external","src":"_astro/Layout.D-oNqs1t.css"}],"routeData":{"route":"/","isIndex":true,"type":"page","pattern":"^\\/$","segments":[],"params":[],"component":"src/pages/index.astro","pathname":"/","prerender":false,"fallbackRoutes":[],"distURL":[],"origin":"project","_meta":{"trailingSlash":"ignore"}}}],"serverLike":true,"middlewareMode":"classic","base":"/","trailingSlash":"ignore","compressHTML":"jsx","componentMetadata":[["C:/Projetos/SocietyTracker/src/pages/historico.astro",{"propagation":"none","containsHead":true}],["C:/Projetos/SocietyTracker/src/pages/index.astro",{"propagation":"none","containsHead":true}],["C:/Projetos/SocietyTracker/src/pages/rodada/mesario.astro",{"propagation":"none","containsHead":true}],["C:/Projetos/SocietyTracker/src/pages/rodada/nova.astro",{"propagation":"none","containsHead":true}]],"renderers":[],"clientDirectives":[["idle","(()=>{var l=(n,t)=>{let i=async()=>{await(await n())()},e=typeof t.value==\"object\"?t.value:void 0,s={timeout:e==null?void 0:e.timeout};\"requestIdleCallback\"in window?window.requestIdleCallback(i,s):setTimeout(i,s.timeout||200)};(self.Astro||(self.Astro={})).idle=l;window.dispatchEvent(new Event(\"astro:idle\"));})();"],["load","(()=>{var e=async t=>{await(await t())()};(self.Astro||(self.Astro={})).load=e;window.dispatchEvent(new Event(\"astro:load\"));})();"],["media","(()=>{var n=(a,t)=>{let i=async()=>{await(await a())()};if(t.value){let e=matchMedia(t.value);e.matches?i():e.addEventListener(\"change\",i,{once:!0})}};(self.Astro||(self.Astro={})).media=n;window.dispatchEvent(new Event(\"astro:media\"));})();"],["only","(()=>{var e=async t=>{await(await t())()};(self.Astro||(self.Astro={})).only=e;window.dispatchEvent(new Event(\"astro:only\"));})();"],["visible","(()=>{var a=(s,i,o)=>{let r=async()=>{await(await s())()},t=typeof i.value==\"object\"?i.value:void 0,c={rootMargin:t==null?void 0:t.rootMargin},n=new IntersectionObserver(e=>{for(let l of e)if(l.isIntersecting){n.disconnect(),r();break}},c);for(let e of o.children)n.observe(e)};(self.Astro||(self.Astro={})).visible=a;window.dispatchEvent(new Event(\"astro:visible\"));})();"]],"entryModules":{"astro/entrypoints/prerender":"prerender-entry.quJDPZob.mjs","\u0000noop-middleware":"virtual_astro_middleware.mjs","\u0000virtual:astro:server-island-manifest":"chunks/_virtual_astro_server-island-manifest_C1Q2srgE.mjs","\u0000virtual:astro:session-driver":"chunks/_virtual_astro_session-driver_C-PI1Pas.mjs","\u0000virtual:astro:actions/noop-entrypoint":"chunks/noop-entrypoint_Z3zFhrGC.mjs","C:/Projetos/SocietyTracker/node_modules/@astrojs/react/dist/vnode-children.js":"chunks/vnode-children_B6vVcKTz.mjs","@astrojs/vercel/entrypoint":"entry.mjs","\u0000virtual:astro:page:src/pages/api/matches/[id]/finish@_@ts":"chunks/finish_D06-05hF.mjs","\u0000virtual:astro:page:node_modules/astro/dist/assets/endpoint/generic@_@js":"chunks/generic_CunJAX0c.mjs","\u0000virtual:astro:page:src/pages/api/matches/[id]/goals@_@ts":"chunks/goals_Bed5zWQf.mjs","\u0000virtual:astro:page:src/pages/historico@_@astro":"chunks/historico_DTWJZLvj.mjs","\u0000virtual:astro:page:src/pages/api/sessions/index@_@ts":"chunks/index_ADHcbE_t.mjs","\u0000virtual:astro:page:src/pages/api/leaderboard/index@_@ts":"chunks/index_Clg5mdbh.mjs","\u0000virtual:astro:page:src/pages/api/players/index@_@ts":"chunks/index_DQ59msVy.mjs","\u0000virtual:astro:page:src/pages/index@_@astro":"chunks/index_Dtganxl0.mjs","\u0000virtual:astro:page:src/pages/rodada/mesario@_@astro":"chunks/mesario_afsMnQTW.mjs","\u0000virtual:astro:page:src/pages/rodada/nova@_@astro":"chunks/nova_DpcqQwiq.mjs","C:/Projetos/SocietyTracker/node_modules/astro/dist/assets/services/sharp.js":"chunks/sharp_CMfN-Awy.mjs","\u0000virtual:astro:page:src/pages/api/matches/start@_@ts":"chunks/start_Ss5G4p61.mjs","\u0000virtual:astro:page:src/pages/api/sessions/[id]/transfer@_@ts":"chunks/transfer_B4ZqyG0W.mjs","C:/Projetos/SocietyTracker/src/components/live/MesarioSessionWrapper.tsx":"_astro/MesarioSessionWrapper.CfGG_k8H.js","C:/Projetos/SocietyTracker/src/components/live/TeamBuilderIsland.tsx":"_astro/TeamBuilderIsland.DMzM1V1F.js","@astrojs/react/client.js":"_astro/client.B2QVrJOL.js","astro:scripts/before-hydration.js":""},"inlinedScripts":[],"assets":["/favicon.ico","/favicon.svg","/_astro/client.B2QVrJOL.js","/_astro/jsx-runtime.BBytoy0r.js","/_astro/MesarioSessionWrapper.CfGG_k8H.js","/_astro/react.OrosJ8bI.js","/_astro/TeamBuilderIsland.DMzM1V1F.js","/_astro/Layout.D-oNqs1t.css"],"buildFormat":"directory","checkOrigin":true,"actionBodySizeLimit":1048576,"serverIslandBodySizeLimit":1048576,"allowedDomains":[],"key":"JIwFzNh/d7wP8EpBppgMXACreDTaSVUwR6F0rWSqHq4=","image":{},"devToolbar":{"enabled":false,"debugInfoOutput":""},"logLevel":"info","shouldInjectCspMetaTags":false});
 var manifestRoutes = _manifest.routes;
 var manifest = Object.assign(_manifest, {
 	renderers,
@@ -5095,7 +5448,7 @@ var entrypoint_default = { async fetch(request) {
 	const hasValidMiddlewareSecret = request.headers.get(ASTRO_MIDDLEWARE_SECRET_HEADER) === middlewareSecret;
 	let realPath = void 0;
 	if (hasValidMiddlewareSecret) realPath = request.headers.get(ASTRO_PATH_HEADER);
-	else if (url.searchParams.get("x_astro_path_token") === "4f97bd58-176a-42a9-a78c-b70a7610f080") realPath = url.searchParams.get(ASTRO_PATH_PARAM);
+	else if (url.searchParams.get("x_astro_path_token") === "1c309642-8f50-4314-a6a9-1d81a7f6db72") realPath = url.searchParams.get(ASTRO_PATH_PARAM);
 	if (typeof realPath === "string") {
 		url.pathname = realPath;
 		url.searchParams.delete(ASTRO_PATH_PARAM);
