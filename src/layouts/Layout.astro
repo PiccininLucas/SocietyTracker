@@ -6,7 +6,7 @@ export interface Props {
   title?: string;
   description?: string;
   image?: string;
-  activeNav?: 'leaderboard' | 'historico' | 'nova_rodada' | 'mesario';
+  activeNav?: 'leaderboard' | 'historico' | 'relatorios' | 'nova_rodada' | 'mesario';
   hasLiveMatch?: boolean;
 }
 
@@ -122,6 +122,19 @@ const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
           </a>
 
           <a
+            href="/relatorios"
+            class:list={[
+              'px-3.5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2',
+              activeNav === 'relatorios'
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                : 'text-gray-400 hover:text-white hover:bg-white/5',
+            ]}
+          >
+            <span>📸</span>
+            <span>Relatórios</span>
+          </a>
+
+          <a
             href="/rodada/nova"
             class:list={[
               'px-3.5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2',
@@ -205,6 +218,17 @@ const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
         >
           <span class="text-lg">📜</span>
           <span class="text-[10px] tracking-tight">Jogos</span>
+        </a>
+
+        <a
+          href="/relatorios"
+          class:list={[
+            'flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all',
+            activeNav === 'relatorios' ? 'text-emerald-400 font-bold scale-105' : 'text-gray-400 hover:text-gray-200',
+          ]}
+        >
+          <span class="text-lg">📸</span>
+          <span class="text-[10px] tracking-tight">Relatórios</span>
         </a>
 
         <a

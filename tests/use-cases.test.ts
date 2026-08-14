@@ -4,12 +4,14 @@ import { RegisterGoalUseCase } from '../src/core/application/use-cases/RegisterG
 import { StartMatchUseCase } from '../src/core/application/use-cases/StartMatchUseCase.ts';
 import { FinishMatchUseCase } from '../src/core/application/use-cases/FinishMatchUseCase.ts';
 import { TransferPlayerUseCase } from '../src/core/application/use-cases/TransferPlayerUseCase.ts';
+import { GetRoundHighlightsUseCase } from '../src/core/application/use-cases/GetRoundHighlightsUseCase.ts';
+import { GetPeriodLeaderboardUseCase } from '../src/core/application/use-cases/GetPeriodLeaderboardUseCase.ts';
 import { Match } from '../src/core/domain/entities/Match.ts';
 import { MatchEvent } from '../src/core/domain/entities/MatchEvent.ts';
 import type { IMatchRepository, MatchSummary, LeaderboardItem } from '../src/core/domain/repositories/IMatchRepository.ts';
 import type { ISessionRepository, CreateSessionTeamInput } from '../src/core/domain/repositories/ISessionRepository.ts';
-import type { Session } from '../src/core/domain/entities/Session.ts';
-import type { Team } from '../src/core/domain/entities/Team.ts';
+import { Session } from '../src/core/domain/entities/Session.ts';
+import { Team } from '../src/core/domain/entities/Team.ts';
 
 // In-Memory Mock Repository for Testing
 class MockMatchRepository implements IMatchRepository {
@@ -62,21 +64,64 @@ class MockMatchRepository implements IMatchRepository {
   async getLeaderboard(): Promise<LeaderboardItem[]> {
     return [];
   }
+
+  async getLeaderboardByDateRange(
+    _startDate?: string,
+    _endDate?: string
+  ): Promise<LeaderboardItem[]> {
+    return [
+      {
+        playerId: 'p-1',
+        name: 'Craque Silva',
+        nickname: 'Silva',
+        avatarUrl: null,
+        totalGoals: 5,
+        totalAssists: 3,
+        totalContributions: 8,
+        totalSessionsPlayed: 2,
+      },
+      {
+        playerId: 'p-2',
+        name: 'Goleador Souza',
+        nickname: null,
+        avatarUrl: null,
+        totalGoals: 6,
+        totalAssists: 0,
+        totalContributions: 6,
+        totalSessionsPlayed: 2,
+      },
+      {
+        playerId: 'p-3',
+        name: 'Garcom Santos',
+        nickname: null,
+        avatarUrl: null,
+        totalGoals: 1,
+        totalAssists: 6,
+        totalContributions: 7,
+        totalSessionsPlayed: 2,
+      },
+    ];
+  }
 }
 
 class MockSessionRepository implements ISessionRepository {
+  public sessions: Session[] = [];
   public transferred: any[] = [];
 
-  async findById(_id: string): Promise<Session | null> {
-    return null;
+  async findAll(): Promise<Session[]> {
+    return this.sessions;
+  }
+  async findById(id: string): Promise<Session | null> {
+    return this.sessions.find((s) => s.id === id) || null;
   }
   async findLatest(): Promise<Session | null> {
-    return null;
+    return this.sessions.length > 0 ? this.sessions[this.sessions.length - 1] : null;
   }
-  async findByDate(_date: string): Promise<Session | null> {
-    return null;
+  async findByDate(date: string): Promise<Session | null> {
+    return this.sessions.find((s) => s.sessionDate === date) || null;
   }
   async create(session: Session, _teams?: CreateSessionTeamInput[]): Promise<Session> {
+    this.sessions.push(session);
     return session;
   }
   async updateStatus(_id: string, _status: any): Promise<void> {}
@@ -233,4 +278,137 @@ describe('Use Cases Business Logic', () => {
       assert.equal(sessionRepo.transferred[0].isLoaned, true);
     });
   });
+
+  describe('GetRoundHighlightsUseCase', () => {
+    it('should aggregate round stats, compute highlights and order ranked players', async () => {
+      const matchRepo = new MockMatchRepository();
+      const sessionRepo = new MockSessionRepository();
+
+      const teamPreto = new Team({
+        id: 't-preto',
+        sessionId: 's-1',
+        name: 'Preto',
+        colorHex: '#000000',
+        players: [
+          { playerId: 'p-1', player: { name: 'Artilheiro Silva', nickname: null, avatarUrl: null } },
+          { playerId: 'p-2', player: { name: 'Garcom Santos', nickname: null, avatarUrl: null } },
+        ],
+      });
+
+      const teamBranco = new Team({
+        id: 't-branco',
+        sessionId: 's-1',
+        name: 'Branco',
+        colorHex: '#FFFFFF',
+        players: [
+          { playerId: 'p-3', player: { name: 'Craque Lima', nickname: null, avatarUrl: null } },
+          { playerId: 'p-4', player: { name: 'Bola Murcha Costa', nickname: null, avatarUrl: null } },
+        ],
+      });
+
+      const session = new Session({
+        id: 's-1',
+        sessionDate: '2026-08-13',
+        status: 'finished',
+        teams: [teamPreto, teamBranco],
+      });
+
+      sessionRepo.sessions.push(session);
+
+      const match1 = await matchRepo.create(
+        new Match({
+          id: 'm-1',
+          sessionId: 's-1',
+          homeTeamId: 't-preto',
+          awayTeamId: 't-branco',
+          homeScore: 2,
+          awayScore: 1,
+        })
+      );
+
+      // Event 1: p-1 scores, p-2 assists
+      await matchRepo.addEvent(
+        new MatchEvent({
+          matchId: 'm-1',
+          teamId: 't-preto',
+          scorerId: 'p-1',
+          assistId: 'p-2',
+          eventTimeSeconds: 60,
+        })
+      );
+
+      // Event 2: p-1 scores (no assist)
+      await matchRepo.addEvent(
+        new MatchEvent({
+          matchId: 'm-1',
+          teamId: 't-preto',
+          scorerId: 'p-1',
+          assistId: null,
+          eventTimeSeconds: 120,
+        })
+      );
+
+      // Event 3: p-3 scores (no assist)
+      await matchRepo.addEvent(
+        new MatchEvent({
+          matchId: 'm-1',
+          teamId: 't-branco',
+          scorerId: 'p-3',
+          assistId: null,
+          eventTimeSeconds: 180,
+        })
+      );
+
+      const useCase = new GetRoundHighlightsUseCase(sessionRepo, matchRepo);
+      const result = await useCase.execute({ sessionId: 's-1' });
+
+      assert.ok(result);
+      assert.equal(result.sessionId, 's-1');
+      assert.equal(result.totalGoals, 3);
+      assert.equal(result.totalMatches, 1);
+
+      // Highlights
+      assert.deepEqual(result.highlights.topScorers, ['Artilheiro Silva']); // 2 goals
+      assert.deepEqual(result.highlights.topAssisters, ['Garcom Santos']); // 1 assist
+      assert.deepEqual(result.highlights.mvps, ['Artilheiro Silva']); // 2 G+A
+      assert.deepEqual(result.highlights.bottomPlayers, ['Bola Murcha Costa']); // 0G, 0A
+
+      // Players table ordering
+      assert.equal(result.players.length, 4);
+      assert.equal(result.players[0].name, 'Artilheiro Silva');
+      assert.equal(result.players[0].rank, 1);
+    });
+  });
+
+  describe('GetPeriodLeaderboardUseCase', () => {
+    it('should correctly format and rank 3 tables for monthly period', async () => {
+      const matchRepo = new MockMatchRepository();
+      const useCase = new GetPeriodLeaderboardUseCase(matchRepo);
+
+      const result = await useCase.execute({
+        type: 'month',
+        yearMonth: '2026-08',
+      });
+
+      assert.equal(result.periodType, 'month');
+      assert.equal(result.periodLabel, 'Agosto/2026');
+      assert.equal(result.totalPlayers, 3);
+
+      // Table 1: Craque G+A
+      assert.equal(result.byContributions[0].name, 'Craque Silva');
+      assert.equal(result.byContributions[0].value, 8);
+      assert.equal(result.byContributions[0].rank, 1);
+
+      // Table 2: Artilheiro Gols
+      assert.equal(result.byGoals[0].name, 'Goleador Souza');
+      assert.equal(result.byGoals[0].value, 6);
+      assert.equal(result.byGoals[0].rank, 1);
+
+      // Table 3: Garçom Assists
+      assert.equal(result.byAssists[0].name, 'Garcom Santos');
+      assert.equal(result.byAssists[0].value, 6);
+      assert.equal(result.byAssists[0].rank, 1);
+    });
+  });
 });
+

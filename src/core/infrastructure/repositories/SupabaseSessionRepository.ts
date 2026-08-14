@@ -80,6 +80,19 @@ export class SupabaseSessionRepository implements ISessionRepository {
     });
   }
 
+  public async findAll(): Promise<Session[]> {
+    const { data, error } = await this.client
+      .from('sessions')
+      .select('*, session_teams(*, session_team_players(*, players(name, nickname, avatar_url)))')
+      .order('session_date', { ascending: false });
+
+    if (error) {
+      throw new Error(`Erro ao listar sessões: ${error.message}`);
+    }
+
+    return (data as SessionRow[] || []).map((row) => this.mapSessionToDomain(row));
+  }
+
   public async findLatest(): Promise<Session | null> {
     const { data, error } = await this.client
       .from('sessions')

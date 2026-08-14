@@ -8,6 +8,7 @@ export interface CreateSessionTeamInput {
 }
 
 export interface ISessionRepository {
+  findAll(): Promise<Session[]>;
   findLatest(): Promise<Session | null>;
   findById(id: string): Promise<Session | null>;
   findByDate(date: string): Promise<Session | null>;

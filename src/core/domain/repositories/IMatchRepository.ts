@@ -38,5 +38,6 @@ export interface IMatchRepository {
   addEvent(event: MatchEvent): Promise<MatchEvent>;
   getEventsByMatchId(matchId: string): Promise<MatchEvent[]>;
   getLeaderboard(): Promise<LeaderboardItem[]>;
+  getLeaderboardByDateRange(startDate?: string, endDate?: string): Promise<LeaderboardItem[]>;
   getMatchesSummary(sessionId?: string): Promise<MatchSummary[]>;
 }

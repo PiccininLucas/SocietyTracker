@@ -1,0 +1,131 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { SupabaseSessionRepository } from '../core/infrastructure/repositories/SupabaseSessionRepository';
+import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
+import { GetRoundHighlightsUseCase } from '../core/application/use-cases/GetRoundHighlightsUseCase';
+import { GetPeriodLeaderboardUseCase } from '../core/application/use-cases/GetPeriodLeaderboardUseCase';
+import { ReportsIsland, type SessionOption, type MonthOption } from '../components/export/ReportsIsland';
+import type { RoundHighlightsOutputDTO } from '../core/application/dtos/RoundHighlightsDTO';
+import type { PeriodLeaderboardOutputDTO } from '../core/application/dtos/PeriodLeaderboardDTO';
+
+export const prerender = false;
+
+let sessionOptions: SessionOption[] = [];
+let monthOptions: MonthOption[] = [];
+let initialRoundData: RoundHighlightsOutputDTO | null = null;
+let initialMonthData: PeriodLeaderboardOutputDTO | null = null;
+let initialAllTimeData: PeriodLeaderboardOutputDTO = {
+  periodType: 'all',
+  periodLabel: 'Temporada Completa',
+  totalPlayers: 0,
+  byContributions: [],
+  byGoals: [],
+  byAssists: [],
+};
+
+try {
+  const sessionRepo = new SupabaseSessionRepository();
+  const matchRepo = new SupabaseMatchRepository();
+
+  const roundUseCase = new GetRoundHighlightsUseCase(sessionRepo, matchRepo);
+  const periodUseCase = new GetPeriodLeaderboardUseCase(matchRepo);
+
+  // 1. Buscar todas as sessões registradas
+  const allSessions = await sessionRepo.findAll();
+  sessionOptions = allSessions.map((s) => ({
+    id: s.id || '',
+    sessionDate: s.sessionDate,
+    status: s.status,
+  }));
+
+  // 2. Extrair meses disponíveis a partir das sessões
+  const monthSet = new Set<string>();
+  for (const s of allSessions) {
+    if (s.sessionDate && s.sessionDate.length >= 7) {
+      monthSet.add(s.sessionDate.substring(0, 7));
+    }
+  }
+
+  // Se não houver sessões, adiciona o mês corrente
+  if (monthSet.size === 0) {
+    const now = new Date();
+    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    monthSet.add(currentYM);
+  }
+
+  const sortedMonths = Array.from(monthSet).sort().reverse();
+  monthOptions = sortedMonths.map((ym) => {
+    const [y, m] = ym.split('-');
+    const date = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+    const monthName = date.toLocaleDateString('pt-BR', { month: 'long' });
+    return {
+      yearMonth: ym,
+      label: `${monthName.charAt(0).toUpperCase() + monthName.slice(1)}/${y}`,
+    };
+  });
+
+  // 3. Carregar dados iniciais da rodada mais recente
+  initialRoundData = await roundUseCase.execute();
+
+  // 4. Carregar dados iniciais do mês mais recente
+  const currentMonth = sortedMonths[0];
+  if (currentMonth) {
+    initialMonthData = await periodUseCase.execute({
+      type: 'month',
+      yearMonth: currentMonth,
+    });
+  }
+
+  // 5. Carregar dados gerais da temporada
+  initialAllTimeData = await periodUseCase.execute({
+    type: 'all',
+  });
+} catch (error) {
+  console.error('Erro ao carregar dados de relatórios no SSR:', error);
+}
+---
+
+<Layout
+  title="SocietyTracker • Cards & Destaques para WhatsApp"
+  description="Gere e exporte cards visuais em alta resolução dos destaques da rodada e classificação da Pelada das Quintas!"
+  activeNav="relatorios"
+>
+  <div class="space-y-8">
+    <!-- Hero Header -->
+    <div class="p-6 sm:p-8 rounded-3xl glass-card bg-gradient-to-r from-emerald-950/40 via-surface-100 to-surface-200 border border-white/10 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-wider mb-2">
+          <span>📸</span>
+          <span>Central de Exportação V2</span>
+        </div>
+        <h1 class="font-display font-black text-2xl sm:text-3xl lg:text-4xl text-white">
+          Cards & Destaques da Rodada
+        </h1>
+        <p class="text-xs sm:text-sm text-gray-400 mt-1 max-w-xl">
+          Exporte imagens PNG de alta resolução com destaques, artilharia, garçons e a famosa lista do <strong class="text-rose-400">Bola Murcha</strong> para compartilhar no WhatsApp da pelada.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3 shrink-0 text-xs font-bold text-gray-300">
+        <div class="px-4 py-2.5 rounded-2xl bg-surface-50 border border-white/10 flex items-center gap-2 shadow">
+          <span class="text-emerald-400 text-base">⚡</span>
+          <span>100% Client-Side</span>
+        </div>
+        <div class="px-4 py-2.5 rounded-2xl bg-surface-50 border border-white/10 flex items-center gap-2 shadow">
+          <span class="text-emerald-400 text-base">📱</span>
+          <span>WhatsApp Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Island Interativo com Abas de Exportação -->
+    <ReportsIsland
+      client:load
+      sessions={sessionOptions}
+      months={monthOptions}
+      initialRoundData={initialRoundData}
+      initialMonthData={initialMonthData}
+      initialAllTimeData={initialAllTimeData}
+    />
+  </div>
+</Layout>

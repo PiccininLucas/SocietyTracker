@@ -253,6 +253,119 @@ export class SupabaseMatchRepository implements IMatchRepository {
     }));
   }
 
+  public async getLeaderboardByDateRange(
+    startDate?: string,
+    endDate?: string
+  ): Promise<LeaderboardItem[]> {
+    if (!startDate && !endDate) {
+      return this.getLeaderboard();
+    }
+
+    let sessionQuery = this.client.from('sessions').select('id, session_date');
+    if (startDate) {
+      sessionQuery = sessionQuery.gte('session_date', startDate);
+    }
+    if (endDate) {
+      sessionQuery = sessionQuery.lte('session_date', endDate);
+    }
+
+    const { data: sessionRows, error: sErr } = await sessionQuery;
+    if (sErr) {
+      throw new Error(`Erro ao buscar sessões do período: ${sErr.message}`);
+    }
+
+    if (!sessionRows || sessionRows.length === 0) {
+      return [];
+    }
+
+    const sessionIds = sessionRows.map((s: any) => s.id);
+
+    const { data: teamRows, error: tErr } = await this.client
+      .from('session_teams')
+      .select('id, session_id, session_team_players(player_id, players(id, name, nickname, avatar_url, is_active))')
+      .in('session_id', sessionIds);
+
+    if (tErr) {
+      throw new Error(`Erro ao buscar escalações do período: ${tErr.message}`);
+    }
+
+    const { data: matchRows, error: mErr } = await this.client
+      .from('matches')
+      .select('id, session_id, match_events(id, scorer_id, assist_id, is_own_goal)')
+      .in('session_id', sessionIds);
+
+    if (mErr) {
+      throw new Error(`Erro ao buscar partidas do período: ${mErr.message}`);
+    }
+
+    const playerMap = new Map<
+      string,
+      {
+        playerId: string;
+        name: string;
+        nickname: string | null;
+        avatarUrl: string | null;
+        totalGoals: number;
+        totalAssists: number;
+        sessionIds: Set<string>;
+      }
+    >();
+
+    for (const team of teamRows || []) {
+      for (const stp of team.session_team_players || []) {
+        const p = (stp as any).players;
+        if (!p) continue;
+        if (!playerMap.has(p.id)) {
+          playerMap.set(p.id, {
+            playerId: p.id,
+            name: p.name,
+            nickname: p.nickname || null,
+            avatarUrl: p.avatar_url || null,
+            totalGoals: 0,
+            totalAssists: 0,
+            sessionIds: new Set<string>(),
+          });
+        }
+        playerMap.get(p.id)!.sessionIds.add(team.session_id);
+      }
+    }
+
+    for (const match of matchRows || []) {
+      for (const ev of (match as any).match_events || []) {
+        if (ev.scorer_id && !ev.is_own_goal && playerMap.has(ev.scorer_id)) {
+          playerMap.get(ev.scorer_id)!.totalGoals += 1;
+        }
+        if (ev.assist_id && playerMap.has(ev.assist_id)) {
+          playerMap.get(ev.assist_id)!.totalAssists += 1;
+        }
+      }
+    }
+
+    const result: LeaderboardItem[] = Array.from(playerMap.values()).map((p) => ({
+      playerId: p.playerId,
+      name: p.name,
+      nickname: p.nickname,
+      avatarUrl: p.avatarUrl,
+      totalGoals: p.totalGoals,
+      totalAssists: p.totalAssists,
+      totalContributions: p.totalGoals + p.totalAssists,
+      totalSessionsPlayed: p.sessionIds.size,
+    }));
+
+    return result.sort((a, b) => {
+      if (b.totalContributions !== a.totalContributions) {
+        return b.totalContributions - a.totalContributions;
+      }
+      if (b.totalGoals !== a.totalGoals) {
+        return b.totalGoals - a.totalGoals;
+      }
+      if (b.totalAssists !== a.totalAssists) {
+        return b.totalAssists - a.totalAssists;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }
+
   public async getMatchesSummary(sessionId?: string): Promise<MatchSummary[]> {
     let query = this.client.from('vw_matches_summary').select('*');
 

@@ -140,3 +140,69 @@ describe('Match Domain Entity Rules', () => {
     );
   });
 });
+
+import {
+  RoundHighlightsService,
+  type PlayerRoundStats,
+} from '../src/core/domain/services/RoundHighlightsService.ts';
+
+describe('RoundHighlightsService Pure Domain Rules', () => {
+  it('should return empty highlights when stats list is empty', () => {
+    const highlights = RoundHighlightsService.calculate([]);
+    assert.deepEqual(highlights.topScorers, []);
+    assert.deepEqual(highlights.topAssisters, []);
+    assert.deepEqual(highlights.mvps, []);
+    assert.deepEqual(highlights.bottomPlayers, []);
+  });
+
+  it('should accurately calculate topScorers, topAssisters, mvps and bottomPlayers', () => {
+    const stats: PlayerRoundStats[] = [
+      { playerId: 'p-1', name: 'Neymar', goals: 3, assists: 1, contributions: 4 },
+      { playerId: 'p-2', name: 'Messi', goals: 2, assists: 3, contributions: 5 },
+      { playerId: 'p-3', name: 'Suarez', goals: 1, assists: 0, contributions: 1 },
+      { playerId: 'p-4', name: 'Casemiro', goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-5', name: 'Alisson', goals: 0, assists: 0, contributions: 0 },
+    ];
+
+    const result = RoundHighlightsService.calculate(stats);
+
+    // MVP: Messi (5 G+A)
+    assert.deepEqual(result.mvps, ['Messi']);
+    // Top Scorer: Neymar (3 goals)
+    assert.deepEqual(result.topScorers, ['Neymar']);
+    // Top Assister: Messi (3 assists)
+    assert.deepEqual(result.topAssisters, ['Messi']);
+    // Bottom Players ("Bola Murcha"): Casemiro e Alisson (0G e 0A)
+    assert.deepEqual(result.bottomPlayers, ['Casemiro', 'Alisson']);
+  });
+
+  it('should handle ties for top scorer, assister, and MVP', () => {
+    const stats: PlayerRoundStats[] = [
+      { playerId: 'p-1', name: 'Jogador A', goals: 2, assists: 1, contributions: 3 },
+      { playerId: 'p-2', name: 'Jogador B', goals: 2, assists: 1, contributions: 3 },
+      { playerId: 'p-3', name: 'Jogador C', goals: 0, assists: 0, contributions: 0 },
+    ];
+
+    const result = RoundHighlightsService.calculate(stats);
+
+    assert.deepEqual(result.topScorers, ['Jogador A', 'Jogador B']);
+    assert.deepEqual(result.topAssisters, ['Jogador A', 'Jogador B']);
+    assert.deepEqual(result.mvps, ['Jogador A', 'Jogador B']);
+    assert.deepEqual(result.bottomPlayers, ['Jogador C']);
+  });
+
+  it('should not award MVP or top scorer if all players scored 0', () => {
+    const stats: PlayerRoundStats[] = [
+      { playerId: 'p-1', name: 'Jogador 1', goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-2', name: 'Jogador 2', goals: 0, assists: 0, contributions: 0 },
+    ];
+
+    const result = RoundHighlightsService.calculate(stats);
+
+    assert.deepEqual(result.topScorers, []);
+    assert.deepEqual(result.topAssisters, []);
+    assert.deepEqual(result.mvps, []);
+    assert.deepEqual(result.bottomPlayers, ['Jogador 1', 'Jogador 2']);
+  });
+});
+
