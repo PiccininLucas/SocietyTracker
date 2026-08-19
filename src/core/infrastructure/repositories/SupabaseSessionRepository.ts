@@ -6,6 +6,7 @@ import type {
 } from '../../domain/repositories/ISessionRepository';
 import { Session, type SessionStatus } from '../../domain/entities/Session';
 import { Team, type TeamPlayer } from '../../domain/entities/Team';
+import { executeWithSchemaFallback } from '../database/schemaResilience';
 
 interface SessionRow {
   id: string;
@@ -26,8 +27,6 @@ interface TeamRow {
 }
 
 interface TeamPlayerRow {
-  id: string;
-  session_team_id: string;
   player_id: string;
   is_loaned: boolean;
   is_goalkeeper?: boolean;
@@ -35,8 +34,7 @@ interface TeamPlayerRow {
     name: string;
     nickname: string | null;
     avatar_url: string | null;
-    is_goalkeeper?: boolean;
-  } | null;
+  };
 }
 
 export class SupabaseSessionRepository implements ISessionRepository {
@@ -46,19 +44,25 @@ export class SupabaseSessionRepository implements ISessionRepository {
     this.client = client || defaultClient;
   }
 
-  private mapTeamToDomain(row: TeamRow): Team {
-    const players: TeamPlayer[] = (row.session_team_players || []).map((tp) => ({
-      playerId: tp.player_id,
-      isLoaned: tp.is_loaned,
-      isGoalkeeper: tp.is_goalkeeper ?? tp.players?.is_goalkeeper ?? false,
-      player: tp.players
+  private mapTeamPlayerToDomain(row: TeamPlayerRow): TeamPlayer {
+    return {
+      playerId: row.player_id,
+      isLoaned: row.is_loaned ?? false,
+      isGoalkeeper: row.is_goalkeeper ?? false,
+      player: row.players
         ? {
-            name: tp.players.name,
-            nickname: tp.players.nickname,
-            avatarUrl: tp.players.avatar_url,
+            name: row.players.name,
+            nickname: row.players.nickname,
+            avatarUrl: row.players.avatar_url,
           }
         : undefined,
-    }));
+    };
+  }
+
+  private mapTeamToDomain(row: TeamRow): Team {
+    const players: TeamPlayer[] = (row.session_team_players || []).map((tp) =>
+      this.mapTeamPlayerToDomain(tp)
+    );
 
     return new Team({
       id: row.id,
@@ -147,18 +151,19 @@ export class SupabaseSessionRepository implements ISessionRepository {
 
   public async create(session: Session, teams?: CreateSessionTeamInput[]): Promise<Session> {
     // 1. Criar sessão
-    const { data: sessionData, error: sessionError } = await this.client
-      .from('sessions')
-      .insert({
+    const { data: sessionData, error: sessionError } = await executeWithSchemaFallback<SessionRow>(
+      'sessions',
+      {
         session_date: session.sessionDate,
         status: session.status,
         notes: session.notes || null,
-      })
-      .select('*')
-      .single();
+      },
+      (cleanPayload) =>
+        this.client.from('sessions').insert(cleanPayload).select('*').single()
+    );
 
-    if (sessionError) {
-      throw new Error(`Erro ao criar sessão: ${sessionError.message}`);
+    if (sessionError || !sessionData) {
+      throw new Error(`Erro ao criar sessão: ${sessionError?.message}`);
     }
 
     const createdSessionId = sessionData.id as string;
@@ -167,18 +172,19 @@ export class SupabaseSessionRepository implements ISessionRepository {
     // 2. Criar os times e vincular jogadores se fornecidos
     if (teams && teams.length > 0) {
       for (const teamInput of teams) {
-        const { data: teamData, error: teamError } = await this.client
-          .from('session_teams')
-          .insert({
+        const { data: teamData, error: teamError } = await executeWithSchemaFallback<TeamRow>(
+          'session_teams',
+          {
             session_id: createdSessionId,
             name: teamInput.name,
             color_hex: teamInput.colorHex || '#333333',
-          })
-          .select('*')
-          .single();
+          },
+          (cleanPayload) =>
+            this.client.from('session_teams').insert(cleanPayload).select('*').single()
+        );
 
-        if (teamError) {
-          throw new Error(`Erro ao criar time '${teamInput.name}': ${teamError.message}`);
+        if (teamError || !teamData) {
+          throw new Error(`Erro ao criar time '${teamInput.name}': ${teamError?.message}`);
         }
 
         const teamPlayers: TeamPlayer[] = [];
@@ -197,9 +203,11 @@ export class SupabaseSessionRepository implements ISessionRepository {
             is_goalkeeper: p.isGoalkeeper,
           }));
 
-          const { error: playersError } = await this.client
-            .from('session_team_players')
-            .insert(playerRows);
+          const { error: playersError } = await executeWithSchemaFallback(
+            'session_team_players',
+            playerRows,
+            (cleanPayload) => this.client.from('session_team_players').insert(cleanPayload)
+          );
 
           if (playersError) {
             throw new Error(`Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`);
@@ -220,9 +228,11 @@ export class SupabaseSessionRepository implements ISessionRepository {
             is_goalkeeper: false,
           }));
 
-          const { error: playersError } = await this.client
-            .from('session_team_players')
-            .insert(playerRows);
+          const { error: playersError } = await executeWithSchemaFallback(
+            'session_team_players',
+            playerRows,
+            (cleanPayload) => this.client.from('session_team_players').insert(cleanPayload)
+          );
 
           if (playersError) {
             throw new Error(`Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`);
@@ -290,14 +300,21 @@ export class SupabaseSessionRepository implements ISessionRepository {
     isLoaned = false,
     isGoalkeeper = false
   ): Promise<void> {
-    const { error } = await this.client
-      .from('session_team_players')
-      .upsert({
-        session_team_id: teamId,
-        player_id: playerId,
-        is_loaned: isLoaned,
-        is_goalkeeper: isGoalkeeper,
-      }, { onConflict: 'session_team_id,player_id' });
+    const payload = {
+      session_team_id: teamId,
+      player_id: playerId,
+      is_loaned: isLoaned,
+      is_goalkeeper: isGoalkeeper,
+    };
+
+    const { error } = await executeWithSchemaFallback(
+      'session_team_players',
+      payload,
+      (cleanPayload) =>
+        this.client
+          .from('session_team_players')
+          .upsert(cleanPayload, { onConflict: 'session_team_id,player_id' })
+    );
 
     if (error) {
       throw new Error(`Erro ao adicionar jogador ao time: ${error.message}`);

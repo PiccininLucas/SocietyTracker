@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase as defaultClient } from '../database/supabaseClient';
 import type { IPlayerRepository } from '../../domain/repositories/IPlayerRepository';
 import { Player } from '../../domain/entities/Player';
+import { executeWithSchemaFallback } from '../database/schemaResilience';
 
 interface PlayerRow {
   id: string;
@@ -65,17 +66,20 @@ export class SupabasePlayerRepository implements IPlayerRepository {
   }
 
   public async create(player: Player): Promise<Player> {
-    const { data, error } = await this.client
-      .from('players')
-      .insert({
-        name: player.name,
-        nickname: player.nickname || null,
-        avatar_url: player.avatarUrl || null,
-        is_goalkeeper: player.isGoalkeeper,
-        is_active: player.isActive,
-      })
-      .select('*')
-      .single();
+    const payload = {
+      name: player.name,
+      nickname: player.nickname || null,
+      avatar_url: player.avatarUrl || null,
+      is_goalkeeper: player.isGoalkeeper,
+      is_active: player.isActive,
+    };
+
+    const { data, error } = await executeWithSchemaFallback<PlayerRow>(
+      'players',
+      payload,
+      (cleanPayload) =>
+        this.client.from('players').insert(cleanPayload).select('*').single()
+    );
 
     if (error) {
       throw new Error(`Erro ao criar jogador: ${error.message}`);
@@ -89,18 +93,20 @@ export class SupabasePlayerRepository implements IPlayerRepository {
       throw new Error('ID do jogador é obrigatório para atualização.');
     }
 
-    const { data, error } = await this.client
-      .from('players')
-      .update({
-        name: player.name,
-        nickname: player.nickname || null,
-        avatar_url: player.avatarUrl || null,
-        is_goalkeeper: player.isGoalkeeper,
-        is_active: player.isActive,
-      })
-      .eq('id', player.id)
-      .select('*')
-      .single();
+    const payload = {
+      name: player.name,
+      nickname: player.nickname || null,
+      avatar_url: player.avatarUrl || null,
+      is_goalkeeper: player.isGoalkeeper,
+      is_active: player.isActive,
+    };
+
+    const { data, error } = await executeWithSchemaFallback<PlayerRow>(
+      'players',
+      payload,
+      (cleanPayload) =>
+        this.client.from('players').update(cleanPayload).eq('id', player.id).select('*').single()
+    );
 
     if (error) {
       throw new Error(`Erro ao atualizar jogador (${player.id}): ${error.message}`);

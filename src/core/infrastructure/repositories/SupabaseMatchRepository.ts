@@ -7,6 +7,7 @@ import type {
 } from '../../domain/repositories/IMatchRepository';
 import { Match, type MatchEndReason, type MatchStatus } from '../../domain/entities/Match';
 import { MatchEvent } from '../../domain/entities/MatchEvent';
+import { executeWithSchemaFallback } from '../database/schemaResilience';
 
 interface MatchRow {
   id: string;
@@ -147,25 +148,28 @@ export class SupabaseMatchRepository implements IMatchRepository {
   }
 
   public async create(match: Match): Promise<Match> {
-    const { data, error } = await this.client
-      .from('matches')
-      .insert({
-        session_id: match.sessionId,
-        home_team_id: match.homeTeamId,
-        away_team_id: match.awayTeamId,
-        home_score: match.homeScore,
-        away_score: match.awayScore,
-        duration_seconds: match.durationSeconds,
-        end_reason: match.endReason || null,
-        status: match.status,
-        started_at: match.startedAt ? match.startedAt.toISOString() : new Date().toISOString(),
-        finished_at: match.finishedAt ? match.finishedAt.toISOString() : null,
-      })
-      .select('*')
-      .single();
+    const payload = {
+      session_id: match.sessionId,
+      home_team_id: match.homeTeamId,
+      away_team_id: match.awayTeamId,
+      home_score: match.homeScore,
+      away_score: match.awayScore,
+      duration_seconds: match.durationSeconds,
+      end_reason: match.endReason || null,
+      status: match.status,
+      started_at: match.startedAt ? match.startedAt.toISOString() : new Date().toISOString(),
+      finished_at: match.finishedAt ? match.finishedAt.toISOString() : null,
+    };
 
-    if (error) {
-      throw new Error(`Erro ao criar partida: ${error.message}`);
+    const { data, error } = await executeWithSchemaFallback<MatchRow>(
+      'matches',
+      payload,
+      (cleanPayload) =>
+        this.client.from('matches').insert(cleanPayload).select('*').single()
+    );
+
+    if (error || !data) {
+      throw new Error(`Erro ao criar partida: ${error?.message}`);
     }
 
     return this.mapMatchToDomain(data as MatchRow);
@@ -176,43 +180,48 @@ export class SupabaseMatchRepository implements IMatchRepository {
       throw new Error('ID da partida é obrigatório para atualização.');
     }
 
-    const { data, error } = await this.client
-      .from('matches')
-      .update({
-        home_score: match.homeScore,
-        away_score: match.awayScore,
-        duration_seconds: match.durationSeconds,
-        end_reason: match.endReason || null,
-        status: match.status,
-        finished_at: match.finishedAt ? match.finishedAt.toISOString() : null,
-      })
-      .eq('id', match.id)
-      .select('*')
-      .single();
+    const payload = {
+      home_score: match.homeScore,
+      away_score: match.awayScore,
+      duration_seconds: match.durationSeconds,
+      end_reason: match.endReason || null,
+      status: match.status,
+      finished_at: match.finishedAt ? match.finishedAt.toISOString() : null,
+    };
 
-    if (error) {
-      throw new Error(`Erro ao atualizar partida (${match.id}): ${error.message}`);
+    const { data, error } = await executeWithSchemaFallback<MatchRow>(
+      'matches',
+      payload,
+      (cleanPayload) =>
+        this.client.from('matches').update(cleanPayload).eq('id', match.id).select('*').single()
+    );
+
+    if (error || !data) {
+      throw new Error(`Erro ao atualizar partida (${match.id}): ${error?.message}`);
     }
 
     return this.mapMatchToDomain(data as MatchRow);
   }
 
   public async addEvent(event: MatchEvent): Promise<MatchEvent> {
-    const { data, error } = await this.client
-      .from('match_events')
-      .insert({
-        match_id: event.matchId,
-        team_id: event.teamId,
-        scorer_id: event.scorerId || null,
-        assist_id: event.assistId || null,
-        event_time_seconds: event.eventTimeSeconds,
-        is_own_goal: event.isOwnGoal,
-      })
-      .select('*')
-      .single();
+    const payload = {
+      match_id: event.matchId,
+      team_id: event.teamId,
+      scorer_id: event.scorerId || null,
+      assist_id: event.assistId || null,
+      event_time_seconds: event.eventTimeSeconds,
+      is_own_goal: event.isOwnGoal,
+    };
 
-    if (error) {
-      throw new Error(`Erro ao registrar evento de jogo: ${error.message}`);
+    const { data, error } = await executeWithSchemaFallback<MatchEventRow>(
+      'match_events',
+      payload,
+      (cleanPayload) =>
+        this.client.from('match_events').insert(cleanPayload).select('*').single()
+    );
+
+    if (error || !data) {
+      throw new Error(`Erro ao registrar evento de jogo: ${error?.message}`);
     }
 
     return this.mapEventToDomain(data as MatchEventRow);
