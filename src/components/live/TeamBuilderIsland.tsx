@@ -11,8 +11,10 @@ import {
   Search,
   UserPlus,
   X,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
+import { EditPlayerModal, type EditablePlayerData } from '../ui/EditPlayerModal';
 
 export interface PlayerItem {
   id: string;
@@ -57,6 +59,10 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   const [newPlayerNickname, setNewPlayerNickname] = useState('');
   const [newPlayerIsGoalkeeper, setNewPlayerIsGoalkeeper] = useState(false);
   const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
+
+  // Modal para editar atleta cadastrado
+  const [editingPlayer, setEditingPlayer] = useState<EditablePlayerData | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // 4 Times com suas listas de jogadores
   const [teams, setTeams] = useState<TeamDraft[]>(() =>
@@ -161,6 +167,46 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   // Limpar todos os times
   const handleClearTeams = () => {
     setTeams(DEFAULT_TEAMS_CONFIG.map((t) => ({ ...t, players: [] })));
+  };
+
+  // Abrir modal de edição de atleta
+  const handleOpenEdit = (player: PlayerItem) => {
+    setEditingPlayer(player);
+    setIsEditModalOpen(true);
+  };
+
+  // Atualizar estado após edição com sucesso
+  const handlePlayerUpdated = (updatedPlayer: EditablePlayerData) => {
+    // 1. Atualiza na lista geral de jogadores disponíveis / cadastrados
+    setAllPlayers((prev) =>
+      prev.map((p) =>
+        p.id === updatedPlayer.id
+          ? {
+              ...p,
+              name: updatedPlayer.name,
+              nickname: updatedPlayer.nickname || null,
+              isGoalkeeper: updatedPlayer.isGoalkeeper ?? p.isGoalkeeper,
+            }
+          : p
+      )
+    );
+
+    // 2. Atualiza nos times já escalados
+    setTeams((prev) =>
+      prev.map((t) => ({
+        ...t,
+        players: t.players.map((p) =>
+          p.id === updatedPlayer.id
+            ? {
+                ...p,
+                name: updatedPlayer.name,
+                nickname: updatedPlayer.nickname || null,
+                isGoalkeeper: updatedPlayer.isGoalkeeper ?? p.isGoalkeeper,
+              }
+            : p
+        ),
+      }))
+    );
   };
 
   // Cadastrar jogador avulso na hora
@@ -381,6 +427,15 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
 
                         <button
                           type="button"
+                          onClick={() => handleOpenEdit(p)}
+                          className="text-gray-500 hover:text-emerald-400 p-1 transition-colors"
+                          title="Editar atleta"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleRemoveFromTeam(team.id, p.id)}
                           className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
                           title="Remover do time"
@@ -432,17 +487,31 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             filteredAvailable.map((player) => (
               <div
                 key={player.id}
-                className="p-2 rounded-2xl bg-surface-200/80 border border-white/5 hover:border-emerald-500/40 transition-all flex flex-col justify-between gap-2 shadow-sm"
+                className="p-2.5 rounded-2xl bg-surface-200/80 border border-white/5 hover:border-emerald-500/40 transition-all flex flex-col justify-between gap-2 shadow-sm group"
               >
-                <div className="min-w-0">
-                  <div className="font-bold text-xs text-white truncate">
-                    {player.nickname || player.name}
-                  </div>
-                  {player.nickname && player.nickname !== player.name && (
-                    <div className="text-[10px] text-gray-400 truncate">
-                      {player.name}
+                <div className="flex items-start justify-between gap-1 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs text-white truncate flex items-center gap-1">
+                      <span className="truncate">{player.nickname || player.name}</span>
+                      {player.isGoalkeeper && (
+                        <span className="text-[10px] shrink-0" title="Goleiro Padrão">🧤</span>
+                      )}
                     </div>
-                  )}
+                    {player.nickname && player.nickname !== player.name && (
+                      <div className="text-[10px] text-gray-400 truncate">
+                        {player.name}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(player)}
+                    className="p-1 rounded-lg text-gray-500 hover:text-emerald-400 hover:bg-white/5 transition-colors shrink-0"
+                    title="Editar dados do atleta"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {/* Botões Rápidos para Escalar nos 4 Times */}
@@ -622,6 +691,17 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
           </div>
         </div>
       )}
+
+      {/* Modal de Edição de Atleta */}
+      <EditPlayerModal
+        isOpen={isEditModalOpen}
+        player={editingPlayer}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingPlayer(null);
+        }}
+        onSaved={handlePlayerUpdated}
+      />
     </div>
   );
 };

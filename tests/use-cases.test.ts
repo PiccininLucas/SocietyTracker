@@ -6,14 +6,43 @@ import { FinishMatchUseCase } from '../src/core/application/use-cases/FinishMatc
 import { TransferPlayerUseCase } from '../src/core/application/use-cases/TransferPlayerUseCase.ts';
 import { GetRoundHighlightsUseCase } from '../src/core/application/use-cases/GetRoundHighlightsUseCase.ts';
 import { GetPeriodLeaderboardUseCase } from '../src/core/application/use-cases/GetPeriodLeaderboardUseCase.ts';
+import { UpdatePlayerUseCase } from '../src/core/application/use-cases/UpdatePlayerUseCase.ts';
 import { Match } from '../src/core/domain/entities/Match.ts';
 import { MatchEvent } from '../src/core/domain/entities/MatchEvent.ts';
+import { Player } from '../src/core/domain/entities/Player.ts';
 import type { IMatchRepository, MatchSummary, LeaderboardItem } from '../src/core/domain/repositories/IMatchRepository.ts';
 import type { ISessionRepository, CreateSessionTeamInput } from '../src/core/domain/repositories/ISessionRepository.ts';
+import type { IPlayerRepository } from '../src/core/domain/repositories/IPlayerRepository.ts';
 import { Session } from '../src/core/domain/entities/Session.ts';
 import { Team } from '../src/core/domain/entities/Team.ts';
 
-// In-Memory Mock Repository for Testing
+// In-Memory Mock Repositories for Testing
+class MockPlayerRepository implements IPlayerRepository {
+  public players: Map<string, Player> = new Map();
+
+  async findAll(activeOnly?: boolean): Promise<Player[]> {
+    const list = Array.from(this.players.values());
+    if (activeOnly) return list.filter((p) => p.isActive);
+    return list;
+  }
+
+  async findById(id: string): Promise<Player | null> {
+    return this.players.get(id) || null;
+  }
+
+  async create(player: Player): Promise<Player> {
+    const id = player.id || `p-${Date.now()}`;
+    const saved = new Player({ ...player.state, id });
+    this.players.set(id, saved);
+    return saved;
+  }
+
+  async update(player: Player): Promise<Player> {
+    if (!player.id) throw new Error('ID is required');
+    this.players.set(player.id, player);
+    return player;
+  }
+}
 class MockMatchRepository implements IMatchRepository {
   public matches: Map<string, Match> = new Map();
   public events: MatchEvent[] = [];
@@ -413,6 +442,65 @@ describe('Use Cases Business Logic', () => {
       assert.equal(result.byAssists[0].name, 'Garcom Santos');
       assert.equal(result.byAssists[0].value, 6);
       assert.equal(result.byAssists[0].rank, 1);
+    });
+  });
+
+  describe('UpdatePlayerUseCase', () => {
+    it('should successfully update player name, nickname and goalkeeper status', async () => {
+      const playerRepo = new MockPlayerRepository();
+      const existing = new Player({
+        id: 'p-1',
+        name: 'Carlos Alberto',
+        nickname: 'Carlinhos',
+        isGoalkeeper: false,
+      });
+      await playerRepo.create(existing);
+
+      const useCase = new UpdatePlayerUseCase(playerRepo);
+      const result = await useCase.execute({
+        id: 'p-1',
+        name: 'Carlos Alberto Santos',
+        nickname: 'Capita',
+        isGoalkeeper: true,
+      });
+
+      assert.equal(result.id, 'p-1');
+      assert.equal(result.name, 'Carlos Alberto Santos');
+      assert.equal(result.nickname, 'Capita');
+      assert.equal(result.isGoalkeeper, true);
+
+      const fromDb = await playerRepo.findById('p-1');
+      assert.equal(fromDb?.name, 'Carlos Alberto Santos');
+      assert.equal(fromDb?.nickname, 'Capita');
+      assert.equal(fromDb?.isGoalkeeper, true);
+    });
+
+    it('should throw error when updating non-existent player', async () => {
+      const playerRepo = new MockPlayerRepository();
+      const useCase = new UpdatePlayerUseCase(playerRepo);
+
+      await assert.rejects(
+        () =>
+          useCase.execute({
+            id: 'non-existent-id',
+            name: 'Qualquer Nome',
+          }),
+        /Jogador com ID non-existent-id não encontrado/
+      );
+    });
+
+    it('should throw error when name is empty', async () => {
+      const playerRepo = new MockPlayerRepository();
+      const useCase = new UpdatePlayerUseCase(playerRepo);
+
+      await assert.rejects(
+        () =>
+          useCase.execute({
+            id: 'p-1',
+            name: '   ',
+          }),
+        /Nome do jogador é obrigatório/
+      );
     });
   });
 });

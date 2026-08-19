@@ -1,7 +1,57 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, MATCH_RULES } from '../src/core/domain/entities/Match.ts';
+import { Player } from '../src/core/domain/entities/Player.ts';
 import { MatchAlreadyFinishedError } from '../src/core/domain/errors/MatchAlreadyFinishedError.ts';
+
+describe('Player Domain Entity Rules', () => {
+  it('should initialize player correctly and format fields', () => {
+    const player = new Player({
+      name: '  Lucas Silva  ',
+      nickname: '  Lukitas  ',
+      isGoalkeeper: false,
+    });
+
+    assert.equal(player.name, 'Lucas Silva');
+    assert.equal(player.nickname, 'Lukitas');
+    assert.equal(player.displayName, 'Lukitas');
+    assert.equal(player.isGoalkeeper, false);
+    assert.equal(player.isActive, true);
+  });
+
+  it('should throw error when name is empty upon instantiation', () => {
+    assert.throws(
+      () => new Player({ name: '   ' }),
+      /Nome do jogador é obrigatório/
+    );
+  });
+
+  it('should update info correctly with updateInfo method', () => {
+    const player = new Player({
+      name: 'Lucas Silva',
+      nickname: 'Lukitas',
+      isGoalkeeper: false,
+    });
+
+    player.updateInfo('Lucas Piccinin', 'Piccinin', true);
+
+    assert.equal(player.name, 'Lucas Piccinin');
+    assert.equal(player.nickname, 'Piccinin');
+    assert.equal(player.displayName, 'Piccinin');
+    assert.equal(player.isGoalkeeper, true);
+  });
+
+  it('should throw error when updating with empty name in updateInfo', () => {
+    const player = new Player({
+      name: 'Lucas Silva',
+    });
+
+    assert.throws(
+      () => player.updateInfo('  '),
+      /Nome do jogador é obrigatório/
+    );
+  });
+});
 
 describe('Match Domain Entity Rules', () => {
   it('should initialize match with 0-0 score and ongoing status', () => {

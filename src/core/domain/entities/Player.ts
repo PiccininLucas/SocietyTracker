@@ -59,6 +59,18 @@ export class Player {
     return this.props.createdAt;
   }
 
+  public updateInfo(name: string, nickname?: string | null, isGoalkeeper?: boolean): void {
+    if (!name || name.trim().length === 0) {
+      throw new Error('Nome do jogador é obrigatório.');
+    }
+
+    this.props.name = name.trim();
+    this.props.nickname = nickname ? nickname.trim() : null;
+    if (typeof isGoalkeeper === 'boolean') {
+      this.props.isGoalkeeper = isGoalkeeper;
+    }
+  }
+
   get state(): Readonly<PlayerProps> {
     return this.props;
   }
