@@ -38,6 +38,7 @@ export interface LiveScoreboardProps {
   homeTeam?: LiveTeam;
   awayTeam?: LiveTeam;
   allSessionTeams?: LiveTeam[];
+  matchDurationSeconds?: number;
   onGoalRegistered?: (event: LiveMatchEvent) => Promise<void> | void;
   onFinishMatch?: (match: LiveMatchState) => Promise<void> | void;
   onNextMatch?: () => void;
@@ -85,6 +86,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
   homeTeam = DEFAULT_HOME_TEAM,
   awayTeam = DEFAULT_AWAY_TEAM,
   allSessionTeams = [DEFAULT_HOME_TEAM, DEFAULT_AWAY_TEAM],
+  matchDurationSeconds = DEFAULT_MATCH_DURATION_SECONDS,
   onGoalRegistered,
   onFinishMatch,
   onNextMatch,
@@ -100,7 +102,8 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
       allSessionTeams,
       homeScore: 0,
       awayScore: 0,
-      secondsRemaining: DEFAULT_MATCH_DURATION_SECONDS,
+      matchDurationSeconds,
+      secondsRemaining: matchDurationSeconds,
       durationSeconds: 0,
       status: 'ongoing',
       endReason: null,
@@ -172,10 +175,11 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           if (prev.secondsRemaining <= 1) {
             // Tempo esgotado!
             if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+            const totalDuration = prev.matchDurationSeconds || matchDurationSeconds;
             const finishedState: LiveMatchState = {
               ...prev,
               secondsRemaining: 0,
-              durationSeconds: DEFAULT_MATCH_DURATION_SECONDS,
+              durationSeconds: totalDuration,
               isTimerRunning: false,
               status: 'finished',
               endReason: 'time_limit',
@@ -210,7 +214,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [matchState.isTimerRunning, matchState.status, persistState]);
+  }, [matchState.isTimerRunning, matchState.status, matchDurationSeconds, persistState]);
 
   const handleToggleTimer = () => {
     setMatchState((prev) => {
@@ -222,7 +226,8 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
 
   const handleAddMinute = () => {
     setMatchState((prev) => {
-      const nextRemaining = Math.min(DEFAULT_MATCH_DURATION_SECONDS, prev.secondsRemaining + 60);
+      const totalDuration = prev.matchDurationSeconds || matchDurationSeconds;
+      const nextRemaining = Math.min(totalDuration + 120, prev.secondsRemaining + 60);
       const next = { ...prev, secondsRemaining: nextRemaining };
       persistState(next);
       return next;
@@ -231,9 +236,10 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
 
   const handleResetTimer = () => {
     setMatchState((prev) => {
+      const totalDuration = prev.matchDurationSeconds || matchDurationSeconds;
       const next = {
         ...prev,
-        secondsRemaining: DEFAULT_MATCH_DURATION_SECONDS,
+        secondsRemaining: totalDuration,
         durationSeconds: 0,
         isTimerRunning: false,
       };
@@ -401,11 +407,12 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
     hapticFeedback.click();
     soundFx.playClickBeep('low');
 
+    const totalDuration = matchState.matchDurationSeconds || matchDurationSeconds;
     const resetState: LiveMatchState = {
       ...matchState,
       homeScore: 0,
       awayScore: 0,
-      secondsRemaining: DEFAULT_MATCH_DURATION_SECONDS,
+      secondsRemaining: totalDuration,
       durationSeconds: 0,
       status: 'ongoing',
       endReason: null,
@@ -521,7 +528,9 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
               <span>{sessionTitle}</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </h1>
-            <p className="text-xs text-gray-400 font-medium">Modo Mesário • Mini-jogo de 7 min</p>
+            <p className="text-xs text-gray-400 font-medium">
+              Modo Mesário • Mini-jogo de {Math.round((matchState.matchDurationSeconds || matchDurationSeconds) / 60)} min
+            </p>
           </div>
         </div>
 
@@ -539,6 +548,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
       {/* Componente 3.1: Cronômetro da Partida */}
       <MatchTimer
         secondsRemaining={matchState.secondsRemaining}
+        totalDuration={matchState.matchDurationSeconds || matchDurationSeconds}
         isRunning={matchState.isTimerRunning}
         onToggleRunning={handleToggleTimer}
         onAddMinute={handleAddMinute}

@@ -20,6 +20,7 @@ try {
       sessionDate: dbSession.sessionDate,
       status: dbSession.status,
       notes: dbSession.notes,
+      matchDurationSeconds: dbSession.matchDurationSeconds ?? 420,
       teams: dbSession.teams.map((t) => ({
         id: t.id || '',
         sessionId: t.sessionId,

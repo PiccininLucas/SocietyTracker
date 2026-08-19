@@ -13,6 +13,7 @@ interface SessionRow {
   session_date: string;
   status: SessionStatus;
   notes: string | null;
+  match_duration_seconds?: number;
   created_at: string;
   session_teams?: TeamRow[];
 }
@@ -82,6 +83,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       sessionDate: row.session_date,
       status: row.status,
       notes: row.notes,
+      matchDurationSeconds: row.match_duration_seconds ?? 420,
       teams,
       createdAt: new Date(row.created_at),
     });
@@ -157,6 +159,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
         session_date: session.sessionDate,
         status: session.status,
         notes: session.notes || null,
+        match_duration_seconds: session.matchDurationSeconds ?? 420,
       },
       (cleanPayload) =>
         this.client.from('sessions').insert(cleanPayload).select('*').single()
@@ -265,6 +268,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       sessionDate: sessionData.session_date,
       status: sessionData.status,
       notes: sessionData.notes,
+      matchDurationSeconds: sessionData.match_duration_seconds ?? session.matchDurationSeconds ?? 420,
       teams: createdTeams,
       createdAt: new Date(sessionData.created_at),
     });

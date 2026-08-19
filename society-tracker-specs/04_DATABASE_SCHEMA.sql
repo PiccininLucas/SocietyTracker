@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     session_date DATE NOT NULL UNIQUE,
     status VARCHAR(20) DEFAULT 'ongoing' CHECK (status IN ('ongoing', 'finished')),
     notes TEXT,
+    match_duration_seconds INTEGER DEFAULT 420,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

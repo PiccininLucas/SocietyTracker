@@ -30,6 +30,7 @@ ALTER TABLE match_events ADD COLUMN IF NOT EXISTS is_own_goal BOOLEAN DEFAULT FA
 
 -- 6. Colunas na tabela sessions
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS match_duration_seconds INTEGER DEFAULT 420;
 `;
 
 /**

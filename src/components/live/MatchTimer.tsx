@@ -179,7 +179,7 @@ export const MatchTimer: React.FC<MatchTimerProps> = ({
           {formattedTime}
         </div>
         <p className="text-xs text-gray-400 mt-1 font-medium">
-          Duração oficial: 7 minutos (420s)
+          Duração oficial: {Math.floor(totalDuration / 60)} minutos ({totalDuration}s)
         </p>
       </div>
 

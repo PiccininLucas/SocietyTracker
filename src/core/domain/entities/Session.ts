@@ -7,6 +7,7 @@ export interface SessionProps {
   sessionDate: string; // YYYY-MM-DD
   status?: SessionStatus;
   notes?: string | null;
+  matchDurationSeconds?: number;
   teams?: Team[];
   createdAt?: Date;
 }
@@ -24,6 +25,7 @@ export class Session {
       sessionDate: props.sessionDate.trim(),
       status: props.status ?? 'ongoing',
       notes: props.notes ?? null,
+      matchDurationSeconds: props.matchDurationSeconds ?? 420,
       teams: props.teams ? [...props.teams] : [],
       createdAt: props.createdAt ?? new Date(),
     };
@@ -43,6 +45,10 @@ export class Session {
 
   get notes(): string | null | undefined {
     return this.props.notes;
+  }
+
+  get matchDurationSeconds(): number {
+    return this.props.matchDurationSeconds ?? 420;
   }
 
   get teams(): Team[] {

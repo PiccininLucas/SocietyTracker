@@ -13,6 +13,7 @@ export interface CreateSessionTeamInputDTO {
 export interface CreateSessionInputDTO {
   sessionDate: string;
   notes?: string | null;
+  matchDurationSeconds?: number;
   teams?: CreateSessionTeamInputDTO[];
 }
 
@@ -29,6 +30,7 @@ export interface CreateSessionOutputDTO {
   sessionDate: string;
   status: 'ongoing' | 'finished';
   notes: string | null;
+  matchDurationSeconds: number;
   teams: CreatedTeamOutputDTO[];
   createdAt: Date;
 }

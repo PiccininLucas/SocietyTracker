@@ -17,6 +17,7 @@ export class CreateSessionUseCase {
       sessionDate: input.sessionDate.trim(),
       status: 'ongoing',
       notes: input.notes?.trim() || null,
+      matchDurationSeconds: input.matchDurationSeconds,
     });
 
     const created = await this.sessionRepository.create(session, input.teams);
@@ -26,6 +27,7 @@ export class CreateSessionUseCase {
       sessionDate: created.sessionDate,
       status: created.status,
       notes: created.notes || null,
+      matchDurationSeconds: created.matchDurationSeconds,
       teams: created.teams.map((t) => ({
         id: t.id || '',
         sessionId: t.sessionId,

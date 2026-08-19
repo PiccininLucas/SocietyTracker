@@ -42,7 +42,8 @@ export interface LiveMatchState {
   allSessionTeams?: LiveTeam[];
   homeScore: number;
   awayScore: number;
-  secondsRemaining: number; // countdown from 420 to 0
+  matchDurationSeconds?: number;
+  secondsRemaining: number; // countdown from total duration to 0
   durationSeconds: number; // elapsed time
   status: MatchStatus;
   endReason?: MatchEndReason | null;

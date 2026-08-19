@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, MATCH_RULES } from '../src/core/domain/entities/Match.ts';
 import { Player } from '../src/core/domain/entities/Player.ts';
+import { Session } from '../src/core/domain/entities/Session.ts';
+import { Team } from '../src/core/domain/entities/Team.ts';
 import { MatchAlreadyFinishedError } from '../src/core/domain/errors/MatchAlreadyFinishedError.ts';
 
 describe('Player Domain Entity Rules', () => {
@@ -269,6 +271,52 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
     assert.deepEqual(result.topAssisters, []);
     assert.deepEqual(result.mvps, []);
     assert.deepEqual(result.bottomPlayers, ['Jogador 1', 'Jogador 2']);
+  });
+});
+
+describe('Session and Team Flexible Structure Rules', () => {
+  it('should initialize session with custom matchDurationSeconds (e.g. 480s / 8 min for 3 teams)', () => {
+    const session = new Session({
+      sessionDate: '2026-08-20',
+      matchDurationSeconds: 480,
+    });
+
+    assert.equal(session.sessionDate, '2026-08-20');
+    assert.equal(session.matchDurationSeconds, 480);
+    assert.equal(session.status, 'ongoing');
+    assert.equal(session.teams.length, 0);
+  });
+
+  it('should default matchDurationSeconds to 420 (7 min) when not provided', () => {
+    const session = new Session({
+      sessionDate: '2026-08-20',
+    });
+
+    assert.equal(session.matchDurationSeconds, 420);
+  });
+
+  it('should allow arbitrary number of teams (3 or 4) and flexible players per team without hardcoded caps', () => {
+    const team1 = new Team({ sessionId: 'session-1', name: 'Time Preto', colorHex: '#1f2937' });
+    const team2 = new Team({ sessionId: 'session-1', name: 'Time Branco', colorHex: '#e5e7eb' });
+    const team3 = new Team({ sessionId: 'session-1', name: 'Time Azul', colorHex: '#3b82f6' });
+
+    // Add 7 players to team1 (demonstrating flexible squad size > 6)
+    for (let i = 1; i <= 7; i++) {
+      team1.addPlayer(`player-${i}`, false, i === 1);
+    }
+
+    assert.equal(team1.players.length, 7);
+    assert.equal(team1.players[0].isGoalkeeper, true);
+    assert.equal(team1.players[1].isGoalkeeper, false);
+
+    const session = new Session({
+      sessionDate: '2026-08-20',
+      matchDurationSeconds: 480,
+      teams: [team1, team2, team3],
+    });
+
+    assert.equal(session.teams.length, 3);
+    assert.equal(session.teams[0].players.length, 7);
   });
 });
 

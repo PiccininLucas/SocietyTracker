@@ -22,6 +22,7 @@ export interface SessionData {
   sessionDate: string;
   status: 'ongoing' | 'finished';
   notes?: string | null;
+  matchDurationSeconds?: number;
   teams: LiveTeam[];
 }
 
@@ -161,6 +162,7 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
         homeTeam={homeTeam}
         awayTeam={awayTeam}
         allSessionTeams={activeSession.teams}
+        matchDurationSeconds={activeSession.matchDurationSeconds || 420}
         onGoalRegistered={handleGoalRegistered}
         onFinishMatch={handleFinishMatch}
         onNextMatch={handleNextMatch}
@@ -303,7 +305,7 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
           ) : (
             <>
               <Play className="w-5 h-5 fill-current" />
-              <span>Apitar Início da Partida (7 min)</span>
+              <span>Apitar Início da Partida ({Math.round((activeSession.matchDurationSeconds || 420) / 60)} min)</span>
             </>
           )}
         </button>

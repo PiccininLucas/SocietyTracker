@@ -32,6 +32,7 @@ export const GET: APIRoute = async ({ url }) => {
       sessionDate: session.sessionDate,
       status: session.status,
       notes: session.notes,
+      matchDurationSeconds: session.matchDurationSeconds,
       teams: session.teams.map((t) => ({
         id: t.id,
         sessionId: t.sessionId,
@@ -70,6 +71,7 @@ export const POST: APIRoute = async ({ request }) => {
     const result = await useCase.execute({
       sessionDate: body.sessionDate,
       notes: body.notes,
+      matchDurationSeconds: body.matchDurationSeconds ? Number(body.matchDurationSeconds) : undefined,
       teams: body.teams,
     });
 

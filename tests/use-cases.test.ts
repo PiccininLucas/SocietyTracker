@@ -7,6 +7,7 @@ import { TransferPlayerUseCase } from '../src/core/application/use-cases/Transfe
 import { GetRoundHighlightsUseCase } from '../src/core/application/use-cases/GetRoundHighlightsUseCase.ts';
 import { GetPeriodLeaderboardUseCase } from '../src/core/application/use-cases/GetPeriodLeaderboardUseCase.ts';
 import { UpdatePlayerUseCase } from '../src/core/application/use-cases/UpdatePlayerUseCase.ts';
+import { CreateSessionUseCase } from '../src/core/application/use-cases/CreateSessionUseCase.ts';
 import { Match } from '../src/core/domain/entities/Match.ts';
 import { MatchEvent } from '../src/core/domain/entities/MatchEvent.ts';
 import { Player } from '../src/core/domain/entities/Player.ts';
@@ -149,9 +150,41 @@ class MockSessionRepository implements ISessionRepository {
   async findByDate(date: string): Promise<Session | null> {
     return this.sessions.find((s) => s.sessionDate === date) || null;
   }
-  async create(session: Session, _teams?: CreateSessionTeamInput[]): Promise<Session> {
-    this.sessions.push(session);
-    return session;
+  async create(session: Session, teams?: CreateSessionTeamInput[]): Promise<Session> {
+    const id = session.id || `session-${Date.now()}`;
+    const createdTeams: Team[] = (teams || []).map((t, idx) => {
+      const team = new Team({
+        id: `team-${idx + 1}`,
+        sessionId: id,
+        name: t.name,
+        colorHex: t.colorHex || '#333333',
+      });
+      if (t.players) {
+        for (const p of t.players) {
+          if (typeof p === 'string') {
+            team.addPlayer(p, false, false);
+          } else {
+            team.addPlayer(p.playerId, p.isLoaned, p.isGoalkeeper);
+          }
+        }
+      } else if (t.playerIds) {
+        for (const pid of t.playerIds) {
+          team.addPlayer(pid, false, false);
+        }
+      }
+      return team;
+    });
+
+    const saved = new Session({
+      id,
+      sessionDate: session.sessionDate,
+      status: session.status,
+      notes: session.notes,
+      matchDurationSeconds: session.matchDurationSeconds,
+      teams: createdTeams,
+    });
+    this.sessions.push(saved);
+    return saved;
   }
   async updateStatus(_id: string, _status: any): Promise<void> {}
   async getTeamsBySessionId(_sessionId: string): Promise<Team[]> {
@@ -501,6 +534,52 @@ describe('Use Cases Business Logic', () => {
           }),
         /Nome do jogador é obrigatório/
       );
+    });
+  });
+
+  describe('CreateSessionUseCase (Flexible Format & Custom Duration)', () => {
+    it('should create session with 3 teams and 8 min (480s) match duration', async () => {
+      const sessionRepo = new MockSessionRepository();
+      const useCase = new CreateSessionUseCase(sessionRepo);
+
+      const result = await useCase.execute({
+        sessionDate: '2026-08-20',
+        matchDurationSeconds: 480,
+        notes: 'Rodada com 3 times e 8 min',
+        teams: [
+          { name: 'Time Preto', colorHex: '#1f2937', playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'] },
+          { name: 'Time Branco', colorHex: '#e5e7eb', playerIds: ['p8', 'p9', 'p10', 'p11', 'p12', 'p13'] },
+          { name: 'Time Azul', colorHex: '#3b82f6', playerIds: ['p14', 'p15', 'p16', 'p17', 'p18', 'p19'] },
+        ],
+      });
+
+      assert.ok(result.id);
+      assert.equal(result.sessionDate, '2026-08-20');
+      assert.equal(result.matchDurationSeconds, 480);
+      assert.equal(result.teams.length, 3);
+      assert.equal(result.teams[0].playersCount, 7);
+      assert.equal(result.teams[1].playersCount, 6);
+      assert.equal(result.teams[2].playersCount, 6);
+    });
+
+    it('should create session with 4 teams and 7 min (420s) default duration', async () => {
+      const sessionRepo = new MockSessionRepository();
+      const useCase = new CreateSessionUseCase(sessionRepo);
+
+      const result = await useCase.execute({
+        sessionDate: '2026-08-27',
+        matchDurationSeconds: 420,
+        teams: [
+          { name: 'Time Preto', playerIds: ['p1', 'p2', 'p3', 'p4', 'p5'] },
+          { name: 'Time Branco', playerIds: ['p6', 'p7', 'p8', 'p9', 'p10'] },
+          { name: 'Time Azul', playerIds: ['p11', 'p12', 'p13', 'p14', 'p15'] },
+          { name: 'Time Vermelho', playerIds: ['p16', 'p17', 'p18', 'p19', 'p20'] },
+        ],
+      });
+
+      assert.ok(result.id);
+      assert.equal(result.matchDurationSeconds, 420);
+      assert.equal(result.teams.length, 4);
     });
   });
 });
