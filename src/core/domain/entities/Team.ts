@@ -1,6 +1,7 @@
 export interface TeamPlayer {
   playerId: string;
   isLoaned?: boolean;
+  isGoalkeeper?: boolean;
   player?: {
     name: string;
     nickname?: string | null;
@@ -57,12 +58,12 @@ export class Team {
     return this.props.players ?? [];
   }
 
-  public addPlayer(playerId: string, isLoaned = false): void {
+  public addPlayer(playerId: string, isLoaned = false, isGoalkeeper = false): void {
     if (!this.props.players) {
       this.props.players = [];
     }
     if (!this.props.players.some((p) => p.playerId === playerId)) {
-      this.props.players.push({ playerId, isLoaned });
+      this.props.players.push({ playerId, isLoaned, isGoalkeeper });
     }
   }
 

@@ -155,13 +155,13 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
     assert.deepEqual(highlights.bottomPlayers, []);
   });
 
-  it('should accurately calculate topScorers, topAssisters, mvps and bottomPlayers', () => {
+  it('should accurately calculate topScorers, topAssisters, mvps and bottomPlayers excluding goalkeepers from bottomPlayers', () => {
     const stats: PlayerRoundStats[] = [
-      { playerId: 'p-1', name: 'Neymar', goals: 3, assists: 1, contributions: 4 },
-      { playerId: 'p-2', name: 'Messi', goals: 2, assists: 3, contributions: 5 },
-      { playerId: 'p-3', name: 'Suarez', goals: 1, assists: 0, contributions: 1 },
-      { playerId: 'p-4', name: 'Casemiro', goals: 0, assists: 0, contributions: 0 },
-      { playerId: 'p-5', name: 'Alisson', goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-1', name: 'Neymar', isGoalkeeper: false, goals: 3, assists: 1, contributions: 4 },
+      { playerId: 'p-2', name: 'Messi', isGoalkeeper: false, goals: 2, assists: 3, contributions: 5 },
+      { playerId: 'p-3', name: 'Suarez', isGoalkeeper: false, goals: 1, assists: 0, contributions: 1 },
+      { playerId: 'p-4', name: 'Casemiro', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-5', name: 'Alisson (Goleiro)', isGoalkeeper: true, goals: 0, assists: 0, contributions: 0 },
     ];
 
     const result = RoundHighlightsService.calculate(stats);
@@ -172,15 +172,30 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
     assert.deepEqual(result.topScorers, ['Neymar']);
     // Top Assister: Messi (3 assists)
     assert.deepEqual(result.topAssisters, ['Messi']);
-    // Bottom Players ("Bola Murcha"): Casemiro e Alisson (0G e 0A)
-    assert.deepEqual(result.bottomPlayers, ['Casemiro', 'Alisson']);
+    // Bottom Players ("Bola Murcha"): APENAS Casemiro (Alisson é goleiro e está imune)
+    assert.deepEqual(result.bottomPlayers, ['Casemiro']);
+  });
+
+  it('should allow goalkeepers who score or assist to be MVP, top scorer and top assister', () => {
+    const stats: PlayerRoundStats[] = [
+      { playerId: 'p-1', name: 'Rogério Ceni (Goleiro)', isGoalkeeper: true, goals: 2, assists: 1, contributions: 3 },
+      { playerId: 'p-2', name: 'Zagueiro', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-3', name: 'Goleiro B', isGoalkeeper: true, goals: 0, assists: 0, contributions: 0 },
+    ];
+
+    const result = RoundHighlightsService.calculate(stats);
+
+    assert.deepEqual(result.mvps, ['Rogério Ceni (Goleiro)']);
+    assert.deepEqual(result.topScorers, ['Rogério Ceni (Goleiro)']);
+    assert.deepEqual(result.topAssisters, ['Rogério Ceni (Goleiro)']);
+    assert.deepEqual(result.bottomPlayers, ['Zagueiro']);
   });
 
   it('should handle ties for top scorer, assister, and MVP', () => {
     const stats: PlayerRoundStats[] = [
-      { playerId: 'p-1', name: 'Jogador A', goals: 2, assists: 1, contributions: 3 },
-      { playerId: 'p-2', name: 'Jogador B', goals: 2, assists: 1, contributions: 3 },
-      { playerId: 'p-3', name: 'Jogador C', goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-1', name: 'Jogador A', isGoalkeeper: false, goals: 2, assists: 1, contributions: 3 },
+      { playerId: 'p-2', name: 'Jogador B', isGoalkeeper: false, goals: 2, assists: 1, contributions: 3 },
+      { playerId: 'p-3', name: 'Jogador C', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
     ];
 
     const result = RoundHighlightsService.calculate(stats);
@@ -191,10 +206,11 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
     assert.deepEqual(result.bottomPlayers, ['Jogador C']);
   });
 
-  it('should not award MVP or top scorer if all players scored 0', () => {
+  it('should not award MVP or top scorer if all players scored 0 and only list line players as bottomPlayers', () => {
     const stats: PlayerRoundStats[] = [
-      { playerId: 'p-1', name: 'Jogador 1', goals: 0, assists: 0, contributions: 0 },
-      { playerId: 'p-2', name: 'Jogador 2', goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-1', name: 'Jogador 1', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-2', name: 'Goleiro 1', isGoalkeeper: true, goals: 0, assists: 0, contributions: 0 },
+      { playerId: 'p-3', name: 'Jogador 2', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
     ];
 
     const result = RoundHighlightsService.calculate(stats);

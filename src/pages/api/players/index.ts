@@ -15,6 +15,7 @@ export const GET: APIRoute = async () => {
       nickname: p.nickname,
       displayName: p.displayName,
       avatarUrl: p.avatarUrl,
+      isGoalkeeper: p.isGoalkeeper,
       isActive: p.isActive,
     }));
 
@@ -40,6 +41,7 @@ export const POST: APIRoute = async ({ request }) => {
       name: body.name,
       nickname: body.nickname,
       avatarUrl: body.avatarUrl,
+      isGoalkeeper: body.isGoalkeeper ?? false,
       isActive: body.isActive ?? true,
     });
 

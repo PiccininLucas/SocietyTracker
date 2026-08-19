@@ -43,6 +43,7 @@ export const GET: APIRoute = async ({ url }) => {
           nickname: tp.player?.nickname || null,
           avatarUrl: tp.player?.avatarUrl || null,
           isLoaned: tp.isLoaned,
+          isGoalkeeper: tp.isGoalkeeper ?? false,
         })),
       })),
       createdAt: session.state.createdAt,

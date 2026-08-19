@@ -4,6 +4,7 @@ export interface TransferPlayerInputDTO {
   toTeamId: string;
   playerId: string;
   isLoaned?: boolean;
+  isGoalkeeper?: boolean;
 }
 
 export interface TransferPlayerOutputDTO {
@@ -13,4 +14,5 @@ export interface TransferPlayerOutputDTO {
   fromTeamId: string;
   toTeamId: string;
   isLoaned: boolean;
+  isGoalkeeper?: boolean;
 }

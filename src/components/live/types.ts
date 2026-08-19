@@ -4,6 +4,7 @@ export interface LivePlayer {
   nickname?: string | null;
   avatarUrl?: string | null;
   isLoaned?: boolean;
+  isGoalkeeper?: boolean;
   originalTeamId?: string;
 }
 

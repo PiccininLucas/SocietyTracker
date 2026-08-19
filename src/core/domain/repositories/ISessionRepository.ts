@@ -1,10 +1,17 @@
 import type { Session, SessionStatus } from '../entities/Session';
 import type { Team } from '../entities/Team';
 
+export interface CreateSessionTeamPlayerInput {
+  playerId: string;
+  isGoalkeeper?: boolean;
+  isLoaned?: boolean;
+}
+
 export interface CreateSessionTeamInput {
   name: string;
   colorHex?: string;
   playerIds?: string[];
+  players?: (string | CreateSessionTeamPlayerInput)[];
 }
 
 export interface ISessionRepository {
@@ -15,7 +22,7 @@ export interface ISessionRepository {
   create(session: Session, teams?: CreateSessionTeamInput[]): Promise<Session>;
   updateStatus(id: string, status: SessionStatus): Promise<void>;
   getTeamsBySessionId(sessionId: string): Promise<Team[]>;
-  addPlayerToTeam(teamId: string, playerId: string, isLoaned?: boolean): Promise<void>;
+  addPlayerToTeam(teamId: string, playerId: string, isLoaned?: boolean, isGoalkeeper?: boolean): Promise<void>;
   removePlayerFromTeam(teamId: string, playerId: string): Promise<void>;
-  transferPlayer(fromTeamId: string, toTeamId: string, playerId: string, isLoaned?: boolean): Promise<void>;
+  transferPlayer(fromTeamId: string, toTeamId: string, playerId: string, isLoaned?: boolean, isGoalkeeper?: boolean): Promise<void>;
 }

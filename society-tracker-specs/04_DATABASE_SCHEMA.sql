@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS players (
     name VARCHAR(100) NOT NULL,
     nickname VARCHAR(50),
     avatar_url TEXT,
+    is_goalkeeper BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -38,9 +39,14 @@ CREATE TABLE IF NOT EXISTS session_team_players (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_team_id UUID NOT NULL REFERENCES session_teams(id) ON DELETE CASCADE,
     player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    is_goalkeeper BOOLEAN DEFAULT FALSE,
     is_loaned BOOLEAN DEFAULT FALSE,
     UNIQUE(session_team_id, player_id)
 );
+
+-- Migração rápida para bases existentes:
+-- ALTER TABLE players ADD COLUMN IF NOT EXISTS is_goalkeeper BOOLEAN DEFAULT FALSE;
+-- ALTER TABLE session_team_players ADD COLUMN IF NOT EXISTS is_goalkeeper BOOLEAN DEFAULT FALSE;
 
 -- 5. Partidas (Mini-jogos de 7 min / 2 gols)
 CREATE TABLE IF NOT EXISTS matches (

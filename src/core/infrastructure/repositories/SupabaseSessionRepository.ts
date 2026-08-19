@@ -30,10 +30,12 @@ interface TeamPlayerRow {
   session_team_id: string;
   player_id: string;
   is_loaned: boolean;
+  is_goalkeeper?: boolean;
   players?: {
     name: string;
     nickname: string | null;
     avatar_url: string | null;
+    is_goalkeeper?: boolean;
   } | null;
 }
 
@@ -48,6 +50,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
     const players: TeamPlayer[] = (row.session_team_players || []).map((tp) => ({
       playerId: tp.player_id,
       isLoaned: tp.is_loaned,
+      isGoalkeeper: tp.is_goalkeeper ?? tp.players?.is_goalkeeper ?? false,
       player: tp.players
         ? {
             name: tp.players.name,
@@ -180,11 +183,18 @@ export class SupabaseSessionRepository implements ISessionRepository {
 
         const teamPlayers: TeamPlayer[] = [];
 
-        if (teamInput.playerIds && teamInput.playerIds.length > 0) {
-          const playerRows = teamInput.playerIds.map((playerId) => ({
+        if (teamInput.players && teamInput.players.length > 0) {
+          const normalized = teamInput.players.map((p) =>
+            typeof p === 'string'
+              ? { playerId: p, isGoalkeeper: false, isLoaned: false }
+              : { playerId: p.playerId, isGoalkeeper: p.isGoalkeeper ?? false, isLoaned: p.isLoaned ?? false }
+          );
+
+          const playerRows = normalized.map((p) => ({
             session_team_id: teamData.id,
-            player_id: playerId,
-            is_loaned: false,
+            player_id: p.playerId,
+            is_loaned: p.isLoaned,
+            is_goalkeeper: p.isGoalkeeper,
           }));
 
           const { error: playersError } = await this.client
@@ -195,7 +205,36 @@ export class SupabaseSessionRepository implements ISessionRepository {
             throw new Error(`Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`);
           }
 
-          teamPlayers.push(...teamInput.playerIds.map((pid) => ({ playerId: pid, isLoaned: false })));
+          teamPlayers.push(
+            ...normalized.map((p) => ({
+              playerId: p.playerId,
+              isLoaned: p.isLoaned,
+              isGoalkeeper: p.isGoalkeeper,
+            }))
+          );
+        } else if (teamInput.playerIds && teamInput.playerIds.length > 0) {
+          const playerRows = teamInput.playerIds.map((playerId) => ({
+            session_team_id: teamData.id,
+            player_id: playerId,
+            is_loaned: false,
+            is_goalkeeper: false,
+          }));
+
+          const { error: playersError } = await this.client
+            .from('session_team_players')
+            .insert(playerRows);
+
+          if (playersError) {
+            throw new Error(`Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`);
+          }
+
+          teamPlayers.push(
+            ...teamInput.playerIds.map((pid) => ({
+              playerId: pid,
+              isLoaned: false,
+              isGoalkeeper: false,
+            }))
+          );
         }
 
         createdTeams.push(
@@ -245,13 +284,19 @@ export class SupabaseSessionRepository implements ISessionRepository {
     return (data as TeamRow[] || []).map((row) => this.mapTeamToDomain(row));
   }
 
-  public async addPlayerToTeam(teamId: string, playerId: string, isLoaned = false): Promise<void> {
+  public async addPlayerToTeam(
+    teamId: string,
+    playerId: string,
+    isLoaned = false,
+    isGoalkeeper = false
+  ): Promise<void> {
     const { error } = await this.client
       .from('session_team_players')
       .upsert({
         session_team_id: teamId,
         player_id: playerId,
         is_loaned: isLoaned,
+        is_goalkeeper: isGoalkeeper,
       }, { onConflict: 'session_team_id,player_id' });
 
     if (error) {
@@ -275,11 +320,12 @@ export class SupabaseSessionRepository implements ISessionRepository {
     fromTeamId: string,
     toTeamId: string,
     playerId: string,
-    isLoaned = false
+    isLoaned = false,
+    isGoalkeeper = false
   ): Promise<void> {
     // Remove do time anterior
     await this.removePlayerFromTeam(fromTeamId, playerId);
     // Adiciona no novo time
-    await this.addPlayerToTeam(toTeamId, playerId, isLoaned);
+    await this.addPlayerToTeam(toTeamId, playerId, isLoaned, isGoalkeeper);
   }
 }

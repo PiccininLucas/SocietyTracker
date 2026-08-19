@@ -46,6 +46,7 @@ export class GetRoundHighlightsUseCase {
             avatarUrl: tp.player?.avatarUrl || null,
             teamName: team.name,
             teamColor: team.colorHex,
+            isGoalkeeper: tp.isGoalkeeper ?? false,
             goals: 0,
             assists: 0,
             contributions: 0,

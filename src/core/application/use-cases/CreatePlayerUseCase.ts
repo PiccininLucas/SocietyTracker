@@ -17,6 +17,7 @@ export class CreatePlayerUseCase {
       name: input.name.trim(),
       nickname: input.nickname?.trim() || null,
       avatarUrl: input.avatarUrl || null,
+      isGoalkeeper: input.isGoalkeeper ?? false,
       isActive: input.isActive ?? true,
     });
 
@@ -27,6 +28,7 @@ export class CreatePlayerUseCase {
       name: created.name,
       nickname: created.nickname || null,
       avatarUrl: created.avatarUrl || null,
+      isGoalkeeper: created.isGoalkeeper,
       isActive: created.isActive,
       createdAt: created.createdAt || new Date(),
     };

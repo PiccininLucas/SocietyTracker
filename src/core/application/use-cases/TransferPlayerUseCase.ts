@@ -20,7 +20,8 @@ export class TransferPlayerUseCase {
       input.fromTeamId,
       input.toTeamId,
       input.playerId,
-      input.isLoaned ?? false
+      input.isLoaned ?? false,
+      input.isGoalkeeper ?? false
     );
 
     return {
@@ -30,6 +31,7 @@ export class TransferPlayerUseCase {
       fromTeamId: input.fromTeamId,
       toTeamId: input.toTeamId,
       isLoaned: input.isLoaned ?? false,
+      isGoalkeeper: input.isGoalkeeper,
     };
   }
 }

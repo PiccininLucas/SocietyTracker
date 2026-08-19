@@ -290,8 +290,9 @@ describe('Use Cases Business Logic', () => {
         name: 'Preto',
         colorHex: '#000000',
         players: [
-          { playerId: 'p-1', player: { name: 'Artilheiro Silva', nickname: null, avatarUrl: null } },
-          { playerId: 'p-2', player: { name: 'Garcom Santos', nickname: null, avatarUrl: null } },
+          { playerId: 'p-1', isGoalkeeper: false, player: { name: 'Artilheiro Silva', nickname: null, avatarUrl: null } },
+          { playerId: 'p-2', isGoalkeeper: false, player: { name: 'Garcom Santos', nickname: null, avatarUrl: null } },
+          { playerId: 'p-5', isGoalkeeper: true, player: { name: 'Goleiro Preto', nickname: null, avatarUrl: null } },
         ],
       });
 
@@ -301,8 +302,9 @@ describe('Use Cases Business Logic', () => {
         name: 'Branco',
         colorHex: '#FFFFFF',
         players: [
-          { playerId: 'p-3', player: { name: 'Craque Lima', nickname: null, avatarUrl: null } },
-          { playerId: 'p-4', player: { name: 'Bola Murcha Costa', nickname: null, avatarUrl: null } },
+          { playerId: 'p-3', isGoalkeeper: false, player: { name: 'Craque Lima', nickname: null, avatarUrl: null } },
+          { playerId: 'p-4', isGoalkeeper: false, player: { name: 'Bola Murcha Costa', nickname: null, avatarUrl: null } },
+          { playerId: 'p-6', isGoalkeeper: true, player: { name: 'Goleiro Branco', nickname: null, avatarUrl: null } },
         ],
       });
 
@@ -371,12 +373,15 @@ describe('Use Cases Business Logic', () => {
       assert.deepEqual(result.highlights.topScorers, ['Artilheiro Silva']); // 2 goals
       assert.deepEqual(result.highlights.topAssisters, ['Garcom Santos']); // 1 assist
       assert.deepEqual(result.highlights.mvps, ['Artilheiro Silva']); // 2 G+A
-      assert.deepEqual(result.highlights.bottomPlayers, ['Bola Murcha Costa']); // 0G, 0A
+      // Bottom players: apenas Bola Murcha Costa (Goleiros p-5 e p-6 têm 0G/0A mas estão imunes)
+      assert.deepEqual(result.highlights.bottomPlayers, ['Bola Murcha Costa']);
 
-      // Players table ordering
-      assert.equal(result.players.length, 4);
+      // Players table ordering and fields
+      assert.equal(result.players.length, 6);
       assert.equal(result.players[0].name, 'Artilheiro Silva');
       assert.equal(result.players[0].rank, 1);
+      assert.equal(result.players.find((p) => p.playerId === 'p-5')?.isGoalkeeper, true);
+      assert.equal(result.players.find((p) => p.playerId === 'p-1')?.isGoalkeeper, false);
     });
   });
 

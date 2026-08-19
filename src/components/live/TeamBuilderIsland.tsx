@@ -19,6 +19,7 @@ export interface PlayerItem {
   name: string;
   nickname?: string | null;
   avatarUrl?: string | null;
+  isGoalkeeper?: boolean;
 }
 
 export interface TeamDraft {
@@ -54,6 +55,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerNickname, setNewPlayerNickname] = useState('');
+  const [newPlayerIsGoalkeeper, setNewPlayerIsGoalkeeper] = useState(false);
   const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
 
   // 4 Times com suas listas de jogadores
@@ -88,7 +90,30 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             alert(`O ${t.name} já atingiu o limite de 6 jogadores.`);
             return t;
           }
-          return { ...t, players: [...t.players, player] };
+          return {
+            ...t,
+            players: [
+              ...t.players,
+              { ...player, isGoalkeeper: player.isGoalkeeper ?? false },
+            ],
+          };
+        }
+        return t;
+      })
+    );
+  };
+
+  // Alternar posição entre Goleiro e Linha
+  const handleToggleGoalkeeper = (teamId: string, playerId: string) => {
+    setTeams((prev) =>
+      prev.map((t) => {
+        if (t.id === teamId) {
+          return {
+            ...t,
+            players: t.players.map((p) =>
+              p.id === playerId ? { ...p, isGoalkeeper: !p.isGoalkeeper } : p
+            ),
+          };
         }
         return t;
       })
@@ -121,7 +146,10 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     for (let round = 0; round < maxPlayersPerTeam; round++) {
       for (let t = 0; t < newTeams.length; t++) {
         if (playerIndex < shuffled.length) {
-          newTeams[t].players.push(shuffled[playerIndex]);
+          newTeams[t].players.push({
+            ...shuffled[playerIndex],
+            isGoalkeeper: shuffled[playerIndex].isGoalkeeper ?? false,
+          });
           playerIndex++;
         }
       }
@@ -148,6 +176,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
         body: JSON.stringify({
           name: newPlayerName.trim(),
           nickname: newPlayerNickname.trim() || null,
+          isGoalkeeper: newPlayerIsGoalkeeper,
         }),
       });
 
@@ -160,6 +189,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       setAllPlayers((prev) => [created, ...prev]);
       setNewPlayerName('');
       setNewPlayerNickname('');
+      setNewPlayerIsGoalkeeper(false);
       setIsAddPlayerModalOpen(false);
     } catch (err: any) {
       alert(err.message || 'Erro ao cadastrar jogador.');
@@ -186,6 +216,10 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
           name: t.name,
           colorHex: t.colorHex,
           playerIds: t.players.map((p) => p.id),
+          players: t.players.map((p) => ({
+            playerId: p.id,
+            isGoalkeeper: !!p.isGoalkeeper,
+          })),
         })),
       };
 
@@ -309,9 +343,14 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                   team.players.map((p, idx) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between p-2 rounded-xl bg-surface-200/60 border border-white/5 text-xs group hover:border-white/20 transition-all"
+                      className={cn(
+                        'flex items-center justify-between p-2 rounded-xl border text-xs group transition-all',
+                        p.isGoalkeeper
+                          ? 'bg-amber-500/10 border-amber-500/30'
+                          : 'bg-surface-200/60 border-white/5 hover:border-white/20'
+                      )}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 pr-1">
                         <span className="w-5 h-5 rounded-lg bg-surface-50 text-gray-400 font-bold text-[10px] flex items-center justify-center shrink-0">
                           {idx + 1}
                         </span>
@@ -319,14 +358,36 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                           {p.nickname || p.name}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFromTeam(team.id, p.id)}
-                        className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
-                        title="Remover do time"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Toggle Rápido: Linha / Goleiro */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleGoalkeeper(team.id, p.id)}
+                          className={cn(
+                            'px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95',
+                            p.isGoalkeeper
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-sm'
+                              : 'bg-surface-50 text-gray-400 border-white/10 hover:text-white hover:border-white/20'
+                          )}
+                          title={
+                            p.isGoalkeeper
+                              ? 'Goleiro da equipe (Imune ao Bola Murcha)'
+                              : 'Jogador de Linha'
+                          }
+                        >
+                          <span>{p.isGoalkeeper ? '🧤 Goleiro' : '⚽ Linha'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFromTeam(team.id, p.id)}
+                          className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
+                          title="Remover do time"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -505,6 +566,40 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                   onChange={(e) => setNewPlayerNickname(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">
+                  Posição Inicial
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewPlayerIsGoalkeeper(false)}
+                    className={cn(
+                      'py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
+                      !newPlayerIsGoalkeeper
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
+                    )}
+                  >
+                    <span>⚽</span>
+                    <span>Linha</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPlayerIsGoalkeeper(true)}
+                    className={cn(
+                      'py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
+                      newPlayerIsGoalkeeper
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
+                    )}
+                  >
+                    <span>🧤</span>
+                    <span>Goleiro</span>
+                  </button>
+                </div>
               </div>
 
               <div className="pt-2 flex items-center gap-2">

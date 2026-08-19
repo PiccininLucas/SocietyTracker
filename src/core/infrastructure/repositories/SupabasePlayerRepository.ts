@@ -8,6 +8,7 @@ interface PlayerRow {
   name: string;
   nickname: string | null;
   avatar_url: string | null;
+  is_goalkeeper?: boolean;
   is_active: boolean;
   created_at: string;
 }
@@ -25,6 +26,7 @@ export class SupabasePlayerRepository implements IPlayerRepository {
       name: row.name,
       nickname: row.nickname,
       avatarUrl: row.avatar_url,
+      isGoalkeeper: row.is_goalkeeper ?? false,
       isActive: row.is_active,
       createdAt: new Date(row.created_at),
     });
@@ -69,6 +71,7 @@ export class SupabasePlayerRepository implements IPlayerRepository {
         name: player.name,
         nickname: player.nickname || null,
         avatar_url: player.avatarUrl || null,
+        is_goalkeeper: player.isGoalkeeper,
         is_active: player.isActive,
       })
       .select('*')
@@ -92,6 +95,7 @@ export class SupabasePlayerRepository implements IPlayerRepository {
         name: player.name,
         nickname: player.nickname || null,
         avatar_url: player.avatarUrl || null,
+        is_goalkeeper: player.isGoalkeeper,
         is_active: player.isActive,
       })
       .eq('id', player.id)

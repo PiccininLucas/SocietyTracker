@@ -1,7 +1,13 @@
+export interface CreateSessionTeamPlayerInputDTO {
+  playerId: string;
+  isGoalkeeper?: boolean;
+}
+
 export interface CreateSessionTeamInputDTO {
   name: string;
   colorHex?: string;
   playerIds?: string[];
+  players?: (string | CreateSessionTeamPlayerInputDTO)[];
 }
 
 export interface CreateSessionInputDTO {

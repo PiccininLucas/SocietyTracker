@@ -7,21 +7,21 @@ Substituir o envio manual de prints de planilhas no WhatsApp por um gerador auto
 - **Zero PDF e Zero Excel:** Foco exclusivo em imagem PNG (que abre direto no chat do WhatsApp sem necessidade de download de arquivos externos).
 - **Client-Side Rendering:** Sem consumo de memória do servidor ou limites de timeout na Vercel.
 - **Suporte a Copiar para Área de Transferência:** Permitir tanto o download do arquivo `.png` quanto o botão "Copiar Imagem" para colar direto no WhatsApp Web.
+- **Regra de Imunidade do Goleiro:** Jogadores escalados como **Goleiro (GK)** na rodada estão **imunes ao "Bola Murcha"** (mesmo com 0 gols e 0 assistências). Se fizerem gol ou assistência, pontuam normalmente para Artilharia, Garçom e Craque.
 
 ---
 
 ## 2. Tipos de Cards PNG a Gerar
 
 ### Card 1: Resumo da Rodada (O "Post da Quinta")
-Reproduz a síntese do dia e os destaques:
 1. **Cabeçalho:** Nome da pelada e data formatada (ex: `PELADA DAS QUINTAS • 13/AGO`).
 2. **Quadro de Destaques (Banner / Pódio):**
    * 👑 **Craque da rodada (G+A):** Maior soma de gols e assistências.
    * ⚽ **Artilheiro da rodada:** Maior marcador de gols no dia.
    * 👟 **Garçom da rodada:** Maior assistente no dia.
-   * 🩴 **Bola murcha da rodada:** Jogadores que atuaram no dia, mas terminaram com **0 gols e 0 assistências**.
+   * 🩴 **Bola murcha da rodada:** Jogadores de **LINHA** que atuaram no dia, mas terminaram com **0 gols e 0 assistências** (Goleiros são ignorados).
 3. **Tabela de Desempenho do Dia:**
-   * Colunas: `Jogador | Gols | Assistências`
+   * Colunas: `Jogador | Pos | Gols | Assistências` (com tag 🧤 GK para goleiros).
    * Ordenada por $G+A$ desc, depois Gols desc.
 
 ### Card 2: Ranking Consolidado (Mensal ou Temporada)
@@ -32,14 +32,13 @@ Reproduz a visualização das 3 tabelas lado a lado:
 
 ---
 
-## 3. Regras de Domínio (`RoundHighlightsService.ts`)
-
-Criar o serviço de domínio puro em `src/core/domain/services/RoundHighlightsService.ts`:
+## 3. Regras de Domínio Atualizadas (`RoundHighlightsService.ts`)
 
 ```typescript
 export interface PlayerRoundStats {
   playerId: string;
   name: string;
+  isGoalkeeper: boolean; // TRUE se jogou como goleiro na noite
   goals: number;
   assists: number;
   contributions: number; // goals + assists
@@ -49,7 +48,7 @@ export interface RoundHighlights {
   topScorers: string[];     // Nomes com empate permitido
   topAssisters: string[];   // Nomes com empate permitido
   mvps: string[];           // Nomes com maior G+A
-  bottomPlayers: string[];  // Jogadores presentes com 0 G e 0 A ("Bola Murcha")
+  bottomPlayers: string[];  // Apenas jogadores de LINHA com 0 G e 0 A ("Bola Murcha")
 }
 
 export class RoundHighlightsService {
@@ -66,7 +65,10 @@ export class RoundHighlightsService {
       topScorers: maxGoals > 0 ? stats.filter(s => s.goals === maxGoals).map(s => s.name) : [],
       topAssisters: maxAssists > 0 ? stats.filter(s => s.assists === maxAssists).map(s => s.name) : [],
       mvps: maxContributions > 0 ? stats.filter(s => s.contributions === maxContributions).map(s => s.name) : [],
-      bottomPlayers: stats.filter(s => s.goals === 0 && s.assists === 0).map(s => s.name)
+      // REGRA: Apenas jogadores que NÃO são goleiros entram no Bola Murcha
+      bottomPlayers: stats
+        .filter(s => !s.isGoalkeeper && s.goals === 0 && s.assists === 0)
+        .map(s => s.name)
     };
   }
 }
@@ -112,28 +114,4 @@ export async function copyElementToClipboard(elementId: string): Promise<boolean
     return false;
   }
 }
-```
-
----
-
-## 5. Estrutura de Componentes da V2
-
-```text
-src/
-├── core/
-│   ├── domain/
-│   │   └── services/
-│   │       └── RoundHighlightsService.ts
-│   └── application/
-│       └── use-cases/
-│           ├── GetRoundHighlightsUseCase.ts
-│           └── GetPeriodLeaderboardUseCase.ts
-│
-├── components/
-│   └── export/
-│       ├── RoundSummaryCard.tsx      # Card do Dia com Destaques + Bola Murcha + Botões PNG
-│       └── PeriodLeaderboardCard.tsx # Card de 3 colunas (G+A, Gols, Assist) + Botões PNG
-│
-└── pages/
-    └── relatorios.astro              # Interface com abas (Por Rodada, Por Mês, Geral)
 ```

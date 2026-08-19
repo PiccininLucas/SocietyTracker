@@ -209,10 +209,10 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">🩴</span>
               <span className="text-[11px] font-black uppercase tracking-wider text-rose-400">
-                Bola Murcha (0G + 0A)
+                Bola Murcha (Linha 0G + 0A)
               </span>
             </div>
-            <div className="font-display font-bold text-xs sm:text-sm text-gray-300 truncate">
+            <div className="font-display font-bold text-xs sm:text-sm text-gray-300 truncate" title={bolaMurchaNames}>
               {bolaMurchaNames}
             </div>
           </div>
@@ -250,7 +250,7 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
                       isTop1 ? 'bg-amber-500/10 font-bold' : 'hover:bg-white/5'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <span
                         className={`w-6 text-center text-xs font-black shrink-0 ${
                           isTop1
@@ -277,8 +277,8 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
                         )}
                       </div>
 
-                      <div className="min-w-0 truncate">
-                        <span className="text-white font-medium truncate block">
+                      <div className="min-w-0 truncate flex items-center gap-1.5">
+                        <span className="text-white font-medium truncate">
                           {player.name}
                           {player.nickname && (
                             <span className="text-gray-400 text-[11px] ml-1 font-normal">
@@ -286,6 +286,15 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
                             </span>
                           )}
                         </span>
+
+                        {player.isGoalkeeper && (
+                          <span
+                            className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0"
+                            title="Goleiro (Imune ao Bola Murcha)"
+                          >
+                            🧤 GK
+                          </span>
+                        )}
                       </div>
 
                       {player.teamName && (

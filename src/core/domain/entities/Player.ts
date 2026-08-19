@@ -3,6 +3,7 @@ export interface PlayerProps {
   name: string;
   nickname?: string | null;
   avatarUrl?: string | null;
+  isGoalkeeper?: boolean;
   isActive?: boolean;
   createdAt?: Date;
 }
@@ -20,6 +21,7 @@ export class Player {
       name: props.name.trim(),
       nickname: props.nickname ? props.nickname.trim() : null,
       avatarUrl: props.avatarUrl || null,
+      isGoalkeeper: props.isGoalkeeper ?? false,
       isActive: props.isActive ?? true,
       createdAt: props.createdAt ?? new Date(),
     };
@@ -43,6 +45,10 @@ export class Player {
 
   get avatarUrl(): string | null | undefined {
     return this.props.avatarUrl;
+  }
+
+  get isGoalkeeper(): boolean {
+    return !!this.props.isGoalkeeper;
   }
 
   get isActive(): boolean {
