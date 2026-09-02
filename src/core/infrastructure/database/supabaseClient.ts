@@ -37,43 +37,50 @@ const rawUrl =
 export const supabaseUrl = sanitizeSupabaseUrl(rawUrl);
 
 /**
- * 1. Chave Anônima Pública (PUBLIC_SUPABASE_ANON_KEY)
+ * 1. Chave Pública / Publicável (PUBLIC_SUPABASE_PUBLISHABLE_KEY)
  * SEGURA PARA O CLIENTE / NAVEGADOR.
- * NUNCA utiliza ou faz fallback para a SERVICE_ROLE_KEY.
+ * Inclui retrocompatibilidade com PUBLIC_SUPABASE_ANON_KEY e SUPABASE_ANON_KEY.
+ * NUNCA utiliza ou faz fallback para SUPABASE_SECRET_KEY / SERVICE_ROLE_KEY.
  */
-export const supabaseAnonKey =
+export const supabasePublishableKey =
+  getEnv('PUBLIC_SUPABASE_PUBLISHABLE_KEY') ||
   getEnv('PUBLIC_SUPABASE_ANON_KEY') ||
   getEnv('SUPABASE_ANON_KEY') ||
   'supabase-placeholder-key';
 
+// Alias para retrocompatibilidade
+export const supabaseAnonKey = supabasePublishableKey;
+
 export const isSupabaseConfigured =
   !supabaseUrl.includes('society-tracker-placeholder') &&
-  !supabaseAnonKey.includes('placeholder');
+  !supabasePublishableKey.includes('placeholder');
 
 /**
- * Cliente Supabase Público (Usa exclusivamente a Chave Anônima)
- * Seguro para ser utilizado no cliente navegador e leituras públicas.
+ * Cliente Supabase Público (Frontend / Islands / Leituras Públicas)
+ * Instanciado utilizando exclusivamente PUBLIC_SUPABASE_URL e PUBLIC_SUPABASE_PUBLISHABLE_KEY.
  */
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabasePublishableKey);
 
 /**
- * 2. Chave de Serviço / Service Role (SUPABASE_SERVICE_ROLE_KEY)
+ * 2. Chave Secreta / Secret Key (SUPABASE_SECRET_KEY)
  * USO EXCLUSIVO NO SERVIDOR (API Astro, SSR, Scripts Node/tsx).
  * PROIBIDO NO NAVEGADOR / CLIENTE.
+ * Inclui retrocompatibilidade com SUPABASE_SERVICE_ROLE_KEY.
  */
-function getServerServiceRoleKey(): string {
+function getServerSecretKey(): string {
   // Proibido no cliente: bloqueia imediatamente em tempo de execução
   if (typeof window !== 'undefined') {
     throw new Error(
-      'Security Exception: SUPABASE_SERVICE_ROLE_KEY is strictly forbidden in browser/client environments.'
+      'Security Exception: SUPABASE_SECRET_KEY is strictly forbidden in browser/client environments.'
     );
   }
 
   const g = globalThis as any;
   const key = (
-    (typeof process !== 'undefined' && process.env?.SUPABASE_SERVICE_ROLE_KEY) ||
+    (typeof process !== 'undefined' && (process.env?.SUPABASE_SECRET_KEY || process.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
+    (import.meta.env as any)?.SUPABASE_SECRET_KEY ||
     (import.meta.env as any)?.SUPABASE_SERVICE_ROLE_KEY ||
-    (typeof g.process !== 'undefined' && g.process?.env?.SUPABASE_SERVICE_ROLE_KEY) ||
+    (typeof g.process !== 'undefined' && (g.process?.env?.SUPABASE_SECRET_KEY || g.process?.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
     ''
   ).trim();
 
@@ -85,7 +92,7 @@ function getServerServiceRoleKey(): string {
 }
 
 /**
- * Retorna um cliente Supabase com permissões de administrador (Service Role).
+ * Retorna um cliente Supabase com permissões de administrador (Secret Key).
  * Uso exclusivo em contexto de Servidor (Endpoints de API em src/pages/api e scripts Node).
  */
 export function getSupabaseAdminClient(): SupabaseClient {
@@ -95,15 +102,15 @@ export function getSupabaseAdminClient(): SupabaseClient {
     );
   }
 
-  const serviceRoleKey = getServerServiceRoleKey();
-  const activeKey = serviceRoleKey || supabaseAnonKey;
+  const secretKey = getServerSecretKey();
+  const activeKey = secretKey || supabasePublishableKey;
 
   return createClient(supabaseUrl, activeKey);
 }
 
 /**
  * Cliente Supabase Admin para uso no servidor (SSR / API / Repositórios do servidor).
- * No navegador, este objeto é nulo/fallback para o cliente anônimo para evitar vazamentos.
+ * No navegador, este objeto é nulo/fallback para o cliente público para evitar vazamentos.
  */
 export const supabaseAdmin: SupabaseClient =
   typeof window === 'undefined' ? getSupabaseAdminClient() : supabase;
