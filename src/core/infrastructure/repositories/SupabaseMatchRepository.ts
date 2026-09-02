@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { supabase as defaultClient } from '../database/supabaseClient';
+import { supabaseAdmin as defaultClient } from '../database/supabaseClient';
 import type {
   IMatchRepository,
   LeaderboardItem,

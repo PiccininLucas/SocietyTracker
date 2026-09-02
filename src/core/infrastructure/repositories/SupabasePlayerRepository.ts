@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { supabase as defaultClient } from '../database/supabaseClient';
+import { supabaseAdmin as defaultClient } from '../database/supabaseClient';
 import type { IPlayerRepository } from '../../domain/repositories/IPlayerRepository';
 import { Player } from '../../domain/entities/Player';
 import { executeWithSchemaFallback } from '../database/schemaResilience';
