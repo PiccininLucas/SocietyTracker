@@ -40,7 +40,7 @@ const supabaseAnonKey =
   getEnv('SUPABASE_SERVICE_ROLE_KEY') ||
   getEnv('PUBLIC_SUPABASE_ANON_KEY') ||
   getEnv('SUPABASE_ANON_KEY') ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder';
+  'supabase-placeholder-key';
 
 export const isSupabaseConfigured =
   !supabaseUrl.includes('society-tracker-placeholder') &&

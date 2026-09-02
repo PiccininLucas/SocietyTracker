@@ -18,9 +18,9 @@ Este roteiro deve ser seguido sequencialmente pelo agente de desenvolvimento par
 - [x] **Passo 1.4:** Executar o script DDL `04_DATABASE_SCHEMA.sql` no painel SQL do Supabase.
 - [x] **Passo 1.5:** Configurar as variáveis de ambiente `.env`:
   ```env
-  PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-  PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
-  SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+  PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+  PUBLIC_SUPABASE_ANON_KEY=sua-chave-anonima
+  SUPABASE_SERVICE_ROLE_KEY=sua-chave-de-servico-aqui
   ```
 
 ---
