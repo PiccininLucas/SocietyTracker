@@ -490,11 +490,15 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
 
   // Determina o time vencedor para exibição do modal
   const winningTeam =
-    matchState.homeScore > matchState.awayScore
+    (matchState.homeScore ?? 0) > (matchState.awayScore ?? 0)
       ? matchState.homeTeam
-      : matchState.awayScore > matchState.homeScore
+      : (matchState.awayScore ?? 0) > (matchState.homeScore ?? 0)
       ? matchState.awayTeam
       : null;
+
+  // Lances separados por time para exibição compacta nos cards
+  const homeGoals = matchState.events.filter((e) => e.teamId === matchState.homeTeam.id);
+  const awayGoals = matchState.events.filter((e) => e.teamId === matchState.awayTeam.id);
 
   return (
     <div className="w-full max-w-xl mx-auto px-3.5 sm:px-4 py-4 space-y-4 pb-20 select-none">
@@ -579,9 +583,32 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           </div>
 
           {/* Número Gigante do Placar */}
-          <div className="my-3 font-display text-6xl sm:text-7xl font-black text-white tracking-tight drop-shadow-md">
-            {matchState.homeScore}
+          <div className="my-2 font-display text-6xl sm:text-7xl font-black text-white tracking-tight drop-shadow-md">
+            {matchState.homeScore ?? 0}
           </div>
+
+          {/* Lances do Time Mandante */}
+          {homeGoals.length > 0 && (
+            <div className="w-full mb-3 space-y-1 max-h-20 overflow-y-auto px-1">
+              {homeGoals.map((ev, i) => (
+                <div
+                  key={ev.clientEventId || i}
+                  className="text-xs text-gray-300 flex items-center justify-center gap-1.5 truncate"
+                  title={ev.isOwnGoal ? 'Gol Contra' : `${ev.scorerName || 'Gol'}${ev.assistName ? ` (${ev.assistName})` : ''}`}
+                >
+                  <span className="shrink-0">{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
+                  <span className={cn('font-bold truncate', ev.isOwnGoal ? 'text-rose-400' : 'text-white')}>
+                    {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
+                  </span>
+                  {!ev.isOwnGoal && ev.assistName && (
+                    <span className="text-cyan-400 font-medium text-[11px] truncate">
+                      ({ev.assistName})
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Botão de Toque Amplo: + GOL MANDANTE (>= 56px) */}
           <button
@@ -616,9 +643,32 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           </div>
 
           {/* Número Gigante do Placar */}
-          <div className="my-3 font-display text-6xl sm:text-7xl font-black text-white tracking-tight drop-shadow-md">
-            {matchState.awayScore}
+          <div className="my-2 font-display text-6xl sm:text-7xl font-black text-white tracking-tight drop-shadow-md">
+            {matchState.awayScore ?? 0}
           </div>
+
+          {/* Lances do Time Visitante */}
+          {awayGoals.length > 0 && (
+            <div className="w-full mb-3 space-y-1 max-h-20 overflow-y-auto px-1">
+              {awayGoals.map((ev, i) => (
+                <div
+                  key={ev.clientEventId || i}
+                  className="text-xs text-gray-300 flex items-center justify-center gap-1.5 truncate"
+                  title={ev.isOwnGoal ? 'Gol Contra' : `${ev.scorerName || 'Gol'}${ev.assistName ? ` (${ev.assistName})` : ''}`}
+                >
+                  <span className="shrink-0">{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
+                  <span className={cn('font-bold truncate', ev.isOwnGoal ? 'text-rose-400' : 'text-white')}>
+                    {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
+                  </span>
+                  {!ev.isOwnGoal && ev.assistName && (
+                    <span className="text-cyan-400 font-medium text-[11px] truncate">
+                      ({ev.assistName})
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Botão de Toque Amplo: + GOL VISITANTE (>= 56px) */}
           <button
@@ -686,9 +736,9 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
                     </span>
                     <div>
                       <div className="font-bold flex items-center gap-1.5">
-                        <span>{ev.isOwnGoal ? '🛡️' : '⚽'}</span>
+                        <span>{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
                         <span className={ev.isOwnGoal ? 'text-rose-400' : 'text-emerald-400'}>
-                          {ev.scorerName || 'Gol'}
+                          {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
                         </span>
                         <span className="text-gray-400 font-normal text-xs">
                           ({ev.teamName})
@@ -789,13 +839,34 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
                 Placar Final
               </div>
               <div className="font-display text-4xl font-black text-white">
-                {matchState.homeTeam.name} {matchState.homeScore} x {matchState.awayScore}{' '}
+                {matchState.homeTeam.name} {matchState.homeScore ?? 0} x {matchState.awayScore ?? 0}{' '}
                 {matchState.awayTeam.name}
               </div>
               <div className="text-xs text-gray-400 mt-2">
                 Duração total: {Math.floor(matchState.durationSeconds / 60)}m{' '}
                 {matchState.durationSeconds % 60}s
               </div>
+
+              {matchState.events.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-800 space-y-1.5 max-h-32 overflow-y-auto text-xs text-gray-300">
+                  {matchState.events.map((ev, i) => (
+                    <div key={ev.clientEventId || i} className="flex items-center justify-center gap-1.5 truncate">
+                      <span className="shrink-0">{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
+                      <span className={cn('font-bold truncate', ev.isOwnGoal ? 'text-rose-400' : 'text-white')}>
+                        {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
+                      </span>
+                      {!ev.isOwnGoal && ev.assistName && (
+                        <span className="text-cyan-400 font-medium text-[11px] truncate">
+                          ({ev.assistName})
+                        </span>
+                      )}
+                      <span className="text-gray-500 text-[11px] shrink-0">
+                        • {ev.teamName}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2 pt-2">

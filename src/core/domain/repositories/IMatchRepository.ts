@@ -12,13 +12,27 @@ export interface LeaderboardItem {
   totalSessionsPlayed: number;
 }
 
+export interface MatchSummaryEvent {
+  id: string;
+  matchId: string;
+  teamId: string;
+  scorerId?: string | null;
+  scorerName?: string;
+  assistId?: string | null;
+  assistName?: string;
+  eventTimeSeconds: number;
+  isOwnGoal: boolean;
+}
+
 export interface MatchSummary {
   matchId: string;
   sessionId: string;
   sessionDate: string;
+  homeTeamId?: string;
   homeTeamName: string;
   homeTeamColor: string;
   homeScore: number;
+  awayTeamId?: string;
   awayTeamName: string;
   awayTeamColor: string;
   awayScore: number;
@@ -27,6 +41,7 @@ export interface MatchSummary {
   status: 'ongoing' | 'finished';
   startedAt: string;
   finishedAt: string | null;
+  events?: MatchSummaryEvent[];
 }
 
 export interface IMatchRepository {

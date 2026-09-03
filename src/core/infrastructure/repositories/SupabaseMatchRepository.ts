@@ -4,6 +4,7 @@ import type {
   IMatchRepository,
   LeaderboardItem,
   MatchSummary,
+  MatchSummaryEvent,
 } from '../../domain/repositories/IMatchRepository';
 import { Match, type MatchEndReason, type MatchStatus } from '../../domain/entities/Match';
 import { MatchEvent } from '../../domain/entities/MatchEvent';
@@ -49,9 +50,11 @@ interface MatchSummaryRow {
   match_id: string;
   session_id: string;
   session_date: string;
+  home_team_id?: string;
   home_team_name: string;
   home_team_color: string;
   home_score: number;
+  away_team_id?: string;
   away_team_name: string;
   away_team_color: string;
   away_score: number;
@@ -388,21 +391,107 @@ export class SupabaseMatchRepository implements IMatchRepository {
       throw new Error(`Erro ao buscar resumo das partidas: ${error.message}`);
     }
 
-    return (data as MatchSummaryRow[] || []).map((row) => ({
-      matchId: row.match_id,
-      sessionId: row.session_id,
-      sessionDate: row.session_date,
-      homeTeamName: row.home_team_name,
-      homeTeamColor: row.home_team_color,
-      homeScore: row.home_score,
-      awayTeamName: row.away_team_name,
-      awayTeamColor: row.away_team_color,
-      awayScore: row.away_score,
-      durationSeconds: row.duration_seconds,
-      endReason: row.end_reason,
-      status: row.status,
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-    }));
+    const rows = (data as MatchSummaryRow[] || []);
+    const matchIds = rows.map((r) => r.match_id);
+
+    // Mapeamentos para enriquecimento com eventos e IDs dos times
+    const matchTeamMap = new Map<string, { homeTeamId: string; awayTeamId: string }>();
+    const eventsByMatch = new Map<string, MatchSummaryEvent[]>();
+
+    if (matchIds.length > 0) {
+      // 1. Buscar os IDs dos times na tabela matches para garantir correspondência exata
+      try {
+        const { data: matchesTableData } = await this.client
+          .from('matches')
+          .select('id, home_team_id, away_team_id')
+          .in('id', matchIds);
+
+        for (const m of (matchesTableData || [])) {
+          matchTeamMap.set(m.id, { homeTeamId: m.home_team_id, awayTeamId: m.away_team_id });
+        }
+      } catch {
+        // Fallback silencioso caso ocorra restrição de acesso
+      }
+
+      // 2. Buscar eventos das partidas (match_events)
+      try {
+        const { data: eventsData } = await this.client
+          .from('match_events')
+          .select('*')
+          .in('match_id', matchIds)
+          .order('event_time_seconds', { ascending: true });
+
+        const playerIds = new Set<string>();
+        for (const ev of (eventsData || [])) {
+          if (ev.scorer_id) playerIds.add(ev.scorer_id);
+          if (ev.assist_id) playerIds.add(ev.assist_id);
+        }
+
+        // 3. Buscar nomes e apelidos dos jogadores participantes
+        const playerMap = new Map<string, { name: string; nickname: string | null }>();
+        if (playerIds.size > 0) {
+          const { data: playersData } = await this.client
+            .from('players')
+            .select('id, name, nickname')
+            .in('id', Array.from(playerIds));
+
+          for (const p of (playersData || [])) {
+            playerMap.set(p.id, { name: p.name, nickname: p.nickname });
+          }
+        }
+
+        // 4. Montar os eventos resumidos para cada partida
+        for (const ev of (eventsData || [])) {
+          const scorer = ev.scorer_id ? playerMap.get(ev.scorer_id) : null;
+          const assist = ev.assist_id ? playerMap.get(ev.assist_id) : null;
+          const scorerName = ev.is_own_goal
+            ? 'Gol Contra'
+            : (scorer?.nickname || scorer?.name || 'Jogador');
+          const assistName = assist ? (assist.nickname || assist.name || undefined) : undefined;
+
+          const summaryEvent: MatchSummaryEvent = {
+            id: ev.id,
+            matchId: ev.match_id,
+            teamId: ev.team_id,
+            scorerId: ev.scorer_id,
+            scorerName,
+            assistId: ev.assist_id,
+            assistName,
+            eventTimeSeconds: ev.event_time_seconds ?? 0,
+            isOwnGoal: !!ev.is_own_goal,
+          };
+
+          if (!eventsByMatch.has(ev.match_id)) {
+            eventsByMatch.set(ev.match_id, []);
+          }
+          eventsByMatch.get(ev.match_id)!.push(summaryEvent);
+        }
+      } catch {
+        // Se a busca de eventos falhar, retorna o resumo com events vazio
+      }
+    }
+
+    return rows.map((row) => {
+      const teamInfo = matchTeamMap.get(row.match_id);
+      return {
+        matchId: row.match_id,
+        sessionId: row.session_id,
+        sessionDate: row.session_date,
+        homeTeamId: teamInfo?.homeTeamId || row.home_team_id,
+        homeTeamName: row.home_team_name,
+        homeTeamColor: row.home_team_color,
+        homeScore: row.home_score ?? 0,
+        awayTeamId: teamInfo?.awayTeamId || row.away_team_id,
+        awayTeamName: row.away_team_name,
+        awayTeamColor: row.away_team_color,
+        awayScore: row.away_score ?? 0,
+        durationSeconds: row.duration_seconds ?? 0,
+        endReason: row.end_reason,
+        status: row.status,
+        startedAt: row.started_at,
+        finishedAt: row.finished_at,
+        events: eventsByMatch.get(row.match_id) || [],
+      };
+    });
   }
 }

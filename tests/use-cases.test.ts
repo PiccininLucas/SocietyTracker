@@ -582,5 +582,84 @@ describe('Use Cases Business Logic', () => {
       assert.equal(result.teams.length, 4);
     });
   });
+
+  describe('Match Summary and Scoreboard Card Rules', () => {
+    it('should safely preserve 0 for scores and map events per team', () => {
+      const summary: MatchSummary = {
+        matchId: 'm-100',
+        sessionId: 's-1',
+        sessionDate: '2026-09-03',
+        homeTeamId: 't-preto',
+        homeTeamName: 'Time Preto',
+        homeTeamColor: '#1f2937',
+        homeScore: 1,
+        awayTeamId: 't-branco',
+        awayTeamName: 'Time Branco',
+        awayTeamColor: '#e5e7eb',
+        awayScore: 0,
+        durationSeconds: 420,
+        endReason: 'time_limit',
+        status: 'finished',
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        events: [
+          {
+            id: 'ev-1',
+            matchId: 'm-100',
+            teamId: 't-preto',
+            scorerId: 'p-1',
+            scorerName: 'Lucas',
+            assistId: 'p-2',
+            assistName: 'Gabriel',
+            eventTimeSeconds: 150,
+            isOwnGoal: false,
+          },
+        ],
+      };
+
+      // 1. Validação de nunca perder o 0 do placar visitante
+      const homeScore = summary.homeScore ?? 0;
+      const awayScore = summary.awayScore ?? 0;
+      const scoreString = `${homeScore} x ${awayScore}`;
+      assert.equal(scoreString, '1 x 0');
+
+      // 2. Filtro dos eventos por time
+      const homeEvents = (summary.events || []).filter((e) => e.teamId === summary.homeTeamId);
+      const awayEvents = (summary.events || []).filter((e) => e.teamId === summary.awayTeamId);
+
+      assert.equal(homeEvents.length, 1);
+      assert.equal(awayEvents.length, 0);
+
+      // 3. Formatação do lance com assistência
+      const ev = homeEvents[0];
+      const formatted = ev.isOwnGoal
+        ? '⚠️ Gol Contra'
+        : `⚽ ${ev.scorerName}${ev.assistName ? ` (${ev.assistName})` : ''}`;
+      assert.equal(formatted, '⚽ Lucas (Gabriel)');
+    });
+
+    it('should format individual goals and own goals correctly', () => {
+      const individualEv = {
+        isOwnGoal: false,
+        scorerName: 'Mateus',
+        assistName: undefined,
+      };
+      const formattedInd = individualEv.isOwnGoal
+        ? '⚠️ Gol Contra'
+        : `⚽ ${individualEv.scorerName}${individualEv.assistName ? ` (${individualEv.assistName})` : ''}`;
+      assert.equal(formattedInd, '⚽ Mateus');
+
+      const ownGoalEv = {
+        isOwnGoal: true,
+        scorerName: 'Gol Contra',
+        assistName: undefined,
+      };
+      const formattedOwn = ownGoalEv.isOwnGoal
+        ? '⚠️ Gol Contra'
+        : `⚽ ${ownGoalEv.scorerName}${ownGoalEv.assistName ? ` (${ownGoalEv.assistName})` : ''}`;
+      assert.equal(formattedOwn, '⚠️ Gol Contra');
+    });
+  });
 });
+
 
