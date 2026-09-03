@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   Save,
   Check,
+  Users,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { soundFx } from '../ui/audio';
@@ -20,6 +21,7 @@ import { hapticFeedback } from '../ui/vibration';
 import { MatchTimer } from './MatchTimer';
 import { GoalDrawer } from './GoalDrawer';
 import { QuickPlayerTransferModal } from './QuickPlayerTransferModal';
+import { TeamRostersModal } from './TeamRostersModal';
 import {
   type LiveMatchState,
   type LiveTeam,
@@ -118,6 +120,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
   const [isGoalDrawerOpen, setIsGoalDrawerOpen] = useState(false);
   const [selectedScoringTeam, setSelectedScoringTeam] = useState<LiveTeam | null>(null);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isRostersModalOpen, setIsRostersModalOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
   const [isRestoreBannerVisible, setIsRestoreBannerVisible] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
@@ -569,14 +572,31 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           </div>
         </div>
 
-        {/* Badge Offline-First */}
-        <div
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-800/80 border border-gray-700 text-xs font-semibold text-emerald-400"
-          title="Dados salvos automaticamente em cache offline"
-        >
-          <Check className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Offline-First</span>
-          <span className="sm:hidden">Auto</span>
+        <div className="flex items-center gap-2">
+          {/* Botão para Ver Elencos / Times */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticFeedback.click();
+              setIsRostersModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-bold text-emerald-400 active:scale-95 transition-all shadow-sm"
+            title="Ver escalação completa dos times da noite"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Ver Times</span>
+            <span className="sm:hidden">Times</span>
+          </button>
+
+          {/* Badge Offline-First */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-800/80 border border-gray-700 text-xs font-semibold text-emerald-400"
+            title="Dados salvos automaticamente em cache offline"
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Offline-First</span>
+            <span className="sm:hidden">Auto</span>
+          </div>
         </div>
       </header>
 
@@ -796,7 +816,21 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
       </div>
 
       {/* Barra de Ações Rápidas do Mesário */}
-      <div className="grid grid-cols-2 gap-2.5 pt-1">
+      <div className="grid grid-cols-3 gap-2 pt-1">
+        {/* Botão de Ver Elencos */}
+        <button
+          type="button"
+          onClick={() => {
+            hapticFeedback.click();
+            setIsRostersModalOpen(true);
+          }}
+          className="min-h-[48px] flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 text-emerald-400 font-bold text-xs sm:text-sm border border-emerald-500/30 transition-all touch-press-scale"
+          title="Consultar elencos completos da rodada"
+        >
+          <Users className="w-4 h-4 shrink-0" />
+          <span className="truncate">Ver Times</span>
+        </button>
+
         {/* Botão de Transferência / Empréstimo */}
         <button
           type="button"
@@ -804,10 +838,10 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
             hapticFeedback.click();
             setIsTransferModalOpen(true);
           }}
-          className="min-h-[48px] flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gray-800/80 hover:bg-gray-700 active:scale-95 text-blue-400 font-bold text-xs sm:text-sm border border-gray-700 transition-all touch-press-scale"
+          className="min-h-[48px] flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-2xl bg-gray-800/80 hover:bg-gray-700 active:scale-95 text-blue-400 font-bold text-xs sm:text-sm border border-gray-700 transition-all touch-press-scale"
         >
-          <ArrowRightLeft className="w-4 h-4" />
-          <span>Emprestar Jogador</span>
+          <ArrowRightLeft className="w-4 h-4 shrink-0" />
+          <span className="truncate">Emprestar</span>
         </button>
 
         {/* Botão de Encerrar Partida Manual */}
@@ -815,10 +849,10 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           type="button"
           disabled={matchState.status === 'finished'}
           onClick={handleManualFinish}
-          className="min-h-[48px] flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gray-800/80 hover:bg-gray-700 active:scale-95 disabled:opacity-40 text-rose-400 font-bold text-xs sm:text-sm border border-gray-700 transition-all touch-press-scale"
+          className="min-h-[48px] flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-2xl bg-gray-800/80 hover:bg-gray-700 active:scale-95 disabled:opacity-40 text-rose-400 font-bold text-xs sm:text-sm border border-gray-700 transition-all touch-press-scale"
         >
-          <Square className="w-4 h-4 fill-current" />
-          <span>Encerrar Partida</span>
+          <Square className="w-4 h-4 fill-current shrink-0" />
+          <span className="truncate">Encerrar</span>
         </button>
       </div>
 
@@ -838,11 +872,18 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
       {/* Componente 3.3: Modal de Transferência / Empréstimo */}
       <QuickPlayerTransferModal
         isOpen={isTransferModalOpen}
-        teams={matchState.allSessionTeams || [matchState.homeTeam, matchState.awayTeam]}
+        teams={matchState.allSessionTeams || allSessionTeams || [matchState.homeTeam, matchState.awayTeam]}
         currentHomeTeamId={matchState.homeTeam.id}
         currentAwayTeamId={matchState.awayTeam.id}
         onTransfer={handleTransferPlayer}
         onClose={() => setIsTransferModalOpen(false)}
+      />
+
+      {/* Componente 3.4: Modal de Consulta de Elencos da Noite */}
+      <TeamRostersModal
+        isOpen={isRostersModalOpen}
+        teams={matchState.allSessionTeams || allSessionTeams || [matchState.homeTeam, matchState.awayTeam]}
+        onClose={() => setIsRostersModalOpen(false)}
       />
 
       {/* Modal de Vitória Imediata (Regra dos 2 Gols / Fim do Tempo) */}

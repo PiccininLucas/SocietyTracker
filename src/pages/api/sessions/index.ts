@@ -38,6 +38,7 @@ export const GET: APIRoute = async ({ url }) => {
         sessionId: t.sessionId,
         name: t.name,
         colorHex: t.colorHex,
+        captainId: t.captainId || null,
         players: t.players.map((tp) => ({
           id: tp.playerId,
           name: tp.player?.name || 'Jogador',
@@ -45,6 +46,7 @@ export const GET: APIRoute = async ({ url }) => {
           avatarUrl: tp.player?.avatarUrl || null,
           isLoaned: tp.isLoaned,
           isGoalkeeper: tp.isGoalkeeper ?? false,
+          isCaptain: tp.isCaptain ?? (t.captainId ? t.captainId === tp.playerId : false),
         })),
       })),
       createdAt: session.state.createdAt,

@@ -23,6 +23,7 @@ interface TeamRow {
   session_id: string;
   name: string;
   color_hex: string;
+  captain_id?: string | null;
   created_at: string;
   session_team_players?: TeamPlayerRow[];
 }
@@ -31,6 +32,7 @@ interface TeamPlayerRow {
   player_id: string;
   is_loaned: boolean;
   is_goalkeeper?: boolean;
+  is_captain?: boolean;
   players?: {
     name: string;
     nickname: string | null;
@@ -45,11 +47,12 @@ export class SupabaseSessionRepository implements ISessionRepository {
     this.client = client || defaultClient;
   }
 
-  private mapTeamPlayerToDomain(row: TeamPlayerRow): TeamPlayer {
+  private mapTeamPlayerToDomain(row: TeamPlayerRow, captainId?: string | null): TeamPlayer {
     return {
       playerId: row.player_id,
       isLoaned: row.is_loaned ?? false,
       isGoalkeeper: row.is_goalkeeper ?? false,
+      isCaptain: row.is_captain ?? (captainId ? captainId === row.player_id : false),
       player: row.players
         ? {
             name: row.players.name,
@@ -62,7 +65,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
 
   private mapTeamToDomain(row: TeamRow): Team {
     const players: TeamPlayer[] = (row.session_team_players || []).map((tp) =>
-      this.mapTeamPlayerToDomain(tp)
+      this.mapTeamPlayerToDomain(tp, row.captain_id)
     );
 
     return new Team({
@@ -70,6 +73,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       sessionId: row.session_id,
       name: row.name,
       colorHex: row.color_hex,
+      captainId: row.captain_id || null,
       players,
       createdAt: new Date(row.created_at),
     });
@@ -181,6 +185,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
             session_id: createdSessionId,
             name: teamInput.name,
             color_hex: teamInput.colorHex || '#333333',
+            captain_id: teamInput.captainId || null,
           },
           (cleanPayload) =>
             this.client.from('session_teams').insert(cleanPayload).select('*').single()
@@ -204,6 +209,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
             player_id: p.playerId,
             is_loaned: p.isLoaned,
             is_goalkeeper: p.isGoalkeeper,
+            is_captain: teamInput.captainId === p.playerId,
           }));
 
           const { error: playersError } = await executeWithSchemaFallback(
@@ -221,6 +227,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
               playerId: p.playerId,
               isLoaned: p.isLoaned,
               isGoalkeeper: p.isGoalkeeper,
+              isCaptain: teamInput.captainId === p.playerId,
             }))
           );
         } else if (teamInput.playerIds && teamInput.playerIds.length > 0) {
@@ -229,6 +236,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
             player_id: playerId,
             is_loaned: false,
             is_goalkeeper: false,
+            is_captain: teamInput.captainId === playerId,
           }));
 
           const { error: playersError } = await executeWithSchemaFallback(
@@ -246,6 +254,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
               playerId: pid,
               isLoaned: false,
               isGoalkeeper: false,
+              isCaptain: teamInput.captainId === pid,
             }))
           );
         }
@@ -256,6 +265,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
             sessionId: createdSessionId,
             name: teamData.name,
             colorHex: teamData.color_hex,
+            captainId: teamData.captain_id || teamInput.captainId || null,
             players: teamPlayers,
             createdAt: new Date(teamData.created_at),
           })

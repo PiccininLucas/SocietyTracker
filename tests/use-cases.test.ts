@@ -158,18 +158,19 @@ class MockSessionRepository implements ISessionRepository {
         sessionId: id,
         name: t.name,
         colorHex: t.colorHex || '#333333',
+        captainId: t.captainId || null,
       });
       if (t.players) {
         for (const p of t.players) {
           if (typeof p === 'string') {
-            team.addPlayer(p, false, false);
+            team.addPlayer(p, false, false, t.captainId === p);
           } else {
-            team.addPlayer(p.playerId, p.isLoaned, p.isGoalkeeper);
+            team.addPlayer(p.playerId, p.isLoaned, p.isGoalkeeper, t.captainId === p.playerId || p.isCaptain);
           }
         }
       } else if (t.playerIds) {
         for (const pid of t.playerIds) {
-          team.addPlayer(pid, false, false);
+          team.addPlayer(pid, false, false, t.captainId === pid);
         }
       }
       return team;
@@ -760,6 +761,52 @@ describe('Use Cases Business Logic', () => {
       assert.equal(result.match.homeScore, 0);
       assert.equal(result.match.awayScore, 1);
       assert.equal(result.match.status, 'ongoing');
+    });
+
+    it('should create session with teams named after their captains and preserve captainId', async () => {
+      const sessionRepo = new MockSessionRepository();
+      const useCase = new CreateSessionUseCase(sessionRepo);
+
+      const result = await useCase.execute({
+        sessionDate: '2026-09-03',
+        matchDurationSeconds: 480,
+        teams: [
+          {
+            name: 'Time Gabriel',
+            colorHex: '#1f2937',
+            captainId: 'p-gabriel',
+            playerIds: ['p-gabriel', 'p-lucas', 'p-mateus'],
+          },
+          {
+            name: 'Time Chitao',
+            colorHex: '#e5e7eb',
+            captainId: 'p-chitao',
+            playerIds: ['p-chitao', 'p-pedro', 'p-gabs'],
+          },
+          {
+            name: 'Time Paulinho',
+            colorHex: '#3b82f6',
+            captainId: 'p-paulinho',
+            playerIds: ['p-paulinho', 'p-benzema', 'p-vini'],
+          },
+        ],
+      });
+
+      assert.equal(result.teams.length, 3);
+      assert.equal(result.teams[0].name, 'Time Gabriel');
+      assert.equal(result.teams[0].captainId, 'p-gabriel');
+      assert.equal(result.teams[1].name, 'Time Chitao');
+      assert.equal(result.teams[1].captainId, 'p-chitao');
+      assert.equal(result.teams[2].name, 'Time Paulinho');
+      assert.equal(result.teams[2].captainId, 'p-paulinho');
+
+      // Verifica jogadores e capitão no repositório
+      const savedSession = sessionRepo.sessions[0];
+      assert.ok(savedSession);
+      const team1 = savedSession.teams[0];
+      const captainPlayer = team1.players.find((p) => p.playerId === 'p-gabriel');
+      assert.ok(captainPlayer);
+      assert.equal(captainPlayer.isCaptain, true);
     });
   });
 });

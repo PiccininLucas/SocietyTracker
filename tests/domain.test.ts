@@ -318,5 +318,35 @@ describe('Session and Team Flexible Structure Rules', () => {
     assert.equal(session.teams.length, 3);
     assert.equal(session.teams[0].players.length, 7);
   });
+
+  it('should format team name with captain nickname or name and manage captainId correctly', () => {
+    const team = new Team({
+      sessionId: 'session-1',
+      name: 'Time Preto',
+      colorHex: '#1f2937',
+    });
+
+    assert.equal(team.name, 'Time Preto');
+    assert.equal(team.captainId, undefined);
+
+    // 1. Define capitão pelo apelido
+    team.setCaptain('player-gabriel', 'Gabs');
+    assert.equal(team.captainId, 'player-gabriel');
+    assert.equal(team.name, 'Time Gabs');
+
+    // 2. Define capitão pelo nome completo
+    team.setCaptain('player-lucas', 'Lucas Silva');
+    assert.equal(team.captainId, 'player-lucas');
+    assert.equal(team.name, 'Time Lucas Silva');
+
+    // 3. Adiciona jogador e depois remove, resetando o capitão se for o removido
+    team.addPlayer('player-lucas', false, false, true);
+    assert.equal(team.players.length, 1);
+    assert.equal(team.players[0].isCaptain, true);
+
+    team.removePlayer('player-lucas');
+    assert.equal(team.players.length, 0);
+    assert.equal(team.captainId, undefined);
+  });
 });
 

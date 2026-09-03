@@ -15,6 +15,7 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
 -- 2. Colunas na tabela session_teams
 ALTER TABLE session_teams ADD COLUMN IF NOT EXISTS color_hex VARCHAR(7) DEFAULT '#333333';
+ALTER TABLE session_teams ADD COLUMN IF NOT EXISTS captain_id UUID REFERENCES players(id);
 
 -- 3. Colunas na tabela session_team_players
 ALTER TABLE session_team_players ADD COLUMN IF NOT EXISTS is_goalkeeper BOOLEAN DEFAULT FALSE;

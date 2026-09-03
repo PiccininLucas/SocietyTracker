@@ -10,6 +10,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { LiveScoreboard } from './LiveScoreboard';
+import { TeamRostersModal } from './TeamRostersModal';
 import type {
   LiveTeam,
   LiveMatchEvent,
@@ -33,6 +34,7 @@ interface MesarioSessionWrapperProps {
 export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ session }) => {
   const [activeSession, setActiveSession] = useState<SessionData>(session);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  const [isRostersModalOpen, setIsRostersModalOpen] = useState(false);
   const [selectedHomeTeamId, setSelectedHomeTeamId] = useState<string>(
     session.teams[0]?.id || 'team-1'
   );
@@ -190,6 +192,17 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
           <Calendar className="w-4 h-4 text-emerald-400" />
           <span>Data da rodada: {activeSession.sessionDate}</span>
         </p>
+
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setIsRostersModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold text-xs active:scale-95 transition-all shadow-sm"
+          >
+            <Users className="w-4 h-4" />
+            <span>Ver Times / Elencos da Noite</span>
+          </button>
+        </div>
       </div>
 
       {/* Seleção dos 2 Times que vão jogar agora */}
@@ -312,6 +325,13 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
           )}
         </button>
       </div>
+
+      {/* Modal de Consulta de Elencos da Noite */}
+      <TeamRostersModal
+        isOpen={isRostersModalOpen}
+        teams={activeSession.teams}
+        onClose={() => setIsRostersModalOpen(false)}
+      />
     </div>
   );
 };

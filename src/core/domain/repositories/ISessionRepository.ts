@@ -5,11 +5,13 @@ export interface CreateSessionTeamPlayerInput {
   playerId: string;
   isGoalkeeper?: boolean;
   isLoaned?: boolean;
+  isCaptain?: boolean;
 }
 
 export interface CreateSessionTeamInput {
   name: string;
   colorHex?: string;
+  captainId?: string | null;
   playerIds?: string[];
   players?: (string | CreateSessionTeamPlayerInput)[];
 }

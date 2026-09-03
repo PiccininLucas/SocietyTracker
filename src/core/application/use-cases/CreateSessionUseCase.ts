@@ -33,6 +33,7 @@ export class CreateSessionUseCase {
         sessionId: t.sessionId,
         name: t.name,
         colorHex: t.colorHex,
+        captainId: t.captainId || null,
         playersCount: t.players.length,
       })),
       createdAt: created.createdAt || new Date(),

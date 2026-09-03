@@ -17,6 +17,7 @@ import {
   Square,
   ChevronDown,
   ChevronUp,
+  Star,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { EditPlayerModal, type EditablePlayerData } from '../ui/EditPlayerModal';
@@ -31,8 +32,11 @@ export interface PlayerItem {
 
 export interface TeamDraft {
   id: string;
+  defaultName: string;
   name: string;
   colorHex: string;
+  colorName: string;
+  captainId?: string | null;
   players: PlayerItem[];
 }
 
@@ -40,11 +44,11 @@ interface TeamBuilderIslandProps {
   initialPlayers: PlayerItem[];
 }
 
-const ALL_AVAILABLE_TEAMS: { id: string; name: string; colorHex: string }[] = [
-  { id: 'team-1', name: 'Time Preto', colorHex: '#1f2937' },
-  { id: 'team-2', name: 'Time Branco', colorHex: '#e5e7eb' },
-  { id: 'team-3', name: 'Time Azul', colorHex: '#3b82f6' },
-  { id: 'team-4', name: 'Time Vermelho', colorHex: '#ef4444' },
+const ALL_AVAILABLE_TEAMS: { id: string; name: string; colorHex: string; colorName: string }[] = [
+  { id: 'team-1', name: 'Time Preto', colorHex: '#1f2937', colorName: 'Preto' },
+  { id: 'team-2', name: 'Time Branco', colorHex: '#e5e7eb', colorName: 'Branco' },
+  { id: 'team-3', name: 'Time Azul', colorHex: '#3b82f6', colorName: 'Azul' },
+  { id: 'team-4', name: 'Time Vermelho', colorHex: '#ef4444', colorName: 'Vermelho' },
 ];
 
 export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPlayers }) => {
@@ -78,7 +82,12 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   // Times da Noite (3 ou 4 times conforme seleção)
   const [teams, setTeams] = useState<TeamDraft[]>(() => {
     const initialCount = initialPlayers.length <= 19 ? 3 : 4;
-    return ALL_AVAILABLE_TEAMS.slice(0, initialCount).map((t) => ({ ...t, players: [] }));
+    return ALL_AVAILABLE_TEAMS.slice(0, initialCount).map((t) => ({
+      ...t,
+      defaultName: t.name,
+      captainId: null,
+      players: [],
+    }));
   });
 
   // Busca no banco de disponíveis
@@ -145,10 +154,15 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
         next.delete(playerId);
         // Se foi desmarcado da presença, remove de qualquer time que estivesse escalado
         setTeams((currentTeams) =>
-          currentTeams.map((t) => ({
-            ...t,
-            players: t.players.filter((p) => p.id !== playerId),
-          }))
+          currentTeams.map((t) => {
+            const isRemovingCaptain = t.captainId === playerId;
+            return {
+              ...t,
+              captainId: isRemovingCaptain ? null : t.captainId,
+              name: isRemovingCaptain ? t.defaultName : t.name,
+              players: t.players.filter((p) => p.id !== playerId),
+            };
+          })
         );
       } else {
         next.add(playerId);
@@ -186,13 +200,39 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
         // Reduz para 3 times (Time 4 tem jogadores devolvidos ao pool disponível)
         return ALL_AVAILABLE_TEAMS.slice(0, 3).map((template, idx) => {
           const existing = prev[idx];
-          return existing ? { ...template, players: existing.players } : { ...template, players: [] };
+          return existing
+            ? {
+                ...template,
+                defaultName: template.name,
+                name: existing.name,
+                captainId: existing.captainId,
+                players: existing.players,
+              }
+            : {
+                ...template,
+                defaultName: template.name,
+                captainId: null,
+                players: [],
+              };
         });
       } else {
         // Expande para 4 times
         return ALL_AVAILABLE_TEAMS.map((template, idx) => {
           const existing = prev[idx];
-          return existing ? { ...template, players: existing.players } : { ...template, players: [] };
+          return existing
+            ? {
+                ...template,
+                defaultName: template.name,
+                name: existing.name,
+                captainId: existing.captainId,
+                players: existing.players,
+              }
+            : {
+                ...template,
+                defaultName: template.name,
+                captainId: null,
+                players: [],
+              };
         });
       }
     });
@@ -234,12 +274,49 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     );
   };
 
+  // Definir ou alternar o Capitão do time
+  const handleToggleCaptain = (teamId: string, playerId: string) => {
+    setTeams((prev) =>
+      prev.map((t) => {
+        if (t.id === teamId) {
+          const isAlreadyCaptain = t.captainId === playerId;
+          if (isAlreadyCaptain) {
+            // Se desmarcou o capitão atual, reseta para o nome padrão da cor
+            return {
+              ...t,
+              captainId: null,
+              name: t.defaultName,
+            };
+          }
+
+          const captainPlayer = t.players.find((p) => p.id === playerId);
+          const captainDisplayName = captainPlayer
+            ? captainPlayer.nickname || captainPlayer.name
+            : '';
+
+          return {
+            ...t,
+            captainId: playerId,
+            name: captainDisplayName ? `Time ${captainDisplayName}` : t.defaultName,
+          };
+        }
+        return t;
+      })
+    );
+  };
+
   // Remover jogador do time
   const handleRemoveFromTeam = (teamId: string, playerId: string) => {
     setTeams((prev) =>
       prev.map((t) => {
         if (t.id === teamId) {
-          return { ...t, players: t.players.filter((p) => p.id !== playerId) };
+          const isRemovingCaptain = t.captainId === playerId;
+          return {
+            ...t,
+            captainId: isRemovingCaptain ? null : t.captainId,
+            name: isRemovingCaptain ? t.defaultName : t.name,
+            players: t.players.filter((p) => p.id !== playerId),
+          };
         }
         return t;
       })
@@ -264,6 +341,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     // 3. Inicializa os 3 ou 4 times vazios
     const newTeams: TeamDraft[] = ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({
       ...t,
+      defaultName: t.name,
+      captainId: null,
       players: [],
     }));
 
@@ -295,7 +374,12 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   // Limpar todos os times
   const handleClearTeams = () => {
     setTeams(
-      ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({ ...t, players: [] }))
+      ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({
+        ...t,
+        defaultName: t.name,
+        captainId: null,
+        players: [],
+      }))
     );
   };
 
@@ -321,9 +405,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     );
 
     setTeams((prev) =>
-      prev.map((t) => ({
-        ...t,
-        players: t.players.map((p) =>
+      prev.map((t) => {
+        const updatedPlayers = t.players.map((p) =>
           p.id === updatedPlayer.id
             ? {
                 ...p,
@@ -332,8 +415,20 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                 isGoalkeeper: updatedPlayer.isGoalkeeper ?? p.isGoalkeeper,
               }
             : p
-        ),
-      }))
+        );
+
+        let teamName = t.name;
+        if (t.captainId === updatedPlayer.id) {
+          const captainName = updatedPlayer.nickname || updatedPlayer.name;
+          teamName = `Time ${captainName}`;
+        }
+
+        return {
+          ...t,
+          name: teamName,
+          players: updatedPlayers,
+        };
+      })
     );
   };
 
@@ -383,6 +478,20 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       return;
     }
 
+    // Validação de Capitães: Cada time deve ter exatamente 1 capitão selecionado
+    const teamsWithoutCaptain = teams.filter(
+      (t) => !t.captainId || !t.players.some((p) => p.id === t.captainId)
+    );
+
+    if (teamsWithoutCaptain.length > 0) {
+      setErrorMessage(
+        `Defina um capitão para cada equipe antes de iniciar (${teamsWithoutCaptain
+          .map((t) => t.colorName || t.defaultName)
+          .join(', ')} sem capitão selecionado).`
+      );
+      return;
+    }
+
     setIsSaving(true);
     setErrorMessage(null);
 
@@ -396,10 +505,12 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
         teams: teams.map((t) => ({
           name: t.name,
           colorHex: t.colorHex,
+          captainId: t.captainId || null,
           playerIds: t.players.map((p) => p.id),
           players: t.players.map((p) => ({
             playerId: p.id,
             isGoalkeeper: !!p.isGoalkeeper,
+            isCaptain: t.captainId === p.id,
           })),
         })),
       };
@@ -703,16 +814,36 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
 
             <div>
               <div className="flex items-center justify-between gap-2 mt-1 mb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <div
-                    className="w-3.5 h-3.5 rounded-full border border-white/20"
+                    className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
                     style={{ backgroundColor: team.colorHex }}
                   />
-                  <h3 className="font-display font-black text-base text-white">
-                    {team.name}
-                  </h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-display font-black text-base text-white truncate" title={team.name}>
+                        {team.name}
+                      </h3>
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/15 text-gray-300"
+                        style={{ backgroundColor: `${team.colorHex}33` }}
+                      >
+                        Colete {team.colorName}
+                      </span>
+                    </div>
+                    {team.captainId ? (
+                      <span className="text-[11px] text-amber-300 flex items-center gap-1 font-semibold mt-0.5">
+                        <Star className="w-2.5 h-2.5 fill-current" />
+                        <span>Capitão definido</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-gray-400 italic mt-0.5 block">
+                        Selecione o capitão abaixo ⭐
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs font-black px-2.5 py-0.5 rounded-full border bg-surface-50 text-gray-300 border-white/10">
+                <span className="text-xs font-black px-2.5 py-0.5 rounded-full border bg-surface-50 text-gray-300 border-white/10 shrink-0">
                   {team.players.length} {team.players.length === 1 ? 'jogador' : 'jogadores'}
                 </span>
               </div>
@@ -727,65 +858,91 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                     </span>
                   </div>
                 ) : (
-                  team.players.map((p, idx) => (
-                    <div
-                      key={p.id}
-                      className={cn(
-                        'flex items-center justify-between p-2 rounded-xl border text-xs group transition-all',
-                        p.isGoalkeeper
-                          ? 'bg-amber-500/10 border-amber-500/30'
-                          : 'bg-surface-200/60 border-white/5 hover:border-white/20'
-                      )}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 pr-1">
-                        <span className="w-5 h-5 rounded-lg bg-surface-50 text-gray-400 font-bold text-[10px] flex items-center justify-center shrink-0">
-                          {idx + 1}
-                        </span>
-                        <span className="font-semibold text-white truncate">
-                          {p.nickname || p.name}
-                        </span>
+                  team.players.map((p, idx) => {
+                    const isCaptain = team.captainId === p.id;
+
+                    return (
+                      <div
+                        key={p.id}
+                        className={cn(
+                          'flex items-center justify-between p-2 rounded-xl border text-xs group transition-all',
+                          isCaptain
+                            ? 'bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-400/30'
+                            : p.isGoalkeeper
+                            ? 'bg-amber-500/10 border-amber-500/30'
+                            : 'bg-surface-200/60 border-white/5 hover:border-white/20'
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-1">
+                          <span className="w-5 h-5 rounded-lg bg-surface-50 text-gray-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className={cn('font-semibold truncate', isCaptain ? 'text-amber-200' : 'text-white')}>
+                            {p.nickname || p.name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Botão de Capitão: [ ⭐ Capitão ] */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCaptain(team.id, p.id)}
+                            className={cn(
+                              'px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95',
+                              isCaptain
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm ring-1 ring-amber-400/40'
+                                : 'bg-surface-50 text-gray-400 border-white/10 hover:text-amber-300 hover:border-amber-500/30'
+                            )}
+                            title={
+                              isCaptain
+                                ? 'Capitão da equipe (clique para desmarcar)'
+                                : 'Definir como Capitão da equipe'
+                            }
+                          >
+                            <Star className={cn('w-2.5 h-2.5', isCaptain ? 'fill-current text-amber-300' : 'text-gray-400')} />
+                            <span>{isCaptain ? 'Capitão' : 'Capitão'}</span>
+                          </button>
+
+                          {/* Toggle Rápido: Linha / Goleiro */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleGoalkeeper(team.id, p.id)}
+                            className={cn(
+                              'px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95',
+                              p.isGoalkeeper
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-sm'
+                                : 'bg-surface-50 text-gray-400 border-white/10 hover:text-white hover:border-white/20'
+                            )}
+                            title={
+                              p.isGoalkeeper
+                                ? 'Goleiro da equipe (Imune ao Bola Murcha)'
+                                : 'Jogador de Linha'
+                            }
+                          >
+                            <span>{p.isGoalkeeper ? '🧤 Goleiro' : '⚽ Linha'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(p)}
+                            className="text-gray-500 hover:text-emerald-400 p-1 transition-colors"
+                            title="Editar atleta"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFromTeam(team.id, p.id)}
+                            className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
+                            title="Remover do time"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Toggle Rápido: Linha / Goleiro */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleGoalkeeper(team.id, p.id)}
-                          className={cn(
-                            'px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95',
-                            p.isGoalkeeper
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-sm'
-                              : 'bg-surface-50 text-gray-400 border-white/10 hover:text-white hover:border-white/20'
-                          )}
-                          title={
-                            p.isGoalkeeper
-                              ? 'Goleiro da equipe (Imune ao Bola Murcha)'
-                              : 'Jogador de Linha'
-                          }
-                        >
-                          <span>{p.isGoalkeeper ? '🧤 Goleiro' : '⚽ Linha'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(p)}
-                          className="text-gray-500 hover:text-emerald-400 p-1 transition-colors"
-                          title="Editar atleta"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFromTeam(team.id, p.id)}
-                          className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
-                          title="Remover do time"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

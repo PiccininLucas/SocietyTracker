@@ -5,6 +5,7 @@ export interface LivePlayer {
   avatarUrl?: string | null;
   isLoaned?: boolean;
   isGoalkeeper?: boolean;
+  isCaptain?: boolean;
   originalTeamId?: string;
 }
 
@@ -13,6 +14,7 @@ export interface LiveTeam {
   sessionId?: string;
   name: string;
   colorHex: string;
+  captainId?: string | null;
   players: LivePlayer[];
 }
 

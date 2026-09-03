@@ -30,8 +30,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS session_teams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    name VARCHAR(50) NOT NULL, -- Ex: 'Preto', 'Branco', 'Azul', 'Vermelho'
+    name VARCHAR(50) NOT NULL, -- Ex: 'Time Gabriel', 'Time Chitao', ou cor 'Time Preto'
     color_hex VARCHAR(7) DEFAULT '#333333',
+    captain_id UUID REFERENCES players(id),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
