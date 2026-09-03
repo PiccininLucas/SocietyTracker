@@ -284,11 +284,13 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
     scorerName?: string;
     assistName?: string;
   }) => {
-    const isHome = data.teamId === matchState.homeTeam.id;
-    const nextHomeScore = isHome ? matchState.homeScore + 1 : matchState.homeScore;
-    const nextAwayScore = !isHome ? matchState.awayScore + 1 : matchState.awayScore;
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    const isHome = norm(data.teamId) === norm(matchState.homeTeam.id);
+    const awardToHome = data.isOwnGoal ? !isHome : isHome;
+    const nextHomeScore = awardToHome ? (matchState.homeScore ?? 0) + 1 : (matchState.homeScore ?? 0);
+    const nextAwayScore = !awardToHome ? (matchState.awayScore ?? 0) + 1 : (matchState.awayScore ?? 0);
 
-    const scoringTeam = isHome ? matchState.homeTeam : matchState.awayTeam;
+    const scoringTeam = awardToHome ? matchState.homeTeam : matchState.awayTeam;
 
     const newEvent: LiveMatchEvent = {
       clientEventId: `event-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -353,10 +355,12 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
     soundFx.playClickBeep('low');
 
     const lastEvent = matchState.events[0];
-    const isHome = lastEvent.teamId === matchState.homeTeam.id;
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    const isHome = norm(lastEvent.teamId) === norm(matchState.homeTeam.id);
+    const awardToHome = lastEvent.isOwnGoal ? !isHome : isHome;
 
-    const nextHomeScore = isHome ? Math.max(0, matchState.homeScore - 1) : matchState.homeScore;
-    const nextAwayScore = !isHome ? Math.max(0, matchState.awayScore - 1) : matchState.awayScore;
+    const nextHomeScore = awardToHome ? Math.max(0, (matchState.homeScore ?? 0) - 1) : (matchState.homeScore ?? 0);
+    const nextAwayScore = !awardToHome ? Math.max(0, (matchState.awayScore ?? 0) - 1) : (matchState.awayScore ?? 0);
 
     const updatedEvents = matchState.events.slice(1);
 
@@ -488,17 +492,44 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
     }
   };
 
+  // Normalização e contagem real dos lances
+  const normalizeId = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+  const homeTeamId = normalizeId(matchState.homeTeam?.id);
+  const awayTeamId = normalizeId(matchState.awayTeam?.id);
+
+  // Fonte da verdade: Se houver eventos registrados, calcula os gols reais (inclusive gols contra)
+  const calculatedHomeScore = matchState.events.filter((e) => {
+    const tId = normalizeId(e.teamId);
+    return (!e.isOwnGoal && tId === homeTeamId) || (e.isOwnGoal && tId === awayTeamId);
+  }).length;
+
+  const calculatedAwayScore = matchState.events.filter((e) => {
+    const tId = normalizeId(e.teamId);
+    return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
+  }).length;
+
+  const displayHomeScore =
+    matchState.events.length > 0 ? calculatedHomeScore : (matchState.homeScore ?? 0);
+  const displayAwayScore =
+    matchState.events.length > 0 ? calculatedAwayScore : (matchState.awayScore ?? 0);
+
   // Determina o time vencedor para exibição do modal
   const winningTeam =
-    (matchState.homeScore ?? 0) > (matchState.awayScore ?? 0)
+    displayHomeScore > displayAwayScore
       ? matchState.homeTeam
-      : (matchState.awayScore ?? 0) > (matchState.homeScore ?? 0)
+      : displayAwayScore > displayHomeScore
       ? matchState.awayTeam
       : null;
 
-  // Lances separados por time para exibição compacta nos cards
-  const homeGoals = matchState.events.filter((e) => e.teamId === matchState.homeTeam.id);
-  const awayGoals = matchState.events.filter((e) => e.teamId === matchState.awayTeam.id);
+  // Lances separados por time pontuado para exibição compacta nos cards
+  const homeGoals = matchState.events.filter((e) => {
+    const tId = normalizeId(e.teamId);
+    return (!e.isOwnGoal && tId === homeTeamId) || (e.isOwnGoal && tId === awayTeamId);
+  });
+  const awayGoals = matchState.events.filter((e) => {
+    const tId = normalizeId(e.teamId);
+    return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
+  });
 
   return (
     <div className="w-full max-w-xl mx-auto px-3.5 sm:px-4 py-4 space-y-4 pb-20 select-none">
@@ -584,7 +615,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
 
           {/* Número Gigante do Placar */}
           <div className="my-2 font-display text-6xl sm:text-7xl font-black text-white tracking-tight drop-shadow-md">
-            {matchState.homeScore ?? 0}
+            {displayHomeScore}
           </div>
 
           {/* Lances do Time Mandante */}
@@ -644,7 +675,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
 
           {/* Número Gigante do Placar */}
           <div className="my-2 font-display text-6xl sm:text-7xl font-black text-white tracking-tight drop-shadow-md">
-            {matchState.awayScore ?? 0}
+            {displayAwayScore}
           </div>
 
           {/* Lances do Time Visitante */}
@@ -839,7 +870,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
                 Placar Final
               </div>
               <div className="font-display text-4xl font-black text-white">
-                {matchState.homeTeam.name} {matchState.homeScore ?? 0} x {matchState.awayScore ?? 0}{' '}
+                {matchState.homeTeam.name} {displayHomeScore} x {displayAwayScore}{' '}
                 {matchState.awayTeam.name}
               </div>
               <div className="text-xs text-gray-400 mt-2">

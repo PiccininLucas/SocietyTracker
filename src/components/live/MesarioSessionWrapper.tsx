@@ -114,6 +114,8 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
         body: JSON.stringify({
           durationSeconds: finishedMatch.durationSeconds,
           reason: finishedMatch.endReason || 'manual',
+          homeScore: finishedMatch.homeScore,
+          awayScore: finishedMatch.awayScore,
         }),
       });
     } catch {

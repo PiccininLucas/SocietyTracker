@@ -659,6 +659,108 @@ describe('Use Cases Business Logic', () => {
         : `⚽ ${ownGoalEv.scorerName}${ownGoalEv.assistName ? ` (${ownGoalEv.assistName})` : ''}`;
       assert.equal(formattedOwn, '⚠️ Gol Contra');
     });
+
+    it('should recalculate 2x1 score from events when static score is stale at 2x0', () => {
+      // Simula partida com placar estático 2x0, mas com gol do Time Azul (Paulinho) nos eventos
+      const summaryWithStaleScore: MatchSummary = {
+        matchId: 'm-200',
+        sessionId: 's-1',
+        sessionDate: '2026-09-03',
+        homeTeamId: 't-vermelho',
+        homeTeamName: 'Time Vermelho',
+        homeTeamColor: '#ef4444',
+        homeScore: 2,
+        awayTeamId: 't-azul',
+        awayTeamName: 'Time Azul',
+        awayTeamColor: '#3b82f6',
+        awayScore: 0, // Estático defasado!
+        durationSeconds: 300,
+        endReason: 'two_goals',
+        status: 'finished',
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        events: [
+          {
+            id: 'ev-1',
+            matchId: 'm-200',
+            teamId: 't-vermelho',
+            scorerId: 'p-1',
+            scorerName: 'Pedro',
+            eventTimeSeconds: 60,
+            isOwnGoal: false,
+          },
+          {
+            id: 'ev-2',
+            matchId: 'm-200',
+            teamId: 't-azul',
+            scorerId: 'p-2',
+            scorerName: 'Paulinho',
+            assistId: 'p-3',
+            assistName: 'Gabs',
+            eventTimeSeconds: 120,
+            isOwnGoal: false,
+          },
+          {
+            id: 'ev-3',
+            matchId: 'm-200',
+            teamId: 't-vermelho',
+            scorerId: 'p-4',
+            scorerName: 'Benzema',
+            eventTimeSeconds: 180,
+            isOwnGoal: false,
+          },
+        ],
+      };
+
+      const events = summaryWithStaleScore.events || [];
+      const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+      const homeTeamId = norm(summaryWithStaleScore.homeTeamId);
+      const awayTeamId = norm(summaryWithStaleScore.awayTeamId);
+
+      // Fonte da verdade recalculada a partir dos eventos
+      const calcHome = events.filter((e) => {
+        const tId = norm(e.teamId);
+        return (!e.isOwnGoal && tId === homeTeamId) || (e.isOwnGoal && tId === awayTeamId);
+      }).length;
+
+      const calcAway = events.filter((e) => {
+        const tId = norm(e.teamId);
+        return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
+      }).length;
+
+      const finalHomeScore = events.length > 0 ? calcHome : (summaryWithStaleScore.homeScore ?? 0);
+      const finalAwayScore = events.length > 0 ? calcAway : (summaryWithStaleScore.awayScore ?? 0);
+
+      assert.equal(finalHomeScore, 2);
+      assert.equal(finalAwayScore, 1);
+      assert.equal(`${finalHomeScore} x ${finalAwayScore}`, '2 x 1');
+    });
+
+    it('should correctly register away team goal with UUID casing/whitespace differences', async () => {
+      const matchRepo = new MockMatchRepository();
+      const match = await matchRepo.create(
+        new Match({
+          id: 'm-uuid-test',
+          sessionId: 's-1',
+          homeTeamId: '8f0a2d48-8123-4bb1-b66a-49339e123456',
+          awayTeamId: 'c4b9f32a-03bf-4b9b-ba23-952d7e0081d0',
+        })
+      );
+
+      const useCase = new RegisterGoalUseCase(matchRepo);
+      // Input com letras maiúsculas e espaços extras
+      const result = await useCase.execute({
+        matchId: 'm-uuid-test',
+        teamId: '  C4B9F32A-03BF-4B9B-BA23-952D7E0081D0  ',
+        scorerId: 'p-paulinho',
+        assistId: 'p-gabs',
+        eventTimeSeconds: 150,
+      });
+
+      assert.equal(result.match.homeScore, 0);
+      assert.equal(result.match.awayScore, 1);
+      assert.equal(result.match.status, 'ongoing');
+    });
   });
 });
 

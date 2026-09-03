@@ -13,7 +13,12 @@ export class RegisterGoalUseCase {
       throw new EntityNotFoundError('Partida', input.matchId);
     }
 
-    if (match.homeTeamId !== input.teamId && match.awayTeamId !== input.teamId) {
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    const homeId = norm(match.homeTeamId);
+    const awayId = norm(match.awayTeamId);
+    const inputTeamId = norm(input.teamId);
+
+    if (homeId !== inputTeamId && awayId !== inputTeamId) {
       throw new Error('O time informado não pertence a esta partida.');
     }
 
@@ -27,8 +32,8 @@ export class RegisterGoalUseCase {
       isOwnGoal: input.isOwnGoal ?? false,
     });
 
-    // Registra o gol na entidade da partida (aplica regra dos 2 gols)
-    const result = match.registerGoal(input.teamId, input.eventTimeSeconds);
+    // Registra o gol na entidade da partida (aplica regra dos 2 gols e trata gol contra)
+    const result = match.registerGoal(input.teamId, input.eventTimeSeconds, input.isOwnGoal ?? false);
 
     // Persiste o evento e a partida atualizada
     const savedEvent = await this.matchRepository.addEvent(event);

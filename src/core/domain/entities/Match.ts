@@ -96,7 +96,16 @@ export class Match {
     return this.props.finishedAt;
   }
 
-  public registerGoal(teamId: string, currentDurationSeconds?: number): { finished: boolean; reason?: MatchEndReason } {
+  public setScores(homeScore: number, awayScore: number): void {
+    this.props.homeScore = Math.max(0, homeScore);
+    this.props.awayScore = Math.max(0, awayScore);
+  }
+
+  public registerGoal(
+    teamId: string,
+    currentDurationSeconds?: number,
+    isOwnGoal = false
+  ): { finished: boolean; reason?: MatchEndReason } {
     if (this.isFinished) {
       throw new MatchAlreadyFinishedError('Partida já encerrada.');
     }
@@ -108,12 +117,25 @@ export class Match {
       }
     }
 
-    if (teamId === this.props.homeTeamId) {
-      this.props.homeScore = (this.props.homeScore ?? 0) + 1;
-    } else if (teamId === this.props.awayTeamId) {
-      this.props.awayScore = (this.props.awayScore ?? 0) + 1;
-    } else {
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    const normTeamId = norm(teamId);
+    const normHomeId = norm(this.props.homeTeamId);
+    const normAwayId = norm(this.props.awayTeamId);
+
+    const isHome = normTeamId === normHomeId;
+    const isAway = normTeamId === normAwayId;
+
+    if (!isHome && !isAway) {
       throw new Error('Time informado não pertence a esta partida.');
+    }
+
+    // Se foi gol contra, o ponto é creditado para a equipe adversária
+    const awardToHome = isOwnGoal ? isAway : isHome;
+
+    if (awardToHome) {
+      this.props.homeScore = (this.props.homeScore ?? 0) + 1;
+    } else {
+      this.props.awayScore = (this.props.awayScore ?? 0) + 1;
     }
 
     // Regra de Vitória: 2 gols

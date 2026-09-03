@@ -227,7 +227,50 @@ export class SupabaseMatchRepository implements IMatchRepository {
       throw new Error(`Erro ao registrar evento de jogo: ${error?.message}`);
     }
 
+    // Sincroniza o placar recalculado diretamente na tabela matches
+    await this.syncMatchScoresFromEvents(event.matchId);
+
     return this.mapEventToDomain(data as MatchEventRow);
+  }
+
+  private async syncMatchScoresFromEvents(matchId: string): Promise<void> {
+    try {
+      const { data: matchData } = await this.client
+        .from('matches')
+        .select('home_team_id, away_team_id')
+        .eq('id', matchId)
+        .maybeSingle();
+
+      if (!matchData) return;
+
+      const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+      const homeTeamId = norm(matchData.home_team_id);
+      const awayTeamId = norm(matchData.away_team_id);
+
+      const { data: eventsData } = await this.client
+        .from('match_events')
+        .select('team_id, is_own_goal')
+        .eq('match_id', matchId);
+
+      const events = eventsData || [];
+      const homeScore = events.filter((e: any) => {
+        const tId = norm(e.team_id);
+        return (!e.is_own_goal && tId === homeTeamId) || (e.is_own_goal && tId === awayTeamId);
+      }).length;
+
+      const awayScore = events.filter((e: any) => {
+        const tId = norm(e.team_id);
+        return (!e.is_own_goal && tId === awayTeamId) || (e.is_own_goal && tId === homeTeamId);
+      }).length;
+
+      await executeWithSchemaFallback(
+        'matches',
+        { home_score: homeScore, away_score: awayScore },
+        (cleanPayload) => this.client.from('matches').update(cleanPayload).eq('id', matchId)
+      );
+    } catch {
+      // Falha não-bloqueante
+    }
   }
 
   public async getEventsByMatchId(matchId: string): Promise<MatchEvent[]> {
@@ -473,6 +516,26 @@ export class SupabaseMatchRepository implements IMatchRepository {
 
     return rows.map((row) => {
       const teamInfo = matchTeamMap.get(row.match_id);
+      const matchEvents = eventsByMatch.get(row.match_id) || [];
+
+      const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+      const homeTeamId = norm(teamInfo?.homeTeamId || row.home_team_id);
+      const awayTeamId = norm(teamInfo?.awayTeamId || row.away_team_id);
+
+      // Recalcula o placar a partir dos eventos reais da partida (fonte da verdade)
+      const calculatedHomeScore = matchEvents.filter((e) => {
+        const tId = norm(e.teamId);
+        return (!e.isOwnGoal && tId === homeTeamId) || (e.isOwnGoal && tId === awayTeamId);
+      }).length;
+
+      const calculatedAwayScore = matchEvents.filter((e) => {
+        const tId = norm(e.teamId);
+        return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
+      }).length;
+
+      const homeScore = matchEvents.length > 0 ? calculatedHomeScore : (row.home_score ?? 0);
+      const awayScore = matchEvents.length > 0 ? calculatedAwayScore : (row.away_score ?? 0);
+
       return {
         matchId: row.match_id,
         sessionId: row.session_id,
@@ -480,17 +543,17 @@ export class SupabaseMatchRepository implements IMatchRepository {
         homeTeamId: teamInfo?.homeTeamId || row.home_team_id,
         homeTeamName: row.home_team_name,
         homeTeamColor: row.home_team_color,
-        homeScore: row.home_score ?? 0,
+        homeScore,
         awayTeamId: teamInfo?.awayTeamId || row.away_team_id,
         awayTeamName: row.away_team_name,
         awayTeamColor: row.away_team_color,
-        awayScore: row.away_score ?? 0,
+        awayScore,
         durationSeconds: row.duration_seconds ?? 0,
         endReason: row.end_reason,
         status: row.status,
         startedAt: row.started_at,
         finishedAt: row.finished_at,
-        events: eventsByMatch.get(row.match_id) || [],
+        events: matchEvents,
       };
     });
   }

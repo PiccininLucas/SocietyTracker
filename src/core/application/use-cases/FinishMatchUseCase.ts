@@ -16,6 +16,35 @@ export class FinishMatchUseCase {
       match.updateDuration(input.durationSeconds);
     }
 
+    // Se houver placares fornecidos diretamente na finalização, aplica
+    if (input.homeScore !== undefined && input.awayScore !== undefined) {
+      match.setScores(input.homeScore, input.awayScore);
+    } else {
+      // Sincroniza com os eventos da partida para garantir que o placar final não seja sobrescrito com dados defasados
+      try {
+        const events = await this.matchRepository.getEventsByMatchId(input.matchId);
+        if (events && events.length > 0) {
+          const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+          const homeTeamId = norm(match.homeTeamId);
+          const awayTeamId = norm(match.awayTeamId);
+
+          const calcHome = events.filter((e) => {
+            const tId = norm(e.teamId);
+            return (!e.isOwnGoal && tId === homeTeamId) || (e.isOwnGoal && tId === awayTeamId);
+          }).length;
+
+          const calcAway = events.filter((e) => {
+            const tId = norm(e.teamId);
+            return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
+          }).length;
+
+          match.setScores(calcHome, calcAway);
+        }
+      } catch {
+        // Ignora erro e mantém placar atual do objeto match
+      }
+    }
+
     match.finish(input.reason || 'manual');
 
     const updatedMatch = await this.matchRepository.update(match);

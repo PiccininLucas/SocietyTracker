@@ -22,6 +22,8 @@ export const POST: APIRoute = async ({ request, params }) => {
       matchId,
       durationSeconds: body.durationSeconds,
       reason: body.reason || 'manual',
+      homeScore: typeof body.homeScore === 'number' ? body.homeScore : undefined,
+      awayScore: typeof body.awayScore === 'number' ? body.awayScore : undefined,
     });
 
     return new Response(JSON.stringify(result), {

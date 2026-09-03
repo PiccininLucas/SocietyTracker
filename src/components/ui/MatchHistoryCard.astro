@@ -7,8 +7,26 @@ export interface Props {
 
 const { match } = Astro.props;
 
-const homeScore = match.homeScore ?? 0;
-const awayScore = match.awayScore ?? 0;
+const events = match.events || [];
+
+const normalizeId = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+const homeTeamId = normalizeId(match.homeTeamId);
+const awayTeamId = normalizeId(match.awayTeamId);
+
+// Fonte da verdade: Se existirem eventos carregados, calcula o placar a partir da contagem real de eventos
+const calculatedHomeScore = events.filter((e) => {
+  const tId = normalizeId(e.teamId);
+  return (!e.isOwnGoal && tId === homeTeamId) || (e.isOwnGoal && tId === awayTeamId);
+}).length;
+
+const calculatedAwayScore = events.filter((e) => {
+  const tId = normalizeId(e.teamId);
+  return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
+}).length;
+
+const homeScore = events.length > 0 ? calculatedHomeScore : (match.homeScore ?? 0);
+const awayScore = events.length > 0 ? calculatedAwayScore : (match.awayScore ?? 0);
+
 const isHomeWinner = homeScore > awayScore;
 const isAwayWinner = awayScore > homeScore;
 const isDraw = homeScore === awayScore;
@@ -29,14 +47,16 @@ const formatTime = (isoString?: string | null) => {
   }
 };
 
-// Separação dos eventos por time
-const events = match.events || [];
-const homeEvents = match.homeTeamId
-  ? events.filter((e) => e.teamId === match.homeTeamId)
-  : events;
-const awayEvents = match.awayTeamId
-  ? events.filter((e) => e.teamId === match.awayTeamId)
-  : [];
+// Separação dos lances por time que foi pontuado (tratando gol contra para o adversário)
+const homeEvents = events.filter((e) => {
+  const tId = normalizeId(e.teamId);
+  return (!e.isOwnGoal && tId === homeTeamId) || (e.isOwnGoal && tId === awayTeamId);
+});
+
+const awayEvents = events.filter((e) => {
+  const tId = normalizeId(e.teamId);
+  return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
+});
 
 const totalGoals = homeScore + awayScore;
 const hasEvents = events.length > 0;

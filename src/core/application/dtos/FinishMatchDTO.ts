@@ -4,6 +4,8 @@ export interface FinishMatchInput {
   matchId: string;
   durationSeconds?: number;
   reason?: MatchEndReason;
+  homeScore?: number;
+  awayScore?: number;
 }
 
 export interface FinishMatchOutput {
