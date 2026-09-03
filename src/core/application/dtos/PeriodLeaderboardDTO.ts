@@ -9,7 +9,9 @@ export interface LeaderboardRankedItemDTO {
   totalGoals: number;
   totalAssists: number;
   totalContributions: number;
+  totalMatchesPlayed?: number;
   totalSessionsPlayed: number;
+  goalsPerMatch?: number;
 }
 
 export interface GetPeriodLeaderboardInputDTO {

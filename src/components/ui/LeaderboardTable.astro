@@ -58,8 +58,11 @@ const { players = [] } = Astro.props;
         ) : (
           players.map((player, index) => {
             const rank = index + 1;
-            const avgGoals = player.totalSessionsPlayed > 0
-              ? (player.totalGoals / player.totalSessionsPlayed).toFixed(2)
+            const matchesCount = player.totalMatchesPlayed ?? player.totalSessionsPlayed;
+            const avgGoals = player.goalsPerMatch !== undefined
+              ? player.goalsPerMatch.toFixed(2)
+              : matchesCount > 0
+              ? (player.totalGoals / matchesCount).toFixed(2)
               : '0.00';
 
             return (
@@ -131,9 +134,9 @@ const { players = [] } = Astro.props;
                   </span>
                 </td>
 
-                <!-- Jogos / Rodadas -->
-                <td class="py-3.5 px-3 text-center text-xs text-gray-400 font-semibold">
-                  {player.totalSessionsPlayed}
+                <!-- Jogos -->
+                <td class="py-3.5 px-3 text-center text-xs text-gray-300 font-semibold">
+                  {matchesCount}
                 </td>
 
                 <!-- Média Gols/Jogo -->

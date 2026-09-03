@@ -119,7 +119,7 @@ const hasPodium = leaderboard.length > 0 && topScorer;
               avatarUrl={topScorer.avatarUrl}
               statValue={topScorer.totalGoals}
               statLabel="Gols Marcados"
-              secondaryStat={`Média de ${(topScorer.totalGoals / (topScorer.totalSessionsPlayed || 1)).toFixed(1)} gols/rodada`}
+              secondaryStat={`Média de ${topScorer.goalsPerMatch.toFixed(2)} gols/jogo (${topScorer.totalMatchesPlayed} jogos)`}
             />
           </div>
 

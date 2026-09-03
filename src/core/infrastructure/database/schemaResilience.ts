@@ -20,6 +20,7 @@ ALTER TABLE session_teams ADD COLUMN IF NOT EXISTS captain_id UUID REFERENCES pl
 -- 3. Colunas na tabela session_team_players
 ALTER TABLE session_team_players ADD COLUMN IF NOT EXISTS is_goalkeeper BOOLEAN DEFAULT FALSE;
 ALTER TABLE session_team_players ADD COLUMN IF NOT EXISTS is_loaned BOOLEAN DEFAULT FALSE;
+ALTER TABLE session_team_players ADD COLUMN IF NOT EXISTS is_captain BOOLEAN DEFAULT FALSE;
 
 -- 4. Colunas na tabela matches
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS duration_seconds INTEGER DEFAULT 0;

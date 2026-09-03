@@ -43,7 +43,9 @@ interface LeaderboardRow {
   total_goals: number;
   total_assists: number;
   total_contributions: number;
-  total_sessions_played: number;
+  total_matches_played?: number;
+  total_sessions_played?: number;
+  goals_per_match?: number;
 }
 
 interface MatchSummaryRow {
@@ -296,16 +298,29 @@ export class SupabaseMatchRepository implements IMatchRepository {
       throw new Error(`Erro ao buscar classificação: ${error.message}`);
     }
 
-    return (data as LeaderboardRow[] || []).map((row) => ({
-      playerId: row.player_id,
-      name: row.name,
-      nickname: row.nickname,
-      avatarUrl: row.avatar_url,
-      totalGoals: row.total_goals,
-      totalAssists: row.total_assists,
-      totalContributions: row.total_contributions,
-      totalSessionsPlayed: row.total_sessions_played,
-    }));
+    return (data as LeaderboardRow[] || []).map((row) => {
+      const goals = Number(row.total_goals) || 0;
+      const matchesPlayed = Number(row.total_matches_played ?? row.total_sessions_played) || 0;
+      const goalsPerMatch =
+        row.goals_per_match !== undefined && row.goals_per_match !== null
+          ? Number(row.goals_per_match)
+          : matchesPlayed > 0
+          ? Number((goals / matchesPlayed).toFixed(2))
+          : 0;
+
+      return {
+        playerId: row.player_id,
+        name: row.name,
+        nickname: row.nickname,
+        avatarUrl: row.avatar_url,
+        totalGoals: goals,
+        totalAssists: Number(row.total_assists) || 0,
+        totalContributions: Number(row.total_contributions) || 0,
+        totalMatchesPlayed: matchesPlayed,
+        totalSessionsPlayed: Number(row.total_sessions_played) || 0,
+        goalsPerMatch,
+      };
+    });
   }
 
   public async getLeaderboardByDateRange(
@@ -346,7 +361,7 @@ export class SupabaseMatchRepository implements IMatchRepository {
 
     const { data: matchRows, error: mErr } = await this.client
       .from('matches')
-      .select('id, session_id, match_events(id, scorer_id, assist_id, is_own_goal)')
+      .select('id, session_id, home_team_id, away_team_id, status, match_events(id, scorer_id, assist_id, is_own_goal)')
       .in('session_id', sessionIds);
 
     if (mErr) {
@@ -363,8 +378,11 @@ export class SupabaseMatchRepository implements IMatchRepository {
         totalGoals: number;
         totalAssists: number;
         sessionIds: Set<string>;
+        matchIds: Set<string>;
       }
     >();
+
+    const playerTeamsMap = new Map<string, Set<string>>();
 
     for (const team of teamRows || []) {
       for (const stp of team.session_team_players || []) {
@@ -379,13 +397,28 @@ export class SupabaseMatchRepository implements IMatchRepository {
             totalGoals: 0,
             totalAssists: 0,
             sessionIds: new Set<string>(),
+            matchIds: new Set<string>(),
           });
         }
         playerMap.get(p.id)!.sessionIds.add(team.session_id);
+
+        if (!playerTeamsMap.has(p.id)) {
+          playerTeamsMap.set(p.id, new Set<string>());
+        }
+        playerTeamsMap.get(p.id)!.add(team.id);
       }
     }
 
     for (const match of matchRows || []) {
+      const isFinished = !match.status || match.status === 'finished';
+      if (isFinished) {
+        for (const [playerId, teamIds] of playerTeamsMap.entries()) {
+          if (teamIds.has(match.home_team_id) || teamIds.has(match.away_team_id)) {
+            playerMap.get(playerId)?.matchIds.add(match.id);
+          }
+        }
+      }
+
       for (const ev of (match as any).match_events || []) {
         if (ev.scorer_id && !ev.is_own_goal && playerMap.has(ev.scorer_id)) {
           playerMap.get(ev.scorer_id)!.totalGoals += 1;
@@ -396,16 +429,22 @@ export class SupabaseMatchRepository implements IMatchRepository {
       }
     }
 
-    const result: LeaderboardItem[] = Array.from(playerMap.values()).map((p) => ({
-      playerId: p.playerId,
-      name: p.name,
-      nickname: p.nickname,
-      avatarUrl: p.avatarUrl,
-      totalGoals: p.totalGoals,
-      totalAssists: p.totalAssists,
-      totalContributions: p.totalGoals + p.totalAssists,
-      totalSessionsPlayed: p.sessionIds.size,
-    }));
+    const result: LeaderboardItem[] = Array.from(playerMap.values()).map((p) => {
+      const totalMatches = p.matchIds.size;
+      const goalsPerMatch = totalMatches > 0 ? Number((p.totalGoals / totalMatches).toFixed(2)) : 0;
+      return {
+        playerId: p.playerId,
+        name: p.name,
+        nickname: p.nickname,
+        avatarUrl: p.avatarUrl,
+        totalGoals: p.totalGoals,
+        totalAssists: p.totalAssists,
+        totalContributions: p.totalGoals + p.totalAssists,
+        totalMatchesPlayed: totalMatches,
+        totalSessionsPlayed: p.sessionIds.size,
+        goalsPerMatch,
+      };
+    });
 
     return result.sort((a, b) => {
       if (b.totalContributions !== a.totalContributions) {

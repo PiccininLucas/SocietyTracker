@@ -61,7 +61,9 @@ export class GetPeriodLeaderboardUseCase {
         totalGoals: item.totalGoals,
         totalAssists: item.totalAssists,
         totalContributions: item.totalContributions,
+        totalMatchesPlayed: item.totalMatchesPlayed ?? item.totalSessionsPlayed,
         totalSessionsPlayed: item.totalSessionsPlayed,
+        goalsPerMatch: item.goalsPerMatch,
       }));
 
     // 2. Tabela Artilheiro (Gols)
@@ -75,19 +77,30 @@ export class GetPeriodLeaderboardUseCase {
         }
         return a.name.localeCompare(b.name);
       })
-      .map((item, index): LeaderboardRankedItemDTO => ({
-        rank: index + 1,
-        playerId: item.playerId,
-        name: item.name,
-        nickname: item.nickname,
-        avatarUrl: item.avatarUrl,
-        value: item.totalGoals,
-        secondaryInfo: `${item.totalSessionsPlayed} rodada${item.totalSessionsPlayed !== 1 ? 's' : ''}`,
-        totalGoals: item.totalGoals,
-        totalAssists: item.totalAssists,
-        totalContributions: item.totalContributions,
-        totalSessionsPlayed: item.totalSessionsPlayed,
-      }));
+      .map((item, index): LeaderboardRankedItemDTO => {
+        const matchesCount = item.totalMatchesPlayed ?? item.totalSessionsPlayed;
+        const avgGoals = item.goalsPerMatch !== undefined
+          ? item.goalsPerMatch.toFixed(2)
+          : matchesCount > 0
+          ? (item.totalGoals / matchesCount).toFixed(2)
+          : '0.00';
+
+        return {
+          rank: index + 1,
+          playerId: item.playerId,
+          name: item.name,
+          nickname: item.nickname,
+          avatarUrl: item.avatarUrl,
+          value: item.totalGoals,
+          secondaryInfo: `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''} • ${avgGoals} G/J`,
+          totalGoals: item.totalGoals,
+          totalAssists: item.totalAssists,
+          totalContributions: item.totalContributions,
+          totalMatchesPlayed: matchesCount,
+          totalSessionsPlayed: item.totalSessionsPlayed,
+          goalsPerMatch: Number(avgGoals),
+        };
+      });
 
     // 3. Tabela Garçom (Assistências)
     const sortedByAssists = [...items]
@@ -100,19 +113,24 @@ export class GetPeriodLeaderboardUseCase {
         }
         return a.name.localeCompare(b.name);
       })
-      .map((item, index): LeaderboardRankedItemDTO => ({
-        rank: index + 1,
-        playerId: item.playerId,
-        name: item.name,
-        nickname: item.nickname,
-        avatarUrl: item.avatarUrl,
-        value: item.totalAssists,
-        secondaryInfo: `${item.totalSessionsPlayed} rodada${item.totalSessionsPlayed !== 1 ? 's' : ''}`,
-        totalGoals: item.totalGoals,
-        totalAssists: item.totalAssists,
-        totalContributions: item.totalContributions,
-        totalSessionsPlayed: item.totalSessionsPlayed,
-      }));
+      .map((item, index): LeaderboardRankedItemDTO => {
+        const matchesCount = item.totalMatchesPlayed ?? item.totalSessionsPlayed;
+        return {
+          rank: index + 1,
+          playerId: item.playerId,
+          name: item.name,
+          nickname: item.nickname,
+          avatarUrl: item.avatarUrl,
+          value: item.totalAssists,
+          secondaryInfo: `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''}`,
+          totalGoals: item.totalGoals,
+          totalAssists: item.totalAssists,
+          totalContributions: item.totalContributions,
+          totalMatchesPlayed: matchesCount,
+          totalSessionsPlayed: item.totalSessionsPlayed,
+          goalsPerMatch: item.goalsPerMatch,
+        };
+      });
 
     return {
       periodType: input.type,

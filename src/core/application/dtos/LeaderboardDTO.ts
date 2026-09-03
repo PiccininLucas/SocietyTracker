@@ -7,5 +7,7 @@ export interface LeaderboardItemDTO {
   totalGoals: number;
   totalAssists: number;
   totalContributions: number;
+  totalMatchesPlayed: number;
   totalSessionsPlayed: number;
+  goalsPerMatch: number;
 }

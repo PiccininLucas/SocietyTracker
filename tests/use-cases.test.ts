@@ -6,6 +6,7 @@ import { FinishMatchUseCase } from '../src/core/application/use-cases/FinishMatc
 import { TransferPlayerUseCase } from '../src/core/application/use-cases/TransferPlayerUseCase.ts';
 import { GetRoundHighlightsUseCase } from '../src/core/application/use-cases/GetRoundHighlightsUseCase.ts';
 import { GetPeriodLeaderboardUseCase } from '../src/core/application/use-cases/GetPeriodLeaderboardUseCase.ts';
+import { GetLeaderboardUseCase } from '../src/core/application/use-cases/GetLeaderboardUseCase.ts';
 import { UpdatePlayerUseCase } from '../src/core/application/use-cases/UpdatePlayerUseCase.ts';
 import { CreateSessionUseCase } from '../src/core/application/use-cases/CreateSessionUseCase.ts';
 import { UpdateSessionTeamsUseCase } from '../src/core/application/use-cases/UpdateSessionTeamsUseCase.ts';
@@ -88,18 +89,21 @@ class MockMatchRepository implements IMatchRepository {
     return this.events.filter((e) => e.matchId === matchId);
   }
 
+  public customLeaderboard: LeaderboardItem[] = [];
+
   async getMatchesSummary(_sessionId?: string): Promise<MatchSummary[]> {
     return [];
   }
 
   async getLeaderboard(): Promise<LeaderboardItem[]> {
-    return [];
+    return this.customLeaderboard;
   }
 
   async getLeaderboardByDateRange(
     _startDate?: string,
     _endDate?: string
   ): Promise<LeaderboardItem[]> {
+    if (this.customLeaderboard.length > 0) return this.customLeaderboard;
     return [
       {
         playerId: 'p-1',
@@ -109,7 +113,9 @@ class MockMatchRepository implements IMatchRepository {
         totalGoals: 5,
         totalAssists: 3,
         totalContributions: 8,
+        totalMatchesPlayed: 10,
         totalSessionsPlayed: 2,
+        goalsPerMatch: 0.5,
       },
       {
         playerId: 'p-2',
@@ -119,7 +125,9 @@ class MockMatchRepository implements IMatchRepository {
         totalGoals: 6,
         totalAssists: 0,
         totalContributions: 6,
+        totalMatchesPlayed: 8,
         totalSessionsPlayed: 2,
+        goalsPerMatch: 0.75,
       },
       {
         playerId: 'p-3',
@@ -129,7 +137,9 @@ class MockMatchRepository implements IMatchRepository {
         totalGoals: 1,
         totalAssists: 6,
         totalContributions: 7,
+        totalMatchesPlayed: 6,
         totalSessionsPlayed: 2,
+        goalsPerMatch: 0.17,
       },
     ];
   }
@@ -924,6 +934,55 @@ describe('Use Cases Business Logic', () => {
         () => updateUseCase.execute({ sessionId: 's-1', teams: [{ id: 't-1', name: '  ', players: [] }] }),
         /Nome do time não pode ser vazio/
       );
+    });
+  });
+
+  describe('GetLeaderboardUseCase (Matches Count & Goals Per Match)', () => {
+    it('should accurately compute matchesPlayed and goalsPerMatch (e.g. Buzz with 2 goals in 4 matches = 0.50 G/J)', async () => {
+      const matchRepo = new MockMatchRepository();
+      matchRepo.customLeaderboard = [
+        {
+          playerId: 'p-buzz',
+          name: 'Buzz Lightyear',
+          nickname: 'Buzz',
+          avatarUrl: null,
+          totalGoals: 2,
+          totalAssists: 1,
+          totalContributions: 3,
+          totalMatchesPlayed: 4, // 4 partidas disputadas (dois 0x0, um 2x1, um 1x1)
+          totalSessionsPlayed: 1,
+          goalsPerMatch: 0.50,
+        },
+        {
+          playerId: 'p-woody',
+          name: 'Woody',
+          nickname: null,
+          avatarUrl: null,
+          totalGoals: 0,
+          totalAssists: 0,
+          totalContributions: 0,
+          totalMatchesPlayed: 3,
+          totalSessionsPlayed: 1,
+          goalsPerMatch: 0.00,
+        },
+      ];
+
+      const useCase = new GetLeaderboardUseCase(matchRepo);
+      const result = await useCase.execute();
+
+      assert.equal(result.length, 2);
+
+      const buzz = result.find((p) => p.playerId === 'p-buzz');
+      assert.ok(buzz);
+      assert.equal(buzz.totalGoals, 2);
+      assert.equal(buzz.totalMatchesPlayed, 4);
+      assert.equal(buzz.goalsPerMatch, 0.5);
+
+      const woody = result.find((p) => p.playerId === 'p-woody');
+      assert.ok(woody);
+      assert.equal(woody.totalGoals, 0);
+      assert.equal(woody.totalMatchesPlayed, 3);
+      assert.equal(woody.goalsPerMatch, 0);
     });
   });
 });
