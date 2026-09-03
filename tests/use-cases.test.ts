@@ -95,6 +95,10 @@ class MockMatchRepository implements IMatchRepository {
     return [];
   }
 
+  async getMatchById(_matchId: string): Promise<MatchSummary | null> {
+    return null;
+  }
+
   async getLeaderboard(): Promise<LeaderboardItem[]> {
     return this.customLeaderboard;
   }
@@ -843,6 +847,149 @@ describe('Use Cases Business Logic', () => {
       const captainPlayer = team1.players.find((p) => p.playerId === 'p-gabriel');
       assert.ok(captainPlayer);
       assert.equal(captainPlayer.isCaptain, true);
+    });
+
+    it('should correctly structure match lineups, player badges, and individual goals/assists', () => {
+      const matchDetails: MatchSummary = {
+        matchId: 'm-300',
+        sessionId: 's-1',
+        sessionDate: '2026-09-03',
+        homeTeamId: 't-preto',
+        homeTeamName: 'Time Finazzi',
+        homeTeamColor: '#10b981',
+        homeScore: 2,
+        awayTeamId: 't-branco',
+        awayTeamName: 'Time Chitão',
+        awayTeamColor: '#ef4444',
+        awayScore: 1,
+        durationSeconds: 29,
+        endReason: 'two_goals',
+        status: 'finished',
+        startedAt: '2026-09-03T18:39:00.000Z',
+        finishedAt: '2026-09-03T18:39:29.000Z',
+        events: [
+          {
+            id: 'ev-1',
+            matchId: 'm-300',
+            teamId: 't-preto',
+            scorerId: 'p-pedro',
+            scorerName: 'Pedro',
+            assistId: 'p-chico',
+            assistName: 'Chico',
+            eventTimeSeconds: 12,
+            isOwnGoal: false,
+          },
+          {
+            id: 'ev-2',
+            matchId: 'm-300',
+            teamId: 't-branco',
+            scorerId: 'p-chitao',
+            scorerName: 'Chitão',
+            eventTimeSeconds: 18,
+            isOwnGoal: false,
+          },
+          {
+            id: 'ev-3',
+            matchId: 'm-300',
+            teamId: 't-preto',
+            scorerId: 'p-pedro',
+            scorerName: 'Pedro',
+            assistId: 'p-finazzi',
+            assistName: 'Finazzi',
+            eventTimeSeconds: 29,
+            isOwnGoal: false,
+          },
+        ],
+        homePlayers: [
+          {
+            id: 'p-finazzi',
+            name: 'Finazzi da Silva',
+            nickname: 'Finazzi',
+            isCaptain: true,
+            isGoalkeeper: false,
+            isLoaned: false,
+            goals: 0,
+            assists: 1,
+          },
+          {
+            id: 'p-pedro',
+            name: 'Pedro Henrique',
+            nickname: 'Pedro',
+            isCaptain: false,
+            isGoalkeeper: false,
+            isLoaned: false,
+            goals: 2,
+            assists: 0,
+          },
+          {
+            id: 'p-chico',
+            name: 'Francisco Costa',
+            nickname: 'Chico',
+            isCaptain: false,
+            isGoalkeeper: false,
+            isLoaned: true,
+            goals: 0,
+            assists: 1,
+          },
+          {
+            id: 'p-goleiro-1',
+            name: 'Diego Alves',
+            nickname: 'Diego',
+            isCaptain: false,
+            isGoalkeeper: true,
+            isLoaned: false,
+            goals: 0,
+            assists: 0,
+          },
+        ],
+        awayPlayers: [
+          {
+            id: 'p-chitao',
+            name: 'Chitãozinho Ferreira',
+            nickname: 'Chitão',
+            isCaptain: true,
+            isGoalkeeper: false,
+            isLoaned: false,
+            goals: 1,
+            assists: 0,
+          },
+          {
+            id: 'p-goleiro-2',
+            name: 'Weverton Santos',
+            nickname: 'Weverton',
+            isCaptain: false,
+            isGoalkeeper: true,
+            isLoaned: false,
+            goals: 0,
+            assists: 0,
+          },
+        ],
+      };
+
+      // 1. Valida escalações dos dois times
+      assert.equal(matchDetails.homePlayers?.length, 4);
+      assert.equal(matchDetails.awayPlayers?.length, 2);
+
+      // 2. Valida capitão, goleiro e empréstimo
+      const captain = matchDetails.homePlayers?.find((p) => p.isCaptain);
+      assert.equal(captain?.nickname, 'Finazzi');
+      assert.equal(captain?.assists, 1);
+
+      const gk = matchDetails.homePlayers?.find((p) => p.isGoalkeeper);
+      assert.equal(gk?.nickname, 'Diego');
+
+      const loaned = matchDetails.homePlayers?.find((p) => p.isLoaned);
+      assert.equal(loaned?.nickname, 'Chico');
+      assert.equal(loaned?.isLoaned, true);
+
+      // 3. Valida artilheiro da partida com 2 gols
+      const scorer = matchDetails.homePlayers?.find((p) => p.goals === 2);
+      assert.equal(scorer?.nickname, 'Pedro');
+
+      // 4. Valida autor do gol adversário
+      const awayCaptain = matchDetails.awayPlayers?.find((p) => p.isCaptain);
+      assert.equal(awayCaptain?.nickname, 'Chitão');
+      assert.equal(awayCaptain?.goals, 1);
     });
   });
 

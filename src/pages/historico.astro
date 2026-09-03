@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import MatchHistoryCard from '../components/ui/MatchHistoryCard.astro';
+import { MatchDetailsModal } from '../components/ui/MatchDetailsModal';
 import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
 import type { MatchSummary } from '../core/domain/repositories/IMatchRepository';
 
@@ -17,6 +18,200 @@ try {
   }
 } catch {
   matches = [];
+}
+
+// Fallback de demonstração via query param ?demo quando o banco estiver vazio
+if (matches.length === 0 && Astro.url.searchParams.has('demo')) {
+  matches = [
+    {
+      matchId: 'demo-match-1',
+      sessionId: 'demo-session-1',
+      sessionDate: '2026-09-03',
+      homeTeamId: 't-preto',
+      homeTeamName: 'Time Finazzi',
+      homeTeamColor: '#10b981',
+      homeScore: 2,
+      awayTeamId: 't-branco',
+      awayTeamName: 'Time Chitão',
+      awayTeamColor: '#ef4444',
+      awayScore: 1,
+      durationSeconds: 29,
+      endReason: 'two_goals',
+      status: 'finished',
+      startedAt: '2026-09-03T18:39:00.000Z',
+      finishedAt: '2026-09-03T18:39:29.000Z',
+      events: [
+        {
+          id: 'ev-1',
+          matchId: 'demo-match-1',
+          teamId: 't-preto',
+          scorerId: 'p-pedro',
+          scorerName: 'Pedro',
+          assistId: 'p-chico',
+          assistName: 'Chico',
+          eventTimeSeconds: 12,
+          isOwnGoal: false,
+        },
+        {
+          id: 'ev-2',
+          matchId: 'demo-match-1',
+          teamId: 't-branco',
+          scorerId: 'p-chitao',
+          scorerName: 'Chitão',
+          eventTimeSeconds: 18,
+          isOwnGoal: false,
+        },
+        {
+          id: 'ev-3',
+          matchId: 'demo-match-1',
+          teamId: 't-preto',
+          scorerId: 'p-pedro',
+          scorerName: 'Pedro',
+          assistId: 'p-finazzi',
+          assistName: 'Finazzi',
+          eventTimeSeconds: 29,
+          isOwnGoal: false,
+        },
+      ],
+      homePlayers: [
+        {
+          id: 'p-finazzi',
+          name: 'Finazzi da Silva',
+          nickname: 'Finazzi',
+          avatarUrl: null,
+          isCaptain: true,
+          isGoalkeeper: false,
+          isLoaned: false,
+          goals: 0,
+          assists: 1,
+        },
+        {
+          id: 'p-pedro',
+          name: 'Pedro Henrique',
+          nickname: 'Pedro',
+          avatarUrl: null,
+          isCaptain: false,
+          isGoalkeeper: false,
+          isLoaned: false,
+          goals: 2,
+          assists: 0,
+        },
+        {
+          id: 'p-chico',
+          name: 'Francisco Costa',
+          nickname: 'Chico',
+          avatarUrl: null,
+          isCaptain: false,
+          isGoalkeeper: false,
+          isLoaned: true,
+          goals: 0,
+          assists: 1,
+        },
+        {
+          id: 'p-goleiro-1',
+          name: 'Diego Alves',
+          nickname: 'Diego',
+          avatarUrl: null,
+          isCaptain: false,
+          isGoalkeeper: true,
+          isLoaned: false,
+          goals: 0,
+          assists: 0,
+        },
+      ],
+      awayPlayers: [
+        {
+          id: 'p-chitao',
+          name: 'Chitãozinho Ferreira',
+          nickname: 'Chitão',
+          avatarUrl: null,
+          isCaptain: true,
+          isGoalkeeper: false,
+          isLoaned: false,
+          goals: 1,
+          assists: 0,
+        },
+        {
+          id: 'p-buzz',
+          name: 'Lucas Buzz',
+          nickname: 'Buzz',
+          avatarUrl: null,
+          isCaptain: false,
+          isGoalkeeper: false,
+          isLoaned: false,
+          goals: 0,
+          assists: 0,
+        },
+        {
+          id: 'p-goleiro-2',
+          name: 'Weverton Santos',
+          nickname: 'Weverton',
+          avatarUrl: null,
+          isCaptain: false,
+          isGoalkeeper: true,
+          isLoaned: false,
+          goals: 0,
+          assists: 0,
+        },
+      ],
+    },
+    {
+      matchId: 'demo-match-2',
+      sessionId: 'demo-session-1',
+      sessionDate: '2026-09-03',
+      homeTeamId: 't-azul',
+      homeTeamName: 'Time Paulinho',
+      homeTeamColor: '#3b82f6',
+      homeScore: 0,
+      awayTeamId: 't-amarelo',
+      awayTeamName: 'Time Gabriel',
+      awayTeamColor: '#f59e0b',
+      awayScore: 0,
+      durationSeconds: 420,
+      endReason: 'time_limit',
+      status: 'finished',
+      startedAt: '2026-09-03T18:45:00.000Z',
+      finishedAt: '2026-09-03T18:52:00.000Z',
+      events: [],
+      homePlayers: [
+        {
+          id: 'p-paulinho',
+          name: 'Paulo Silva',
+          nickname: 'Paulinho',
+          avatarUrl: null,
+          isCaptain: true,
+          isGoalkeeper: false,
+          isLoaned: false,
+          goals: 0,
+          assists: 0,
+        },
+        {
+          id: 'p-goleiro-3',
+          name: 'Alisson Becker',
+          nickname: 'Alisson',
+          avatarUrl: null,
+          isCaptain: false,
+          isGoalkeeper: true,
+          isLoaned: false,
+          goals: 0,
+          assists: 0,
+        },
+      ],
+      awayPlayers: [
+        {
+          id: 'p-gabriel',
+          name: 'Gabriel Souza',
+          nickname: 'Gabriel',
+          avatarUrl: null,
+          isCaptain: true,
+          isGoalkeeper: false,
+          isLoaned: false,
+          goals: 0,
+          assists: 0,
+        },
+      ],
+    },
+  ];
 }
 
 // Agrupamento por data da sessão
@@ -126,4 +321,7 @@ const formatDate = (dateStr: string) => {
       )}
     </div>
   </div>
+
+  <!-- Modal Interativo de Detalhes da Partida e Escalações -->
+  <MatchDetailsModal client:load matches={matches} />
 </Layout>

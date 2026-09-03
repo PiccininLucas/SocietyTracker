@@ -5,6 +5,7 @@ import type {
   LeaderboardItem,
   MatchSummary,
   MatchSummaryEvent,
+  MatchPlayerSummary,
 } from '../../domain/repositories/IMatchRepository';
 import { Match, type MatchEndReason, type MatchStatus } from '../../domain/entities/Match';
 import { MatchEvent } from '../../domain/entities/MatchEvent';
@@ -460,20 +461,7 @@ export class SupabaseMatchRepository implements IMatchRepository {
     });
   }
 
-  public async getMatchesSummary(sessionId?: string): Promise<MatchSummary[]> {
-    let query = this.client.from('vw_matches_summary').select('*');
-
-    if (sessionId) {
-      query = query.eq('session_id', sessionId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(`Erro ao buscar resumo das partidas: ${error.message}`);
-    }
-
-    const rows = (data as MatchSummaryRow[] || []);
+  private async enrichMatchSummaries(rows: MatchSummaryRow[]): Promise<MatchSummary[]> {
     const matchIds = rows.map((r) => r.match_id);
 
     // Mapeamentos para enriquecimento com eventos e IDs dos times
@@ -549,7 +537,104 @@ export class SupabaseMatchRepository implements IMatchRepository {
           eventsByMatch.get(ev.match_id)!.push(summaryEvent);
         }
       } catch {
-        // Se a busca de eventos falhar, retorna o resumo com events vazio
+        // Se a busca de eventos falhar, continua com eventos vazios
+      }
+    }
+
+    // 5. Buscar escalações de todos os times envolvidos nas partidas
+    const allTeamIds = new Set<string>();
+    for (const row of rows) {
+      if (row.home_team_id) allTeamIds.add(row.home_team_id);
+      if (row.away_team_id) allTeamIds.add(row.away_team_id);
+    }
+    for (const [, info] of matchTeamMap.entries()) {
+      if (info.homeTeamId) allTeamIds.add(info.homeTeamId);
+      if (info.awayTeamId) allTeamIds.add(info.awayTeamId);
+    }
+
+    const teamCaptainMap = new Map<string, string>();
+    interface TeamPlayerEntry {
+      playerId: string;
+      name: string;
+      nickname: string | null;
+      avatarUrl?: string | null;
+      isCaptain: boolean;
+      isGoalkeeper: boolean;
+      isLoaned: boolean;
+    }
+    const teamPlayersMap = new Map<string, TeamPlayerEntry[]>();
+
+    if (allTeamIds.size > 0) {
+      const teamIdList = Array.from(allTeamIds);
+
+      // Buscar capitães cadastrados nos times
+      try {
+        const { data: teamsData } = await this.client
+          .from('session_teams')
+          .select('id, captain_id')
+          .in('id', teamIdList);
+
+        for (const t of (teamsData || [])) {
+          if (t.captain_id) teamCaptainMap.set(t.id, t.captain_id);
+        }
+      } catch {
+        // Fallback silencioso
+      }
+
+      // Buscar elenco dos times da sessão
+      try {
+        const { data: stpData } = await this.client
+          .from('session_team_players')
+          .select('session_team_id, player_id, is_loaned, is_goalkeeper, is_captain, players(id, name, nickname, avatar_url)')
+          .in('session_team_id', teamIdList);
+
+        for (const item of (stpData || [])) {
+          const p = (item as any).players;
+          if (!p) continue;
+          const teamId = item.session_team_id;
+          if (!teamPlayersMap.has(teamId)) {
+            teamPlayersMap.set(teamId, []);
+          }
+          const isCaptain = !!(item.is_captain || (teamCaptainMap.get(teamId) === item.player_id));
+          teamPlayersMap.get(teamId)!.push({
+            playerId: item.player_id,
+            name: p.name,
+            nickname: p.nickname || null,
+            avatarUrl: p.avatar_url || null,
+            isCaptain,
+            isGoalkeeper: !!item.is_goalkeeper,
+            isLoaned: !!item.is_loaned,
+          });
+        }
+      } catch {
+        // Fallback caso a coluna is_captain não esteja presente no schema remoto
+        try {
+          const { data: stpDataFallback } = await this.client
+            .from('session_team_players')
+            .select('session_team_id, player_id, is_loaned, is_goalkeeper, players(id, name, nickname, avatar_url)')
+            .in('session_team_id', teamIdList);
+
+          for (const item of (stpDataFallback || [])) {
+            const p = (item as any).players;
+            if (!p) continue;
+            const teamId = item.session_team_id;
+            if (!teamPlayersMap.has(teamId)) {
+              teamPlayersMap.set(teamId, []);
+            }
+            const isCaptain = teamCaptainMap.get(teamId) === item.player_id;
+            teamPlayersMap.get(teamId)!.push({
+              playerId: item.player_id,
+              name: p.name,
+              nickname: p.nickname || null,
+              avatarUrl: p.avatar_url || null,
+              isCaptain,
+              isGoalkeeper: !!item.is_goalkeeper,
+              isLoaned: !!item.is_loaned,
+            });
+          }
+        } catch {
+          // Ignora se não for possível obter atletas
+        }
       }
     }
 
@@ -575,15 +660,49 @@ export class SupabaseMatchRepository implements IMatchRepository {
       const homeScore = matchEvents.length > 0 ? calculatedHomeScore : (row.home_score ?? 0);
       const awayScore = matchEvents.length > 0 ? calculatedAwayScore : (row.away_score ?? 0);
 
+      // Função auxiliar para montar a lista de atletas de um time com suas estatísticas nesta partida
+      const buildMatchPlayers = (teamIdStr: string): MatchPlayerSummary[] => {
+        if (!teamIdStr) return [];
+        // Busca elenco pelo id exato ou normalizado
+        let roster: TeamPlayerEntry[] = [];
+        for (const [tId, pList] of teamPlayersMap.entries()) {
+          if (norm(tId) === norm(teamIdStr)) {
+            roster = pList;
+            break;
+          }
+        }
+
+        return roster.map((p) => {
+          const pId = norm(p.playerId);
+          const goals = matchEvents.filter((e) => norm(e.scorerId) === pId && !e.isOwnGoal).length;
+          const assists = matchEvents.filter((e) => norm(e.assistId) === pId && !e.isOwnGoal).length;
+
+          return {
+            id: p.playerId,
+            name: p.name,
+            nickname: p.nickname,
+            avatarUrl: p.avatarUrl,
+            isCaptain: p.isCaptain,
+            isGoalkeeper: p.isGoalkeeper,
+            isLoaned: p.isLoaned,
+            goals,
+            assists,
+          };
+        });
+      };
+
+      const rawHomeId = teamInfo?.homeTeamId || row.home_team_id;
+      const rawAwayId = teamInfo?.awayTeamId || row.away_team_id;
+
       return {
         matchId: row.match_id,
         sessionId: row.session_id,
         sessionDate: row.session_date,
-        homeTeamId: teamInfo?.homeTeamId || row.home_team_id,
+        homeTeamId: rawHomeId,
         homeTeamName: row.home_team_name,
         homeTeamColor: row.home_team_color,
         homeScore,
-        awayTeamId: teamInfo?.awayTeamId || row.away_team_id,
+        awayTeamId: rawAwayId,
         awayTeamName: row.away_team_name,
         awayTeamColor: row.away_team_color,
         awayScore,
@@ -593,7 +712,91 @@ export class SupabaseMatchRepository implements IMatchRepository {
         startedAt: row.started_at,
         finishedAt: row.finished_at,
         events: matchEvents,
+        homePlayers: buildMatchPlayers(rawHomeId || ''),
+        awayPlayers: buildMatchPlayers(rawAwayId || ''),
       };
     });
+  }
+
+  public async getMatchesSummary(sessionId?: string): Promise<MatchSummary[]> {
+    let query = this.client.from('vw_matches_summary').select('*');
+
+    if (sessionId) {
+      query = query.eq('session_id', sessionId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Erro ao buscar resumo das partidas: ${error.message}`);
+    }
+
+    return this.enrichMatchSummaries((data as MatchSummaryRow[] || []));
+  }
+
+  public async getMatchById(matchId: string): Promise<MatchSummary | null> {
+    const { data, error } = await this.client
+      .from('vw_matches_summary')
+      .select('*')
+      .eq('match_id', matchId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Erro ao buscar resumo da partida (${matchId}): ${error.message}`);
+    }
+
+    if (data) {
+      const summaries = await this.enrichMatchSummaries([data as MatchSummaryRow]);
+      return summaries[0] || null;
+    }
+
+    // Fallback: se não encontrado na view, busca diretamente na tabela matches
+    const { data: matchData } = await this.client
+      .from('matches')
+      .select('*')
+      .eq('id', matchId)
+      .maybeSingle();
+
+    if (!matchData) return null;
+
+    const { data: sData } = await this.client
+      .from('sessions')
+      .select('session_date')
+      .eq('id', matchData.session_id)
+      .maybeSingle();
+
+    const { data: htData } = await this.client
+      .from('session_teams')
+      .select('name, color_hex')
+      .eq('id', matchData.home_team_id)
+      .maybeSingle();
+
+    const { data: atData } = await this.client
+      .from('session_teams')
+      .select('name, color_hex')
+      .eq('id', matchData.away_team_id)
+      .maybeSingle();
+
+    const row: MatchSummaryRow = {
+      match_id: matchData.id,
+      session_id: matchData.session_id,
+      session_date: sData?.session_date || '',
+      home_team_id: matchData.home_team_id,
+      home_team_name: htData?.name || 'Mandante',
+      home_team_color: htData?.color_hex || '#333333',
+      home_score: matchData.home_score,
+      away_team_id: matchData.away_team_id,
+      away_team_name: atData?.name || 'Visitante',
+      away_team_color: atData?.color_hex || '#333333',
+      away_score: matchData.away_score,
+      duration_seconds: matchData.duration_seconds,
+      end_reason: matchData.end_reason,
+      status: matchData.status,
+      started_at: matchData.started_at,
+      finished_at: matchData.finished_at,
+    };
+
+    const summaries = await this.enrichMatchSummaries([row]);
+    return summaries[0] || null;
   }
 }

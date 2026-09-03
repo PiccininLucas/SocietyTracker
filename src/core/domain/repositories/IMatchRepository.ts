@@ -26,6 +26,18 @@ export interface MatchSummaryEvent {
   isOwnGoal: boolean;
 }
 
+export interface MatchPlayerSummary {
+  id: string;
+  name: string;
+  nickname: string | null;
+  avatarUrl?: string | null;
+  isCaptain: boolean;
+  isGoalkeeper: boolean;
+  isLoaned: boolean;
+  goals: number;
+  assists: number;
+}
+
 export interface MatchSummary {
   matchId: string;
   sessionId: string;
@@ -44,6 +56,8 @@ export interface MatchSummary {
   startedAt: string;
   finishedAt: string | null;
   events?: MatchSummaryEvent[];
+  homePlayers?: MatchPlayerSummary[];
+  awayPlayers?: MatchPlayerSummary[];
 }
 
 export interface IMatchRepository {
@@ -57,4 +71,5 @@ export interface IMatchRepository {
   getLeaderboard(): Promise<LeaderboardItem[]>;
   getLeaderboardByDateRange(startDate?: string, endDate?: string): Promise<LeaderboardItem[]>;
   getMatchesSummary(sessionId?: string): Promise<MatchSummary[]>;
+  getMatchById(matchId: string): Promise<MatchSummary | null>;
 }

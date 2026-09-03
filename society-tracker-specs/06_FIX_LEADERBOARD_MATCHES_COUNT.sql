@@ -1,7 +1,10 @@
 -- Migração 06: Correção no cálculo de partidas disputadas na View de Classificação Geral
 -- Desvincula a contagem de jogos de match_events e calcula pela presença real do atleta na quadra (session_team_players + matches finalizadas)
 
-CREATE OR REPLACE VIEW vw_player_leaderboard AS
+-- Remove a versão anterior da view para permitir a mudança na ordem/nome das colunas
+DROP VIEW IF EXISTS vw_player_leaderboard CASCADE;
+
+CREATE VIEW vw_player_leaderboard AS
 WITH player_matches AS (
     -- Partidas únicas finalizadas que o jogador efetivamente disputou pelo seu time
     SELECT 

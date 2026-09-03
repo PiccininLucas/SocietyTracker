@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS match_events (
 -- ==========================================================
 
 -- View: Ranking Geral de Artilharia e Assistências
-CREATE OR REPLACE VIEW vw_player_leaderboard AS
+DROP VIEW IF EXISTS vw_player_leaderboard CASCADE;
+CREATE VIEW vw_player_leaderboard AS
 WITH player_matches AS (
     -- Partidas únicas finalizadas que o jogador efetivamente disputou pelo seu time
     SELECT 
