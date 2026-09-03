@@ -8,11 +8,12 @@ import { GetRoundHighlightsUseCase } from '../src/core/application/use-cases/Get
 import { GetPeriodLeaderboardUseCase } from '../src/core/application/use-cases/GetPeriodLeaderboardUseCase.ts';
 import { UpdatePlayerUseCase } from '../src/core/application/use-cases/UpdatePlayerUseCase.ts';
 import { CreateSessionUseCase } from '../src/core/application/use-cases/CreateSessionUseCase.ts';
+import { UpdateSessionTeamsUseCase } from '../src/core/application/use-cases/UpdateSessionTeamsUseCase.ts';
 import { Match } from '../src/core/domain/entities/Match.ts';
 import { MatchEvent } from '../src/core/domain/entities/MatchEvent.ts';
 import { Player } from '../src/core/domain/entities/Player.ts';
 import type { IMatchRepository, MatchSummary, LeaderboardItem } from '../src/core/domain/repositories/IMatchRepository.ts';
-import type { ISessionRepository, CreateSessionTeamInput } from '../src/core/domain/repositories/ISessionRepository.ts';
+import type { ISessionRepository, CreateSessionTeamInput, UpdateSessionTeamInput } from '../src/core/domain/repositories/ISessionRepository.ts';
 import type { IPlayerRepository } from '../src/core/domain/repositories/IPlayerRepository.ts';
 import { Session } from '../src/core/domain/entities/Session.ts';
 import { Team } from '../src/core/domain/entities/Team.ts';
@@ -188,8 +189,33 @@ class MockSessionRepository implements ISessionRepository {
     return saved;
   }
   async updateStatus(_id: string, _status: any): Promise<void> {}
-  async getTeamsBySessionId(_sessionId: string): Promise<Team[]> {
-    return [];
+  async getTeamsBySessionId(sessionId: string): Promise<Team[]> {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    return session ? session.teams : [];
+  }
+  async updateTeams(sessionId: string, teams: UpdateSessionTeamInput[]): Promise<Team[]> {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    if (!session) return [];
+
+    for (const update of teams) {
+      const existingTeam = session.teams.find((t) => t.id === update.id);
+      if (existingTeam) {
+        if (update.name) (existingTeam as any).props.name = update.name;
+        if (update.captainId !== undefined) (existingTeam as any).props.captainId = update.captainId || null;
+        if (update.colorHex) (existingTeam as any).props.colorHex = update.colorHex;
+
+        if (update.players) {
+          (existingTeam as any).props.players = update.players.map((p) => ({
+            playerId: p.playerId,
+            isLoaned: p.isLoaned ?? false,
+            isGoalkeeper: p.isGoalkeeper ?? false,
+            isCaptain: p.isCaptain ?? (update.captainId ? update.captainId === p.playerId : false),
+          }));
+        }
+      }
+    }
+
+    return session.teams;
   }
   async addPlayerToTeam(_teamId: string, _playerId: string, _isLoaned?: boolean): Promise<void> {}
   async removePlayerFromTeam(_teamId: string, _playerId: string): Promise<void> {}
@@ -807,6 +833,97 @@ describe('Use Cases Business Logic', () => {
       const captainPlayer = team1.players.find((p) => p.playerId === 'p-gabriel');
       assert.ok(captainPlayer);
       assert.equal(captainPlayer.isCaptain, true);
+    });
+  });
+
+  describe('UpdateSessionTeamsUseCase', () => {
+    it('should update teams, change captain and transfer players between squads', async () => {
+      const sessionRepo = new MockSessionRepository();
+      const createUseCase = new CreateSessionUseCase(sessionRepo);
+
+      const created = await createUseCase.execute({
+        sessionDate: '2026-09-03',
+        teams: [
+          {
+            name: 'Time Gabriel',
+            colorHex: '#1f2937',
+            captainId: 'p-gabriel',
+            playerIds: ['p-gabriel', 'p-lucas'],
+          },
+          {
+            name: 'Time Chitao',
+            colorHex: '#e5e7eb',
+            captainId: 'p-chitao',
+            playerIds: ['p-chitao', 'p-pedro'],
+          },
+        ],
+      });
+
+      const team1Id = created.teams[0].id;
+      const team2Id = created.teams[1].id;
+
+      const updateUseCase = new UpdateSessionTeamsUseCase(sessionRepo);
+
+      // Atualiza:
+      // 1. Time 1 muda de capitão para p-lucas (e nome para Time Lucas)
+      // 2. Transfere p-pedro do Time 2 para o Time 1 como Goleiro
+      const updated = await updateUseCase.execute({
+        sessionId: created.id,
+        teams: [
+          {
+            id: team1Id,
+            name: 'Time Lucas',
+            captainId: 'p-lucas',
+            players: [
+              { playerId: 'p-gabriel', isGoalkeeper: false, isCaptain: false },
+              { playerId: 'p-lucas', isGoalkeeper: false, isCaptain: true },
+              { playerId: 'p-pedro', isGoalkeeper: true, isCaptain: false },
+            ],
+          },
+          {
+            id: team2Id,
+            name: 'Time Chitao',
+            captainId: 'p-chitao',
+            players: [
+              { playerId: 'p-chitao', isGoalkeeper: false, isCaptain: true },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(updated.teams.length, 2);
+      const team1 = updated.teams.find((t) => t.id === team1Id);
+      assert.ok(team1);
+      assert.equal(team1.name, 'Time Lucas');
+      assert.equal(team1.captainId, 'p-lucas');
+      assert.equal(team1.players.length, 3);
+      const pedro = team1.players.find((p) => p.id === 'p-pedro');
+      assert.ok(pedro);
+      assert.equal(pedro.isGoalkeeper, true);
+
+      const team2 = updated.teams.find((t) => t.id === team2Id);
+      assert.ok(team2);
+      assert.equal(team2.players.length, 1);
+    });
+
+    it('should throw error when sessionId or teams are empty', async () => {
+      const sessionRepo = new MockSessionRepository();
+      const updateUseCase = new UpdateSessionTeamsUseCase(sessionRepo);
+
+      await assert.rejects(
+        () => updateUseCase.execute({ sessionId: '', teams: [] }),
+        /ID da rodada é obrigatório/
+      );
+
+      await assert.rejects(
+        () => updateUseCase.execute({ sessionId: 's-1', teams: [] }),
+        /ao menos um time/
+      );
+
+      await assert.rejects(
+        () => updateUseCase.execute({ sessionId: 's-1', teams: [{ id: 't-1', name: '  ', players: [] }] }),
+        /Nome do time não pode ser vazio/
+      );
     });
   });
 });

@@ -3,6 +3,7 @@ import { supabaseAdmin as defaultClient } from '../database/supabaseClient';
 import type {
   ISessionRepository,
   CreateSessionTeamInput,
+  UpdateSessionTeamInput,
 } from '../../domain/repositories/ISessionRepository';
 import { Session, type SessionStatus } from '../../domain/entities/Session';
 import { Team, type TeamPlayer } from '../../domain/entities/Team';
@@ -306,6 +307,73 @@ export class SupabaseSessionRepository implements ISessionRepository {
     }
 
     return (data as TeamRow[] || []).map((row) => this.mapTeamToDomain(row));
+  }
+
+  public async updateTeams(sessionId: string, teams: UpdateSessionTeamInput[]): Promise<Team[]> {
+    for (const team of teams) {
+      // 1. Atualizar dados do time (nome, cor, capitão)
+      const teamUpdates: Record<string, any> = {};
+      if (team.name !== undefined) teamUpdates.name = team.name;
+      if (team.captainId !== undefined) teamUpdates.captain_id = team.captainId || null;
+      if (team.colorHex !== undefined) teamUpdates.color_hex = team.colorHex;
+
+      if (Object.keys(teamUpdates).length > 0) {
+        const { error: teamError } = await executeWithSchemaFallback(
+          'session_teams',
+          teamUpdates,
+          (cleanPayload) =>
+            this.client.from('session_teams').update(cleanPayload).eq('id', team.id)
+        );
+        if (teamError) {
+          throw new Error(`Erro ao atualizar dados do time (${team.id}): ${teamError.message}`);
+        }
+      }
+
+      // 2. Se jogadores fornecidos, sincronizar session_team_players
+      if (team.players !== undefined) {
+        const newPlayerIds = team.players.map((p) => p.playerId);
+
+        // Remove jogadores que não estão mais escalados neste time
+        if (newPlayerIds.length > 0) {
+          await this.client
+            .from('session_team_players')
+            .delete()
+            .eq('session_team_id', team.id)
+            .not('player_id', 'in', `(${newPlayerIds.join(',')})`);
+        } else {
+          await this.client
+            .from('session_team_players')
+            .delete()
+            .eq('session_team_id', team.id);
+        }
+
+        // Insere ou atualiza os jogadores escalados
+        if (team.players.length > 0) {
+          const playerRows = team.players.map((p) => ({
+            session_team_id: team.id,
+            player_id: p.playerId,
+            is_loaned: p.isLoaned ?? false,
+            is_goalkeeper: p.isGoalkeeper ?? false,
+            is_captain: p.isCaptain ?? (team.captainId ? team.captainId === p.playerId : false),
+          }));
+
+          const { error: playersError } = await executeWithSchemaFallback(
+            'session_team_players',
+            playerRows,
+            (cleanPayload) =>
+              this.client
+                .from('session_team_players')
+                .upsert(cleanPayload, { onConflict: 'session_team_id,player_id' })
+          );
+
+          if (playersError) {
+            throw new Error(`Erro ao sincronizar jogadores do time (${team.id}): ${playersError.message}`);
+          }
+        }
+      }
+    }
+
+    return this.getTeamsBySessionId(sessionId);
   }
 
   public async addPlayerToTeam(

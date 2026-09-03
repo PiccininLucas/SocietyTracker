@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Users, Star, ArrowRightLeft, Shield } from 'lucide-react';
+import { X, Users, Star, ArrowRightLeft, Shield, Pencil } from 'lucide-react';
 import type { LiveTeam } from './types';
 import { cn } from '../ui/utils';
 
@@ -7,12 +7,14 @@ interface TeamRostersModalProps {
   isOpen: boolean;
   teams: LiveTeam[];
   onClose: () => void;
+  onEdit?: () => void;
 }
 
 export const TeamRostersModal: React.FC<TeamRostersModalProps> = ({
   isOpen,
   teams,
   onClose,
+  onEdit,
 }) => {
   if (!isOpen) return null;
 
@@ -38,14 +40,31 @@ export const TeamRostersModal: React.FC<TeamRostersModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-all"
-            title="Fechar elenco"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEdit();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold active:scale-95 transition-all"
+                title="Editar composição dos times e capitães"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Editar Times</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-all"
+              title="Fechar elenco"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Grid de Times com Scroll */}

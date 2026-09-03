@@ -8,13 +8,16 @@ import {
   RotateCcw,
   Sparkles,
   Calendar,
+  Pencil,
 } from 'lucide-react';
 import { LiveScoreboard } from './LiveScoreboard';
 import { TeamRostersModal } from './TeamRostersModal';
+import { EditNightTeamsModal } from './EditNightTeamsModal';
 import type {
   LiveTeam,
   LiveMatchEvent,
   LiveMatchState,
+  LivePlayer,
 } from './types';
 import { cn } from '../ui/utils';
 
@@ -29,12 +32,17 @@ export interface SessionData {
 
 interface MesarioSessionWrapperProps {
   session: SessionData;
+  allRegisteredPlayers?: LivePlayer[];
 }
 
-export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ session }) => {
+export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({
+  session,
+  allRegisteredPlayers = [],
+}) => {
   const [activeSession, setActiveSession] = useState<SessionData>(session);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [isRostersModalOpen, setIsRostersModalOpen] = useState(false);
+  const [isEditTeamsModalOpen, setIsEditTeamsModalOpen] = useState(false);
   const [selectedHomeTeamId, setSelectedHomeTeamId] = useState<string>(
     session.teams[0]?.id || 'team-1'
   );
@@ -43,6 +51,14 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
   );
   const [isStartingMatch, setIsStartingMatch] = useState(false);
   const [lastFinishedMatch, setLastFinishedMatch] = useState<LiveMatchState | null>(null);
+
+  // Callback para atualização dos times
+  const handleTeamsUpdated = (updatedTeams: LiveTeam[]) => {
+    setActiveSession((prev) => ({
+      ...prev,
+      teams: updatedTeams,
+    }));
+  };
 
   // Times selecionados atualmente para o confronto
   const homeTeam =
@@ -166,11 +182,13 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
         homeTeam={homeTeam}
         awayTeam={awayTeam}
         allSessionTeams={activeSession.teams}
+        allRegisteredPlayers={allRegisteredPlayers}
         matchDurationSeconds={activeSession.matchDurationSeconds || 420}
         onGoalRegistered={handleGoalRegistered}
         onFinishMatch={handleFinishMatch}
         onNextMatch={handleNextMatch}
         onTransferPlayer={handleTransferPlayer}
+        onTeamsUpdated={handleTeamsUpdated}
       />
     );
   }
@@ -193,14 +211,23 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
           <span>Data da rodada: {activeSession.sessionDate}</span>
         </p>
 
-        <div className="mt-3 flex justify-center">
+        <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setIsRostersModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold text-xs active:scale-95 transition-all shadow-sm"
           >
             <Users className="w-4 h-4" />
-            <span>Ver Times / Elencos da Noite</span>
+            <span>Ver Times</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsEditTeamsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs active:scale-95 transition-all shadow-sm"
+          >
+            <Pencil className="w-4 h-4" />
+            <span>Editar Times da Noite</span>
           </button>
         </div>
       </div>
@@ -331,6 +358,17 @@ export const MesarioSessionWrapper: React.FC<MesarioSessionWrapperProps> = ({ se
         isOpen={isRostersModalOpen}
         teams={activeSession.teams}
         onClose={() => setIsRostersModalOpen(false)}
+        onEdit={() => setIsEditTeamsModalOpen(true)}
+      />
+
+      {/* Modal de Edição dos Times da Noite */}
+      <EditNightTeamsModal
+        isOpen={isEditTeamsModalOpen}
+        sessionId={activeSession.id}
+        teams={activeSession.teams}
+        allRegisteredPlayers={allRegisteredPlayers}
+        onClose={() => setIsEditTeamsModalOpen(false)}
+        onTeamsUpdated={handleTeamsUpdated}
       />
     </div>
   );

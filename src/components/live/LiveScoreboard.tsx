@@ -14,6 +14,7 @@ import {
   Save,
   Check,
   Users,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { soundFx } from '../ui/audio';
@@ -22,6 +23,7 @@ import { MatchTimer } from './MatchTimer';
 import { GoalDrawer } from './GoalDrawer';
 import { QuickPlayerTransferModal } from './QuickPlayerTransferModal';
 import { TeamRostersModal } from './TeamRostersModal';
+import { EditNightTeamsModal } from './EditNightTeamsModal';
 import {
   type LiveMatchState,
   type LiveTeam,
@@ -40,6 +42,7 @@ export interface LiveScoreboardProps {
   homeTeam?: LiveTeam;
   awayTeam?: LiveTeam;
   allSessionTeams?: LiveTeam[];
+  allRegisteredPlayers?: LivePlayer[];
   matchDurationSeconds?: number;
   onGoalRegistered?: (event: LiveMatchEvent) => Promise<void> | void;
   onFinishMatch?: (match: LiveMatchState) => Promise<void> | void;
@@ -50,6 +53,7 @@ export interface LiveScoreboardProps {
     playerId: string;
     isLoaned: boolean;
   }) => Promise<void> | void;
+  onTeamsUpdated?: (updatedTeams: LiveTeam[]) => void;
 }
 
 // Fallback padrão caso nenhum time seja passado via SSR
@@ -88,11 +92,13 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
   homeTeam = DEFAULT_HOME_TEAM,
   awayTeam = DEFAULT_AWAY_TEAM,
   allSessionTeams = [DEFAULT_HOME_TEAM, DEFAULT_AWAY_TEAM],
+  allRegisteredPlayers = [],
   matchDurationSeconds = DEFAULT_MATCH_DURATION_SECONDS,
   onGoalRegistered,
   onFinishMatch,
   onNextMatch,
   onTransferPlayer,
+  onTeamsUpdated,
 }) => {
   // Estado principal da partida
   const [matchState, setMatchState] = useState<LiveMatchState>(() => {
@@ -121,6 +127,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
   const [selectedScoringTeam, setSelectedScoringTeam] = useState<LiveTeam | null>(null);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isRostersModalOpen, setIsRostersModalOpen] = useState(false);
+  const [isEditTeamsModalOpen, setIsEditTeamsModalOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
   const [isRestoreBannerVisible, setIsRestoreBannerVisible] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
@@ -134,7 +141,6 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
 
   // Salva no localStorage sempre que o estado muda
   const persistState = useCallback((state: LiveMatchState) => {
-    if (typeof window === 'undefined') return;
     try {
       const payload: ActiveMatchStorageSchema = {
         version: 1,
@@ -145,9 +151,30 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
       localStorage.setItem(ACTIVE_MATCH_STORAGE_KEY, JSON.stringify(payload));
       setLastSavedTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch {
-      // Falha silenciosa de quota/storage
+      // Falha silenciosa de quota/navegação anônima
     }
   }, []);
+
+  // Callback ao salvar edição dos times da noite
+  const handleTeamsUpdated = (updatedTeams: LiveTeam[]) => {
+    setMatchState((prev) => {
+      const updatedHome = updatedTeams.find((t) => t.id === prev.homeTeam.id) || prev.homeTeam;
+      const updatedAway = updatedTeams.find((t) => t.id === prev.awayTeam.id) || prev.awayTeam;
+
+      const nextState: LiveMatchState = {
+        ...prev,
+        homeTeam: updatedHome,
+        awayTeam: updatedAway,
+        allSessionTeams: updatedTeams,
+      };
+      persistState(nextState);
+      return nextState;
+    });
+
+    if (onTeamsUpdated) {
+      onTeamsUpdated(updatedTeams);
+    }
+  };
 
   // Recupera estado do localStorage ao montar
   useEffect(() => {
@@ -588,6 +615,21 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
             <span className="sm:hidden">Times</span>
           </button>
 
+          {/* Botão para Editar Times da Noite */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticFeedback.click();
+              setIsEditTeamsModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-xs font-bold text-amber-300 active:scale-95 transition-all shadow-sm"
+            title="Editar capitães, atletas e composição dos times"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Editar Times</span>
+            <span className="sm:hidden">Editar</span>
+          </button>
+
           {/* Badge Offline-First */}
           <div
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-800/80 border border-gray-700 text-xs font-semibold text-emerald-400"
@@ -816,7 +858,7 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
       </div>
 
       {/* Barra de Ações Rápidas do Mesário */}
-      <div className="grid grid-cols-3 gap-2 pt-1">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
         {/* Botão de Ver Elencos */}
         <button
           type="button"
@@ -829,6 +871,20 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
         >
           <Users className="w-4 h-4 shrink-0" />
           <span className="truncate">Ver Times</span>
+        </button>
+
+        {/* Botão de Editar Times da Noite */}
+        <button
+          type="button"
+          onClick={() => {
+            hapticFeedback.click();
+            setIsEditTeamsModalOpen(true);
+          }}
+          className="min-h-[48px] flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 font-bold text-xs sm:text-sm border border-amber-500/30 transition-all touch-press-scale"
+          title="Editar nomes, capitães e posições dos times"
+        >
+          <Pencil className="w-4 h-4 shrink-0" />
+          <span className="truncate">Editar Times</span>
         </button>
 
         {/* Botão de Transferência / Empréstimo */}
@@ -884,6 +940,17 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
         isOpen={isRostersModalOpen}
         teams={matchState.allSessionTeams || allSessionTeams || [matchState.homeTeam, matchState.awayTeam]}
         onClose={() => setIsRostersModalOpen(false)}
+        onEdit={() => setIsEditTeamsModalOpen(true)}
+      />
+
+      {/* Componente 3.5: Modal de Edição dos Times da Noite */}
+      <EditNightTeamsModal
+        isOpen={isEditTeamsModalOpen}
+        sessionId={sessionId}
+        teams={matchState.allSessionTeams || allSessionTeams || [matchState.homeTeam, matchState.awayTeam]}
+        allRegisteredPlayers={allRegisteredPlayers}
+        onClose={() => setIsEditTeamsModalOpen(false)}
+        onTeamsUpdated={handleTeamsUpdated}
       />
 
       {/* Modal de Vitória Imediata (Regra dos 2 Gols / Fim do Tempo) */}
