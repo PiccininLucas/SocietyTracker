@@ -104,7 +104,14 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
       const existing =
         preloadedMatch || matches.find((m) => m.matchId.toLowerCase() === matchId.toLowerCase());
 
-      if (existing && existing.homePlayers && existing.awayPlayers) {
+      const hasCompleteLineups =
+        existing &&
+        Array.isArray(existing.homePlayers) &&
+        existing.homePlayers.length > 0 &&
+        Array.isArray(existing.awayPlayers) &&
+        existing.awayPlayers.length > 0;
+
+      if (hasCompleteLineups) {
         setSelectedMatch(existing);
         setIsOpen(true);
         return;
@@ -117,7 +124,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
 
       // 2. Se não tiver escalações completas ou não foi encontrado em memória, buscar via API
       try {
-        setIsLoading(!existing);
+        setIsLoading(!hasCompleteLineups);
         if (!existing) setIsOpen(true);
 
         const res = await fetch(`/api/matches/${encodeURIComponent(matchId)}`);
@@ -1123,59 +1130,65 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                 </label>
               </div>
 
-              {/* Autor do Gol */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-300 block">
-                  {editIsOwnGoal ? 'Jogador que marcou contra (opcional):' : '⚽ Autor do Gol:'}
-                </label>
-                <select
-                  value={editScorerId}
-                  onChange={(e) => {
-                    const newScorerId = e.target.value;
-                    setEditScorerId(newScorerId);
-                    if (editAssistId === newScorerId) {
-                      setEditAssistId('');
-                    }
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-amber-400 focus:outline-none"
-                >
-                  <option value="">{editIsOwnGoal ? 'Não identificado' : 'Selecione o autor do gol...'}</option>
-                  {(normalizeId(editTeamId) === homeTeamId
-                    ? selectedMatch?.homePlayers || []
-                    : selectedMatch?.awayPlayers || []
-                  ).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Autor do Gol e Assistência com Seleção Resiliente de Atletas */}
+              {(() => {
+                const isHome = normalizeId(editTeamId) === homeTeamId;
+                const teamList = isHome ? selectedMatch?.homePlayers || [] : selectedMatch?.awayPlayers || [];
+                const candidatePlayers = teamList.length > 0 ? teamList : [
+                  ...(selectedMatch?.homePlayers || []),
+                  ...(selectedMatch?.awayPlayers || []),
+                ];
 
-              {/* Assistência */}
-              {!editIsOwnGoal && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-300 block">
-                    👟 Assistência (passe para o gol):
-                  </label>
-                  <select
-                    value={editAssistId}
-                    onChange={(e) => setEditAssistId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-cyan-400 focus:outline-none"
-                  >
-                    <option value="">Sem assistência (jogada individual)</option>
-                    {(normalizeId(editTeamId) === homeTeamId
-                      ? selectedMatch?.homePlayers || []
-                      : selectedMatch?.awayPlayers || []
-                    )
-                      .filter((p) => p.id !== editScorerId)
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
+                return (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-300 block">
+                        {editIsOwnGoal ? 'Jogador que marcou contra (opcional):' : '⚽ Autor do Gol:'}
+                      </label>
+                      <select
+                        value={editScorerId}
+                        onChange={(e) => {
+                          const newScorerId = e.target.value;
+                          setEditScorerId(newScorerId);
+                          if (editAssistId === newScorerId) {
+                            setEditAssistId('');
+                          }
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-amber-400 focus:outline-none"
+                      >
+                        <option value="">{editIsOwnGoal ? 'Não identificado' : 'Selecione o autor do gol...'}</option>
+                        {candidatePlayers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {!editIsOwnGoal && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-300 block">
+                          👟 Assistência (passe para o gol):
+                        </label>
+                        <select
+                          value={editAssistId}
+                          onChange={(e) => setEditAssistId(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-cyan-400 focus:outline-none"
+                        >
+                          <option value="">Sem assistência (jogada individual)</option>
+                          {candidatePlayers
+                            .filter((p) => p.id !== editScorerId)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {actionError && (
                 <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">

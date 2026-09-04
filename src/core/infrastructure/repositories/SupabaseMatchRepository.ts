@@ -530,6 +530,7 @@ export class SupabaseMatchRepository implements IMatchRepository {
   }
 
   private async enrichMatchSummaries(rows: MatchSummaryRow[]): Promise<MatchSummary[]> {
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
     const matchIds = rows.map((r) => r.match_id);
 
     // Mapeamentos para enriquecimento com eventos e IDs dos times
@@ -609,8 +610,29 @@ export class SupabaseMatchRepository implements IMatchRepository {
       }
     }
 
-    // 5. Buscar escalações de todos os times envolvidos nas partidas
+    // 5. Buscar todos os times das sessões envolvidas para garantir mapeamento resiliente
     const allTeamIds = new Set<string>();
+    const sessionIds = Array.from(new Set(rows.map((r) => r.session_id).filter(Boolean)));
+    const sessionTeamMap = new Map<string, string>(); // `${sessionId}_${teamName}` -> teamId
+    const teamCaptainMap = new Map<string, string>(); // teamId -> captainId
+
+    if (sessionIds.length > 0) {
+      try {
+        const { data: sessionTeamsData } = await this.client
+          .from('session_teams')
+          .select('id, session_id, name, captain_id')
+          .in('session_id', sessionIds);
+
+        for (const st of (sessionTeamsData || [])) {
+          allTeamIds.add(st.id);
+          if (st.captain_id) teamCaptainMap.set(norm(st.id), st.captain_id);
+          sessionTeamMap.set(`${norm(st.session_id)}_${norm(st.name)}`, st.id);
+        }
+      } catch {
+        // Fallback silencioso
+      }
+    }
+
     for (const row of rows) {
       if (row.home_team_id) allTeamIds.add(row.home_team_id);
       if (row.away_team_id) allTeamIds.add(row.away_team_id);
@@ -619,8 +641,12 @@ export class SupabaseMatchRepository implements IMatchRepository {
       if (info.homeTeamId) allTeamIds.add(info.homeTeamId);
       if (info.awayTeamId) allTeamIds.add(info.awayTeamId);
     }
+    for (const [, evList] of eventsByMatch.entries()) {
+      for (const ev of evList) {
+        if (ev.teamId) allTeamIds.add(ev.teamId);
+      }
+    }
 
-    const teamCaptainMap = new Map<string, string>();
     interface TeamPlayerEntry {
       playerId: string;
       name: string;
@@ -635,7 +661,7 @@ export class SupabaseMatchRepository implements IMatchRepository {
     if (allTeamIds.size > 0) {
       const teamIdList = Array.from(allTeamIds);
 
-      // Buscar capitães cadastrados nos times
+      // Buscar capitães cadastrados nos times que ainda não foram obtidos
       try {
         const { data: teamsData } = await this.client
           .from('session_teams')
@@ -643,54 +669,29 @@ export class SupabaseMatchRepository implements IMatchRepository {
           .in('id', teamIdList);
 
         for (const t of (teamsData || [])) {
-          if (t.captain_id) teamCaptainMap.set(t.id, t.captain_id);
+          if (t.captain_id) teamCaptainMap.set(norm(t.id), t.captain_id);
         }
       } catch {
         // Fallback silencioso
       }
 
-      // Buscar elenco dos times da sessão
+      // Buscar elenco dos times da sessão (sem solicitar is_captain que não existe nesta tabela)
       try {
-        const { data: stpData } = await this.client
+        const { data: stpData, error: stpErr } = await this.client
           .from('session_team_players')
-          .select('session_team_id, player_id, is_loaned, is_goalkeeper, is_captain, players(id, name, nickname, avatar_url)')
+          .select('session_team_id, player_id, is_loaned, is_goalkeeper, players(id, name, nickname, avatar_url)')
           .in('session_team_id', teamIdList);
 
-        for (const item of (stpData || [])) {
-          const p = (item as any).players;
-          if (!p) continue;
-          const teamId = item.session_team_id;
-          if (!teamPlayersMap.has(teamId)) {
-            teamPlayersMap.set(teamId, []);
-          }
-          const isCaptain = !!(item.is_captain || (teamCaptainMap.get(teamId) === item.player_id));
-          teamPlayersMap.get(teamId)!.push({
-            playerId: item.player_id,
-            name: p.name,
-            nickname: p.nickname || null,
-            avatarUrl: p.avatar_url || null,
-            isCaptain,
-            isGoalkeeper: !!item.is_goalkeeper,
-            isLoaned: !!item.is_loaned,
-          });
-        }
-      } catch {
-        // Fallback caso a coluna is_captain não esteja presente no schema remoto
-        try {
-          const { data: stpDataFallback } = await this.client
-            .from('session_team_players')
-            .select('session_team_id, player_id, is_loaned, is_goalkeeper, players(id, name, nickname, avatar_url)')
-            .in('session_team_id', teamIdList);
-
-          for (const item of (stpDataFallback || [])) {
+        if (!stpErr && stpData) {
+          for (const item of stpData) {
             const p = (item as any).players;
             if (!p) continue;
-            const teamId = item.session_team_id;
-            if (!teamPlayersMap.has(teamId)) {
-              teamPlayersMap.set(teamId, []);
+            const tId = norm(item.session_team_id);
+            if (!teamPlayersMap.has(tId)) {
+              teamPlayersMap.set(tId, []);
             }
-            const isCaptain = teamCaptainMap.get(teamId) === item.player_id;
-            teamPlayersMap.get(teamId)!.push({
+            const isCaptain = norm(teamCaptainMap.get(tId)) === norm(item.player_id);
+            teamPlayersMap.get(tId)!.push({
               playerId: item.player_id,
               name: p.name,
               nickname: p.nickname || null,
@@ -700,19 +701,31 @@ export class SupabaseMatchRepository implements IMatchRepository {
               isLoaned: !!item.is_loaned,
             });
           }
-        } catch {
-          // Ignora se não for possível obter atletas
         }
+      } catch {
+        // Fallback silencioso
       }
     }
 
     return rows.map((row) => {
-      const teamInfo = matchTeamMap.get(row.match_id);
+      const teamInfo = matchTeamMap.get(norm(row.match_id));
       const matchEvents = eventsByMatch.get(row.match_id) || [];
 
-      const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
-      const homeTeamId = norm(teamInfo?.homeTeamId || row.home_team_id);
-      const awayTeamId = norm(teamInfo?.awayTeamId || row.away_team_id);
+      // Resolução resiliente dos IDs dos times (via matches, row ou session_teams por nome)
+      const rawHomeId =
+        teamInfo?.homeTeamId ||
+        row.home_team_id ||
+        sessionTeamMap.get(`${norm(row.session_id)}_${norm(row.home_team_name)}`) ||
+        '';
+
+      const rawAwayId =
+        teamInfo?.awayTeamId ||
+        row.away_team_id ||
+        sessionTeamMap.get(`${norm(row.session_id)}_${norm(row.away_team_name)}`) ||
+        '';
+
+      const homeTeamId = norm(rawHomeId);
+      const awayTeamId = norm(rawAwayId);
 
       // Recalcula o placar a partir dos eventos reais da partida (fonte da verdade)
       const calculatedHomeScore = matchEvents.filter((e) => {
@@ -729,18 +742,21 @@ export class SupabaseMatchRepository implements IMatchRepository {
       const awayScore = matchEvents.length > 0 ? calculatedAwayScore : (row.away_score ?? 0);
 
       // Função auxiliar para montar a lista de atletas de um time com suas estatísticas nesta partida
-      const buildMatchPlayers = (teamIdStr: string): MatchPlayerSummary[] => {
-        if (!teamIdStr) return [];
-        // Busca elenco pelo id exato ou normalizado
-        let roster: TeamPlayerEntry[] = [];
-        for (const [tId, pList] of teamPlayersMap.entries()) {
-          if (norm(tId) === norm(teamIdStr)) {
-            roster = pList;
-            break;
+      const buildMatchPlayers = (teamIdStr: string, teamNameStr?: string): MatchPlayerSummary[] => {
+        let normTId = norm(teamIdStr);
+        let roster: TeamPlayerEntry[] = normTId ? teamPlayersMap.get(normTId) || [] : [];
+
+        // Se o time não foi encontrado pelo ID, tenta pelo nome na sessão
+        if (roster.length === 0 && teamNameStr) {
+          const fallbackTeamId = sessionTeamMap.get(`${norm(row.session_id)}_${norm(teamNameStr)}`);
+          if (fallbackTeamId) {
+            normTId = norm(fallbackTeamId);
+            roster = teamPlayersMap.get(normTId) || [];
           }
         }
 
-        return roster.map((p) => {
+        const rosterPlayerIds = new Set(roster.map((p) => norm(p.playerId)));
+        const result: MatchPlayerSummary[] = roster.map((p) => {
           const pId = norm(p.playerId);
           const goals = matchEvents.filter((e) => norm(e.scorerId) === pId && !e.isOwnGoal).length;
           const assists = matchEvents.filter((e) => norm(e.assistId) === pId && !e.isOwnGoal).length;
@@ -757,10 +773,49 @@ export class SupabaseMatchRepository implements IMatchRepository {
             assists,
           };
         });
-      };
 
-      const rawHomeId = teamInfo?.homeTeamId || row.home_team_id;
-      const rawAwayId = teamInfo?.awayTeamId || row.away_team_id;
+        // Resiliência adicional: adicionar jogadores que marcaram ou deram assistência nesta partida
+        // mas que porventura não estavam listados no roster prévio de session_team_players
+        for (const ev of matchEvents) {
+          const isThisTeam = normTId ? norm(ev.teamId) === normTId : false;
+          if (isThisTeam) {
+            if (ev.scorerId && !ev.isOwnGoal && !rosterPlayerIds.has(norm(ev.scorerId))) {
+              rosterPlayerIds.add(norm(ev.scorerId));
+              const goals = matchEvents.filter((e) => norm(e.scorerId) === norm(ev.scorerId) && !e.isOwnGoal).length;
+              const assists = matchEvents.filter((e) => norm(e.assistId) === norm(ev.scorerId) && !e.isOwnGoal).length;
+              result.push({
+                id: ev.scorerId,
+                name: ev.scorerName || 'Jogador',
+                nickname: ev.scorerName || null,
+                avatarUrl: null,
+                isCaptain: false,
+                isGoalkeeper: false,
+                isLoaned: false,
+                goals,
+                assists,
+              });
+            }
+            if (ev.assistId && !ev.isOwnGoal && !rosterPlayerIds.has(norm(ev.assistId))) {
+              rosterPlayerIds.add(norm(ev.assistId));
+              const goals = matchEvents.filter((e) => norm(e.scorerId) === norm(ev.assistId) && !e.isOwnGoal).length;
+              const assists = matchEvents.filter((e) => norm(e.assistId) === norm(ev.assistId) && !e.isOwnGoal).length;
+              result.push({
+                id: ev.assistId,
+                name: ev.assistName || 'Jogador',
+                nickname: ev.assistName || null,
+                avatarUrl: null,
+                isCaptain: false,
+                isGoalkeeper: false,
+                isLoaned: false,
+                goals,
+                assists,
+              });
+            }
+          }
+        }
+
+        return result;
+      };
 
       return {
         matchId: row.match_id,
@@ -780,8 +835,8 @@ export class SupabaseMatchRepository implements IMatchRepository {
         startedAt: row.started_at,
         finishedAt: row.finished_at,
         events: matchEvents,
-        homePlayers: buildMatchPlayers(rawHomeId || ''),
-        awayPlayers: buildMatchPlayers(rawAwayId || ''),
+        homePlayers: buildMatchPlayers(rawHomeId || '', row.home_team_name),
+        awayPlayers: buildMatchPlayers(rawAwayId || '', row.away_team_name),
       };
     });
   }
