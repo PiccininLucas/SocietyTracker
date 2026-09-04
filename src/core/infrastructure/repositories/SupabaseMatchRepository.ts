@@ -738,8 +738,8 @@ export class SupabaseMatchRepository implements IMatchRepository {
         return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
       }).length;
 
-      const homeScore = matchEvents.length > 0 ? calculatedHomeScore : (row.home_score ?? 0);
-      const awayScore = matchEvents.length > 0 ? calculatedAwayScore : (row.away_score ?? 0);
+      const homeScore = Math.max(calculatedHomeScore, row.home_score ?? 0);
+      const awayScore = Math.max(calculatedAwayScore, row.away_score ?? 0);
 
       // Função auxiliar para montar a lista de atletas de um time com suas estatísticas nesta partida
       const buildMatchPlayers = (teamIdStr: string, teamNameStr?: string): MatchPlayerSummary[] => {

@@ -24,12 +24,15 @@ const calculatedAwayScore = events.filter((e) => {
   return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
 }).length;
 
-const homeScore = events.length > 0 ? calculatedHomeScore : (match.homeScore ?? 0);
-const awayScore = events.length > 0 ? calculatedAwayScore : (match.awayScore ?? 0);
+const homeScore = Math.max(calculatedHomeScore, match.homeScore ?? 0);
+const awayScore = Math.max(calculatedAwayScore, match.awayScore ?? 0);
 
 const isHomeWinner = homeScore > awayScore;
 const isAwayWinner = awayScore > homeScore;
 const isDraw = homeScore === awayScore;
+
+const extraHomeGoals = Math.max(0, homeScore - calculatedHomeScore);
+const extraAwayGoals = Math.max(0, awayScore - calculatedAwayScore);
 
 const formatMinutes = (seconds: number) => {
   const mins = Math.floor((seconds ?? 0) / 60);
@@ -59,13 +62,16 @@ const awayEvents = events.filter((e) => {
 });
 
 const totalGoals = homeScore + awayScore;
-const hasEvents = events.length > 0;
+const hasEvents = events.length > 0 || totalGoals > 0;
 ---
 
 <div
   class="group cursor-pointer rounded-3xl glass-card border border-white/10 p-5 bg-surface-100/90 shadow-lg hover:border-emerald-500/50 hover:bg-slate-800/60 hover:shadow-xl hover:shadow-emerald-500/5 hover:-translate-y-0.5 transition-all duration-200 select-none relative"
   data-match-card
   data-match-id={match.matchId}
+  data-home-team-id={match.homeTeamId}
+  data-away-team-id={match.awayTeamId}
+  data-match-events={JSON.stringify(events)}
   role="button"
   tabindex="0"
   aria-label={`Ver detalhes e escalações da partida entre ${match.homeTeamName} e ${match.awayTeamName}`}
@@ -105,17 +111,22 @@ const hasEvents = events.length > 0;
         style={`background-color: ${match.homeTeamColor || '#1f2937'}; border: 1px solid rgba(255,255,255,0.2);`}
       ></div>
       <div class="min-w-0">
-        <h4 class:list={[
-          'font-display font-black text-sm sm:text-base truncate',
-          isHomeWinner ? 'text-white font-extrabold' : 'text-gray-300',
-        ]}>
+        <h4
+          data-home-name
+          class:list={[
+            'font-display font-black text-sm sm:text-base truncate',
+            isHomeWinner ? 'text-white font-extrabold' : 'text-gray-300',
+          ]}
+        >
           {match.homeTeamName}
         </h4>
-        {isHomeWinner && (
-          <span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
-            Vencedor
-          </span>
-        )}
+        <div data-home-winner>
+          {isHomeWinner && (
+            <span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
+              Vencedor
+            </span>
+          )}
+        </div>
       </div>
     </div>
 
@@ -128,21 +139,25 @@ const hasEvents = events.length > 0;
       </div>
     </div>
 
-
     <!-- Time Visitante -->
     <div class="flex-1 min-w-0 flex items-center gap-2.5 justify-end text-right">
       <div class="min-w-0">
-        <h4 class:list={[
-          'font-display font-black text-sm sm:text-base truncate',
-          isAwayWinner ? 'text-white font-extrabold' : 'text-gray-300',
-        ]}>
+        <h4
+          data-away-name
+          class:list={[
+            'font-display font-black text-sm sm:text-base truncate',
+            isAwayWinner ? 'text-white font-extrabold' : 'text-gray-300',
+          ]}
+        >
           {match.awayTeamName}
         </h4>
-        {isAwayWinner && (
-          <span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
-            Vencedor
-          </span>
-        )}
+        <div data-away-winner>
+          {isAwayWinner && (
+            <span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
+              Vencedor
+            </span>
+          )}
+        </div>
       </div>
       <div
         class="w-4 h-8 rounded-md shadow shrink-0"
@@ -152,61 +167,73 @@ const hasEvents = events.length > 0;
   </div>
 
   <!-- Seção de Gols e Assistências dos 2 Times -->
-  {hasEvents ? (
-    <div class="mt-3 pt-3 border-t border-white/5 grid grid-cols-2 gap-3 text-xs">
+  <div data-goals-wrapper class:list={['mt-3 pt-3 border-t border-white/5', totalGoals > 0 ? '' : 'hidden']}>
+    <div class="grid grid-cols-2 gap-3 text-xs">
       <!-- Gols Mandante -->
-      <div class="space-y-1.5 min-w-0">
-        {homeEvents.length > 0 ? (
-          homeEvents.map((ev) => (
-            <div class="flex items-center gap-1.5 text-gray-300 truncate" title={ev.isOwnGoal ? 'Gol Contra' : `${ev.scorerName || 'Gol'}${ev.assistName ? ` (Assistência: ${ev.assistName})` : ''}`}>
-              <span class="shrink-0 text-sm">{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
-              <span class:list={[
-                'font-bold truncate',
-                ev.isOwnGoal ? 'text-rose-400' : 'text-white'
-              ]}>
-                {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
-              </span>
-              {!ev.isOwnGoal && ev.assistName && (
-                <span class="text-cyan-400 font-medium text-[11px] truncate">
-                  ({ev.assistName})
+      <div data-home-goals class="space-y-1.5 min-w-0">
+        {homeEvents.length > 0 || extraHomeGoals > 0 ? (
+          <>
+            {homeEvents.map((ev) => (
+              <div class="flex items-center gap-1.5 text-gray-300 truncate" title={ev.isOwnGoal ? 'Gol Contra' : `${ev.scorerName || 'Gol'}${ev.assistName ? ` (Assistência: ${ev.assistName})` : ''}`}>
+                <span class="shrink-0 text-sm">{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
+                <span class:list={[
+                  'font-bold truncate',
+                  ev.isOwnGoal ? 'text-rose-400' : 'text-white'
+                ]}>
+                  {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
                 </span>
-              )}
-            </div>
-          ))
+                {!ev.isOwnGoal && ev.assistName && (
+                  <span class="text-cyan-400 font-medium text-[11px] truncate">
+                    ({ev.assistName})
+                  </span>
+                )}
+              </div>
+            ))}
+            {Array.from({ length: extraHomeGoals }).map(() => (
+              <div class="flex items-center gap-1.5 text-gray-400 italic truncate" title="Gol computado no placar">
+                <span class="shrink-0 text-sm">⚽</span>
+                <span class="truncate">Gol (Sem autor registrado)</span>
+              </div>
+            ))}
+          </>
         ) : (
           <div class="text-[11px] text-gray-600 italic">—</div>
         )}
       </div>
 
       <!-- Gols Visitante -->
-      <div class="space-y-1.5 min-w-0 text-right">
-        {awayEvents.length > 0 ? (
-          awayEvents.map((ev) => (
-            <div class="flex items-center justify-end gap-1.5 text-gray-300 truncate" title={ev.isOwnGoal ? 'Gol Contra' : `${ev.scorerName || 'Gol'}${ev.assistName ? ` (Assistência: ${ev.assistName})` : ''}`}>
-              {!ev.isOwnGoal && ev.assistName && (
-                <span class="text-cyan-400 font-medium text-[11px] truncate">
-                  ({ev.assistName})
+      <div data-away-goals class="space-y-1.5 min-w-0 text-right">
+        {awayEvents.length > 0 || extraAwayGoals > 0 ? (
+          <>
+            {awayEvents.map((ev) => (
+              <div class="flex items-center justify-end gap-1.5 text-gray-300 truncate" title={ev.isOwnGoal ? 'Gol Contra' : `${ev.scorerName || 'Gol'}${ev.assistName ? ` (Assistência: ${ev.assistName})` : ''}`}>
+                {!ev.isOwnGoal && ev.assistName && (
+                  <span class="text-cyan-400 font-medium text-[11px] truncate">
+                    ({ev.assistName})
+                  </span>
+                )}
+                <span class:list={[
+                  'font-bold truncate',
+                  ev.isOwnGoal ? 'text-rose-400' : 'text-white'
+                ]}>
+                  {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
                 </span>
-              )}
-              <span class:list={[
-                'font-bold truncate',
-                ev.isOwnGoal ? 'text-rose-400' : 'text-white'
-              ]}>
-                {ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}
-              </span>
-              <span class="shrink-0 text-sm">{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
-            </div>
-          ))
+                <span class="shrink-0 text-sm">{ev.isOwnGoal ? '⚠️' : '⚽'}</span>
+              </div>
+            ))}
+            {Array.from({ length: extraAwayGoals }).map(() => (
+              <div class="flex items-center justify-end gap-1.5 text-gray-400 italic truncate" title="Gol computado no placar">
+                <span class="truncate">Gol (Sem autor registrado)</span>
+                <span class="shrink-0 text-sm">⚽</span>
+              </div>
+            ))}
+          </>
         ) : (
           <div class="text-[11px] text-gray-600 italic">—</div>
         )}
       </div>
     </div>
-  ) : totalGoals === 0 ? (
-    <div class="mt-2.5 pt-2 border-t border-white/5 text-center">
-      <span class="text-[11px] text-gray-500 italic">0 x 0 • Sem gols registrados</span>
-    </div>
-  ) : null}
+  </div>
 
   <!-- Footer do Card: Indicativo Sutil para Ver Detalhes e Escalações -->
   <div class="mt-3.5 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-400 group-hover:text-emerald-400 transition-colors">
@@ -245,24 +272,166 @@ const hasEvents = events.length > 0;
     });
   }
 
-  // Sincroniza placar instantaneamente quando uma súmula é editada no modal
+  // Sincroniza placar, vencedor e lances instantaneamente quando uma súmula é editada no modal
   function setupMatchUpdatedListener() {
     if ((window as any).__matchUpdatedBound) return;
     (window as any).__matchUpdatedBound = true;
 
     window.addEventListener('match-updated', (e: Event) => {
-      const customEv = e as CustomEvent<{ matchId?: string; homeScore?: number; awayScore?: number }>;
+      const customEv = e as CustomEvent<{
+        matchId?: string;
+        homeScore?: number;
+        awayScore?: number;
+        events?: any[];
+        homeTeamId?: string;
+        awayTeamId?: string;
+      }>;
       if (!customEv.detail?.matchId) return;
 
       const card = document.querySelector<HTMLElement>(`[data-match-card][data-match-id="${customEv.detail.matchId}"]`);
-      if (card) {
-        const hSpan = card.querySelector('[data-home-score]');
-        const aSpan = card.querySelector('[data-away-score]');
-        if (hSpan && customEv.detail.homeScore !== undefined) {
-          hSpan.textContent = String(customEv.detail.homeScore);
+      if (!card) return;
+
+      const h = Number(customEv.detail.homeScore ?? 0);
+      const a = Number(customEv.detail.awayScore ?? 0);
+
+      // 1. Atualizar Placar Numérico
+      const hSpan = card.querySelector('[data-home-score]');
+      const aSpan = card.querySelector('[data-away-score]');
+      if (hSpan) {
+        hSpan.textContent = String(h);
+        hSpan.className = h > a ? 'text-emerald-400' : 'text-white';
+      }
+      if (aSpan) {
+        aSpan.textContent = String(a);
+        aSpan.className = a > h ? 'text-emerald-400' : 'text-white';
+      }
+
+      // 2. Atualizar Vencedor e Títulos dos Times
+      const homeNameEl = card.querySelector('[data-home-name]');
+      const homeWinnerEl = card.querySelector('[data-home-winner]');
+      const awayNameEl = card.querySelector('[data-away-name]');
+      const awayWinnerEl = card.querySelector('[data-away-winner]');
+
+      const winnerBadgeHtml = '<span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">Vencedor</span>';
+
+      if (h > a) {
+        if (homeNameEl) {
+          homeNameEl.classList.add('text-white', 'font-extrabold');
+          homeNameEl.classList.remove('text-gray-300');
         }
-        if (aSpan && customEv.detail.awayScore !== undefined) {
-          aSpan.textContent = String(customEv.detail.awayScore);
+        if (homeWinnerEl) homeWinnerEl.innerHTML = winnerBadgeHtml;
+
+        if (awayNameEl) {
+          awayNameEl.classList.add('text-gray-300');
+          awayNameEl.classList.remove('text-white', 'font-extrabold');
+        }
+        if (awayWinnerEl) awayWinnerEl.innerHTML = '';
+      } else if (a > h) {
+        if (awayNameEl) {
+          awayNameEl.classList.add('text-white', 'font-extrabold');
+          awayNameEl.classList.remove('text-gray-300');
+        }
+        if (awayWinnerEl) awayWinnerEl.innerHTML = winnerBadgeHtml;
+
+        if (homeNameEl) {
+          homeNameEl.classList.add('text-gray-300');
+          homeNameEl.classList.remove('text-white', 'font-extrabold');
+        }
+        if (homeWinnerEl) homeWinnerEl.innerHTML = '';
+      } else {
+        // Empate
+        if (homeNameEl) {
+          homeNameEl.classList.add('text-gray-300');
+          homeNameEl.classList.remove('text-white', 'font-extrabold');
+        }
+        if (homeWinnerEl) homeWinnerEl.innerHTML = '';
+
+        if (awayNameEl) {
+          awayNameEl.classList.add('text-gray-300');
+          awayNameEl.classList.remove('text-white', 'font-extrabold');
+        }
+        if (awayWinnerEl) awayWinnerEl.innerHTML = '';
+      }
+
+      // 3. Atualizar Lista de Gols nos Cards
+      const homeGoalsEl = card.querySelector('[data-home-goals]');
+      const awayGoalsEl = card.querySelector('[data-away-goals]');
+      const goalsWrapper = card.querySelector('[data-goals-wrapper]');
+
+      if (homeGoalsEl && awayGoalsEl) {
+        const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+        const homeTId = norm(customEv.detail.homeTeamId || card.dataset.homeTeamId);
+        const awayTId = norm(customEv.detail.awayTeamId || card.dataset.awayTeamId);
+
+        let currentEvents = customEv.detail.events;
+        if (currentEvents === undefined) {
+          try {
+            currentEvents = (card as any).__events || JSON.parse(card.dataset.matchEvents || '[]');
+          } catch {
+            currentEvents = [];
+          }
+        } else {
+          (card as any).__events = currentEvents;
+        }
+
+        const hEvents = currentEvents.filter((ev: any) => {
+          const tId = norm(ev.teamId);
+          return (!ev.isOwnGoal && tId === homeTId) || (ev.isOwnGoal && tId === awayTId);
+        });
+        const aEvents = currentEvents.filter((ev: any) => {
+          const tId = norm(ev.teamId);
+          return (!ev.isOwnGoal && tId === awayTId) || (ev.isOwnGoal && tId === homeTId);
+        });
+
+        const extraH = Math.max(0, h - hEvents.length);
+        const extraA = Math.max(0, a - aEvents.length);
+
+        let hHtml = hEvents.map((ev: any) => `
+          <div class="flex items-center gap-1.5 text-gray-300 truncate" title="${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}">
+            <span class="shrink-0 text-sm">${ev.isOwnGoal ? '⚠️' : '⚽'}</span>
+            <span class="font-bold truncate ${ev.isOwnGoal ? 'text-rose-400' : 'text-white'}">${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}</span>
+            ${!ev.isOwnGoal && ev.assistName ? `<span class="text-cyan-400 font-medium text-[11px] truncate">(${ev.assistName})</span>` : ''}
+          </div>
+        `).join('');
+
+        for (let i = 0; i < extraH; i++) {
+          hHtml += `
+            <div class="flex items-center gap-1.5 text-gray-400 italic truncate" title="Gol computado no placar">
+              <span class="shrink-0 text-sm">⚽</span>
+              <span class="truncate">Gol (Sem autor registrado)</span>
+            </div>
+          `;
+        }
+
+        if (!hHtml.trim()) {
+          hHtml = '<div class="text-[11px] text-gray-600 italic">—</div>';
+        }
+        homeGoalsEl.innerHTML = hHtml;
+
+        let aHtml = aEvents.map((ev: any) => `
+          <div class="flex items-center justify-end gap-1.5 text-gray-300 truncate" title="${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}">
+            ${!ev.isOwnGoal && ev.assistName ? `<span class="text-cyan-400 font-medium text-[11px] truncate">(${ev.assistName})</span>` : ''}
+            <span class="font-bold truncate ${ev.isOwnGoal ? 'text-rose-400' : 'text-white'}">${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}</span>
+            <span class="shrink-0 text-sm">${ev.isOwnGoal ? '⚠️' : '⚽'}</span>
+          </div>
+        `).join('');
+
+        for (let i = 0; i < extraA; i++) {
+          aHtml += `
+            <div class="flex items-center justify-end gap-1.5 text-gray-400 italic truncate" title="Gol computado no placar">
+              <span class="truncate">Gol (Sem autor registrado)</span>
+              <span class="shrink-0 text-sm">⚽</span>
+            </div>
+          `;
+        }
+
+        if (!aHtml.trim()) {
+          aHtml = '<div class="text-[11px] text-gray-600 italic">—</div>';
+        }
+        awayGoalsEl.innerHTML = aHtml;
+
+        if (goalsWrapper) {
+          goalsWrapper.classList.toggle('hidden', h === 0 && a === 0);
         }
       }
     });

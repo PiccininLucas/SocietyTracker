@@ -261,22 +261,26 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
     return { homeScore: hScore, awayScore: aScore };
   };
 
-  const notifyMatchUpdated = (matchId: string, hScore: number, aScore: number) => {
+  const notifyMatchUpdated = (
+    matchId: string,
+    hScore: number,
+    aScore: number,
+    eventsList?: MatchSummaryEvent[]
+  ) => {
     try {
+      const evs = eventsList || selectedMatch?.events || [];
       window.dispatchEvent(
         new CustomEvent('match-updated', {
-          detail: { matchId, homeScore: hScore, awayScore: aScore },
+          detail: {
+            matchId,
+            homeScore: hScore,
+            awayScore: aScore,
+            events: evs,
+            homeTeamId: selectedMatch?.homeTeamId,
+            awayTeamId: selectedMatch?.awayTeamId,
+          },
         })
       );
-      // Sincroniza visualmente o card correspondente no DOM caso a página esteja montada
-      const card = document.querySelector(`[data-match-card][data-match-id="${matchId}"]`);
-      if (card) {
-        const scoreSpans = card.querySelectorAll('.font-display span');
-        if (scoreSpans.length >= 3) {
-          scoreSpans[0].textContent = String(hScore);
-          scoreSpans[2].textContent = String(aScore);
-        }
-      }
     } catch {
       // Ignora erro
     }
@@ -335,7 +339,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
         awayPlayers: nextAwayPlayers,
       });
 
-      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA);
+      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA, newEvents);
       setToastMessage('Gol excluído com sucesso! Placar recalculado.');
       setDeletingEvent(null);
     } catch (err: any) {
@@ -431,7 +435,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
         awayPlayers: nextAwayPlayers,
       });
 
-      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA);
+      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA, newEvents);
       setToastMessage('Anotação de gol atualizada com sucesso!');
       setEditingEvent(null);
     } catch (err: any) {
@@ -442,9 +446,9 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
   };
 
   // Abrir e Submeter Adição de Novo Gol pós-jogo
-  const handleOpenAddGoalModal = () => {
+  const handleOpenAddGoalModal = (defaultTeamId?: string) => {
     if (!selectedMatch) return;
-    setAddTeamId(selectedMatch.homeTeamId || '');
+    setAddTeamId(defaultTeamId || selectedMatch.homeTeamId || '');
     setAddIsOwnGoal(false);
     setAddScorerId('');
     setAddAssistId('');
@@ -548,7 +552,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
         awayPlayers: nextAwayPlayers,
       });
 
-      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA);
+      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA, newEvents);
       setToastMessage('Novo gol registrado na súmula com sucesso!');
       setIsAddGoalOpen(false);
     } catch (err: any) {
@@ -596,7 +600,12 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
         awayScore: adjustAwayScore,
       });
 
-      notifyMatchUpdated(selectedMatch.matchId, adjustHomeScore, adjustAwayScore);
+      notifyMatchUpdated(
+        selectedMatch.matchId,
+        adjustHomeScore,
+        adjustAwayScore,
+        selectedMatch.events || []
+      );
       setToastMessage(`Placar atualizado para ${adjustHomeScore} x ${adjustAwayScore}!`);
       setIsAdjustScoreOpen(false);
     } catch (err: any) {
@@ -626,12 +635,16 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
     return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
   }).length;
 
-  const homeScore = events.length > 0 ? calculatedHomeScore : (match?.homeScore ?? 0);
-  const awayScore = events.length > 0 ? calculatedAwayScore : (match?.awayScore ?? 0);
+  const homeScore = Math.max(calculatedHomeScore, match?.homeScore ?? 0);
+  const awayScore = Math.max(calculatedAwayScore, match?.awayScore ?? 0);
 
   const isHomeWinner = homeScore > awayScore;
   const isAwayWinner = awayScore > homeScore;
   const isDraw = homeScore === awayScore;
+
+  const extraHomeGoals = Math.max(0, homeScore - calculatedHomeScore);
+  const extraAwayGoals = Math.max(0, awayScore - calculatedAwayScore);
+  const totalExtraGoals = extraHomeGoals + extraAwayGoals;
 
   const sortedEvents = [...events].sort((a, b) => a.eventTimeSeconds - b.eventTimeSeconds);
 
@@ -999,13 +1012,13 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                       <span>Linha do Tempo dos Gols</span>
                     </h4>
                     <span className="text-[11px] text-gray-400 font-semibold">
-                      ({sortedEvents.length} {sortedEvents.length === 1 ? 'gol marcado' : 'gols marcados'})
+                      ({sortedEvents.length + totalExtraGoals} {sortedEvents.length + totalExtraGoals === 1 ? 'gol marcado' : 'gols marcados'})
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    onClick={handleOpenAddGoalModal}
+                    onClick={() => handleOpenAddGoalModal()}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-bold text-xs active:scale-95 transition-all shadow-sm"
                     title="Adicionar novo gol a esta partida"
                   >
@@ -1014,12 +1027,12 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                   </button>
                 </div>
 
-                {sortedEvents.length === 0 ? (
+                {sortedEvents.length === 0 && totalExtraGoals === 0 ? (
                   <div className="text-center py-6 text-xs text-gray-500 italic space-y-2">
                     <p>0 x 0 • Nenhum gol registrado nesta partida.</p>
                     <button
                       type="button"
-                      onClick={handleOpenAddGoalModal}
+                      onClick={() => handleOpenAddGoalModal()}
                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-bold text-xs active:scale-95 transition-all"
                     >
                       <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -1028,6 +1041,27 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-2">
+                    {/* Alerta de gols sem autor registrado */}
+                    {totalExtraGoals > 0 && (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-200">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span className="truncate">
+                            {totalExtraGoals === 1
+                              ? 'Há 1 gol no placar sem jogador registrado na súmula.'
+                              : `Há ${totalExtraGoals} gols no placar sem jogadores registrados.`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddGoalModal(extraHomeGoals > 0 ? match?.homeTeamId : match?.awayTeamId)}
+                          className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center gap-1 active:scale-95 transition-all"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Atribuir Autor</span>
+                        </button>
+                      </div>
+                    )}
                     {sortedEvents.map((ev, index) => {
                       const isHomeGoal =
                         (!ev.isOwnGoal && normalizeId(ev.teamId) === homeTeamId) ||
@@ -1122,6 +1156,82 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                         </div>
                       );
                     })}
+
+                    {/* Gols Mandante sem autor registrado */}
+                    {Array.from({ length: extraHomeGoals }).map((_, i) => (
+                      <div
+                        key={`extra-home-${i}`}
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-surface-100/40 border border-dashed border-amber-500/30 text-xs transition-all"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 shrink-0">
+                            ⏱ Placar
+                          </span>
+                          <span className="text-sm shrink-0">⚽</span>
+                          <div className="min-w-0">
+                            <span className="font-bold text-amber-200/90 truncate block">
+                              Gol do {match?.homeTeamName || 'Mandante'} (Sem autor registrado)
+                            </span>
+                            <span className="text-[10px] text-gray-400 block truncate">
+                              Computado no placar, mas não pontua na artilharia
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <div
+                            className="w-3 h-3 rounded-full border border-white/20 shrink-0"
+                            style={{ backgroundColor: match?.homeTeamColor || '#10b981' }}
+                            title={`Gol pontuado para ${match?.homeTeamName}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddGoalModal(match?.homeTeamId)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-bold text-[11px] flex items-center gap-1 active:scale-95 transition-all shadow-sm"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Atribuir Autor</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Gols Visitante sem autor registrado */}
+                    {Array.from({ length: extraAwayGoals }).map((_, i) => (
+                      <div
+                        key={`extra-away-${i}`}
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-surface-100/40 border border-dashed border-amber-500/30 text-xs transition-all"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 shrink-0">
+                            ⏱ Placar
+                          </span>
+                          <span className="text-sm shrink-0">⚽</span>
+                          <div className="min-w-0">
+                            <span className="font-bold text-amber-200/90 truncate block">
+                              Gol do {match?.awayTeamName || 'Visitante'} (Sem autor registrado)
+                            </span>
+                            <span className="text-[10px] text-gray-400 block truncate">
+                              Computado no placar, mas não pontua na artilharia
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <div
+                            className="w-3 h-3 rounded-full border border-white/20 shrink-0"
+                            style={{ backgroundColor: match?.awayTeamColor || '#ef4444' }}
+                            title={`Gol pontuado para ${match?.awayTeamName}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddGoalModal(match?.awayTeamId)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-bold text-[11px] flex items-center gap-1 active:scale-95 transition-all shadow-sm"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Atribuir Autor</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1533,6 +1643,27 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                     </button>
                   </div>
                 </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200 flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Ajuste Numérico vs Súmula com Atletas</span>
+                </div>
+                <p>
+                  Este ajuste altera apenas os números do placar. Para registrar quem fez o gol e computar na <strong>artilharia</strong>, use o botão <strong>"+ Adicionar Gol"</strong> na Linha do Tempo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdjustScoreOpen(false);
+                    handleOpenAddGoalModal();
+                  }}
+                  className="mt-1 text-left text-xs font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-2 flex items-center gap-1 w-fit active:scale-95 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Registrar Gol com Atleta e Assistência</span>
+                </button>
               </div>
 
               {actionError && (
