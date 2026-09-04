@@ -122,11 +122,12 @@ const hasEvents = events.length > 0;
     <!-- Placar Central (Nunca recortado ou ocultado) -->
     <div class="shrink-0 px-2 flex items-center justify-center">
       <div class="font-display font-black text-2xl sm:text-3xl text-white tracking-tight flex items-center gap-1.5 whitespace-nowrap">
-        <span class:list={[isHomeWinner ? 'text-emerald-400' : 'text-white']}>{homeScore}</span>
+        <span data-home-score class:list={[isHomeWinner ? 'text-emerald-400' : 'text-white']}>{homeScore}</span>
         <span class="text-xs text-gray-500 font-normal">x</span>
-        <span class:list={[isAwayWinner ? 'text-emerald-400' : 'text-white']}>{awayScore}</span>
+        <span data-away-score class:list={[isAwayWinner ? 'text-emerald-400' : 'text-white']}>{awayScore}</span>
       </div>
     </div>
+
 
     <!-- Time Visitante -->
     <div class="flex-1 min-w-0 flex items-center gap-2.5 justify-end text-right">
@@ -244,8 +245,35 @@ const hasEvents = events.length > 0;
     });
   }
 
+  // Sincroniza placar instantaneamente quando uma súmula é editada no modal
+  function setupMatchUpdatedListener() {
+    if ((window as any).__matchUpdatedBound) return;
+    (window as any).__matchUpdatedBound = true;
+
+    window.addEventListener('match-updated', (e: Event) => {
+      const customEv = e as CustomEvent<{ matchId?: string; homeScore?: number; awayScore?: number }>;
+      if (!customEv.detail?.matchId) return;
+
+      const card = document.querySelector<HTMLElement>(`[data-match-card][data-match-id="${customEv.detail.matchId}"]`);
+      if (card) {
+        const hSpan = card.querySelector('[data-home-score]');
+        const aSpan = card.querySelector('[data-away-score]');
+        if (hSpan && customEv.detail.homeScore !== undefined) {
+          hSpan.textContent = String(customEv.detail.homeScore);
+        }
+        if (aSpan && customEv.detail.awayScore !== undefined) {
+          aSpan.textContent = String(customEv.detail.awayScore);
+        }
+      }
+    });
+  }
+
   // Executa no carregamento e após transições do Astro
   setupMatchCardTriggers();
-  document.addEventListener('astro:page-load', setupMatchCardTriggers);
+  setupMatchUpdatedListener();
+  document.addEventListener('astro:page-load', () => {
+    setupMatchCardTriggers();
+    setupMatchUpdatedListener();
+  });
 </script>
 

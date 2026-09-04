@@ -8,8 +8,9 @@ import type {
   MatchPlayerSummary,
 } from '../../domain/repositories/IMatchRepository';
 import { Match, type MatchEndReason, type MatchStatus } from '../../domain/entities/Match';
-import { MatchEvent } from '../../domain/entities/MatchEvent';
+import { MatchEvent, type MatchEventProps } from '../../domain/entities/MatchEvent';
 import { executeWithSchemaFallback } from '../database/schemaResilience';
+
 
 interface MatchRow {
   id: string;
@@ -236,41 +237,108 @@ export class SupabaseMatchRepository implements IMatchRepository {
     return this.mapEventToDomain(data as MatchEventRow);
   }
 
+  public async findEventById(eventId: string): Promise<MatchEvent | null> {
+    const { data, error } = await this.client
+      .from('match_events')
+      .select('*')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Erro ao buscar evento (${eventId}): ${error.message}`);
+    }
+
+    if (!data) return null;
+    return this.mapEventToDomain(data as MatchEventRow);
+  }
+
+  public async updateEvent(eventId: string, data: Partial<MatchEventProps>): Promise<void> {
+    const payload: Record<string, any> = {};
+
+    if (data.teamId !== undefined) payload.team_id = data.teamId;
+    if (data.scorerId !== undefined) payload.scorer_id = data.scorerId;
+    if (data.assistId !== undefined) payload.assist_id = data.assistId;
+    if (data.eventTimeSeconds !== undefined) payload.event_time_seconds = data.eventTimeSeconds;
+    if (data.isOwnGoal !== undefined) payload.is_own_goal = data.isOwnGoal;
+
+    const { error } = await executeWithSchemaFallback<MatchEventRow>(
+      'match_events',
+      payload,
+      (cleanPayload) =>
+        this.client.from('match_events').update(cleanPayload).eq('id', eventId)
+    );
+
+    if (error) {
+      throw new Error(`Erro ao atualizar evento de jogo (${eventId}): ${error.message}`);
+    }
+  }
+
+  public async deleteEvent(eventId: string): Promise<void> {
+    const { error } = await this.client
+      .from('match_events')
+      .delete()
+      .eq('id', eventId);
+
+    if (error) {
+      throw new Error(`Erro ao excluir evento de jogo (${eventId}): ${error.message}`);
+    }
+  }
+
+  public async recalculateMatchScore(matchId: string): Promise<{ homeScore: number; awayScore: number }> {
+    const { data: matchData, error: mErr } = await this.client
+      .from('matches')
+      .select('home_team_id, away_team_id')
+      .eq('id', matchId)
+      .maybeSingle();
+
+    if (mErr) {
+      throw new Error(`Erro ao buscar partida para recálculo de placar (${matchId}): ${mErr.message}`);
+    }
+
+    if (!matchData) {
+      throw new Error(`Partida (${matchId}) não encontrada para recálculo de placar.`);
+    }
+
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    const homeTeamId = norm(matchData.home_team_id);
+    const awayTeamId = norm(matchData.away_team_id);
+
+    const { data: eventsData, error: eErr } = await this.client
+      .from('match_events')
+      .select('team_id, is_own_goal')
+      .eq('match_id', matchId);
+
+    if (eErr) {
+      throw new Error(`Erro ao buscar eventos para recálculo de placar (${matchId}): ${eErr.message}`);
+    }
+
+    const events = eventsData || [];
+    const homeScore = events.filter((e: any) => {
+      const tId = norm(e.team_id);
+      return (!e.is_own_goal && tId === homeTeamId) || (e.is_own_goal && tId === awayTeamId);
+    }).length;
+
+    const awayScore = events.filter((e: any) => {
+      const tId = norm(e.team_id);
+      return (!e.is_own_goal && tId === awayTeamId) || (e.is_own_goal && tId === homeTeamId);
+    }).length;
+
+    const { error: uErr } = await executeWithSchemaFallback(
+      'matches',
+      { home_score: homeScore, away_score: awayScore },
+      (cleanPayload) => this.client.from('matches').update(cleanPayload).eq('id', matchId)
+    );
+
+    if (uErr) {
+      throw new Error(`Erro ao persistir novo placar da partida (${matchId}): ${uErr.message}`);
+    }
+
+    return { homeScore, awayScore };
+  }
+
   private async syncMatchScoresFromEvents(matchId: string): Promise<void> {
     try {
-      const { data: matchData } = await this.client
-        .from('matches')
-        .select('home_team_id, away_team_id')
-        .eq('id', matchId)
-        .maybeSingle();
-
-      if (!matchData) return;
-
-      const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
-      const homeTeamId = norm(matchData.home_team_id);
-      const awayTeamId = norm(matchData.away_team_id);
-
-      const { data: eventsData } = await this.client
-        .from('match_events')
-        .select('team_id, is_own_goal')
-        .eq('match_id', matchId);
-
-      const events = eventsData || [];
-      const homeScore = events.filter((e: any) => {
-        const tId = norm(e.team_id);
-        return (!e.is_own_goal && tId === homeTeamId) || (e.is_own_goal && tId === awayTeamId);
-      }).length;
-
-      const awayScore = events.filter((e: any) => {
-        const tId = norm(e.team_id);
-        return (!e.is_own_goal && tId === awayTeamId) || (e.is_own_goal && tId === homeTeamId);
-      }).length;
-
-      await executeWithSchemaFallback(
-        'matches',
-        { home_score: homeScore, away_score: awayScore },
-        (cleanPayload) => this.client.from('matches').update(cleanPayload).eq('id', matchId)
-      );
+      await this.recalculateMatchScore(matchId);
     } catch {
       // Falha não-bloqueante
     }

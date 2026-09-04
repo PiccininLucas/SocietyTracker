@@ -1,5 +1,5 @@
 import type { Match } from '../entities/Match';
-import type { MatchEvent } from '../entities/MatchEvent';
+import type { MatchEvent, MatchEventProps } from '../entities/MatchEvent';
 
 export interface LeaderboardItem {
   playerId: string;
@@ -67,9 +67,14 @@ export interface IMatchRepository {
   create(match: Match): Promise<Match>;
   update(match: Match): Promise<Match>;
   addEvent(event: MatchEvent): Promise<MatchEvent>;
+  findEventById(eventId: string): Promise<MatchEvent | null>;
+  updateEvent(eventId: string, data: Partial<MatchEventProps>): Promise<void>;
+  deleteEvent(eventId: string): Promise<void>;
+  recalculateMatchScore(matchId: string): Promise<{ homeScore: number; awayScore: number }>;
   getEventsByMatchId(matchId: string): Promise<MatchEvent[]>;
   getLeaderboard(): Promise<LeaderboardItem[]>;
   getLeaderboardByDateRange(startDate?: string, endDate?: string): Promise<LeaderboardItem[]>;
   getMatchesSummary(sessionId?: string): Promise<MatchSummary[]>;
   getMatchById(matchId: string): Promise<MatchSummary | null>;
 }
+

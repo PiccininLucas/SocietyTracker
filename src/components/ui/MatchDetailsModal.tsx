@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Trophy, Clock, Zap, Star, ArrowRightLeft, Shield } from 'lucide-react';
+import {
+  X,
+  Trophy,
+  Clock,
+  Zap,
+  Star,
+  ArrowRightLeft,
+  Shield,
+  Pencil,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Check,
+} from 'lucide-react';
 import type { MatchSummary, MatchPlayerSummary, MatchSummaryEvent } from '../../core/domain/repositories/IMatchRepository';
 
 interface MatchDetailsModalProps {
@@ -14,6 +28,28 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
   const [selectedMatch, setSelectedMatch] = useState<MatchSummary | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Estados para edição e exclusão de eventos (súmula)
+  const [editingEvent, setEditingEvent] = useState<MatchSummaryEvent | null>(null);
+  const [deletingEvent, setDeletingEvent] = useState<MatchSummaryEvent | null>(null);
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Campos do formulário de edição
+  const [editTeamId, setEditTeamId] = useState<string>('');
+  const [editIsOwnGoal, setEditIsOwnGoal] = useState<boolean>(false);
+  const [editScorerId, setEditScorerId] = useState<string>('');
+  const [editAssistId, setEditAssistId] = useState<string>('');
+
+  // Auto-dismiss da mensagem de toast
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   // Formatação de minutos e segundos (ex: 1m 23s ou 01:23)
   const formatSeconds = (seconds?: number) => {
@@ -166,6 +202,222 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
       delete (window as any).openMatchDetails;
     };
   }, [openWithMatchId, initialMatchId]);
+
+  // Recalcular estatísticas de gols e assistências dos jogadores a partir da lista de eventos
+  const recalculatePlayerStats = (
+    players: MatchPlayerSummary[] = [],
+    eventsList: MatchSummaryEvent[]
+  ): MatchPlayerSummary[] => {
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    return players.map((p) => {
+      const pId = norm(p.id);
+      const goals = eventsList.filter((e) => norm(e.scorerId) === pId && !e.isOwnGoal).length;
+      const assists = eventsList.filter((e) => norm(e.assistId) === pId && !e.isOwnGoal).length;
+      return { ...p, goals, assists };
+    });
+  };
+
+  const calculateMatchScores = (
+    eventsList: MatchSummaryEvent[],
+    hTeamId?: string | null,
+    aTeamId?: string | null
+  ) => {
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    const hId = norm(hTeamId);
+    const aId = norm(aTeamId);
+
+    const hScore = eventsList.filter((e) => {
+      const tId = norm(e.teamId);
+      return (!e.isOwnGoal && tId === hId) || (e.isOwnGoal && tId === aId);
+    }).length;
+
+    const aScore = eventsList.filter((e) => {
+      const tId = norm(e.teamId);
+      return (!e.isOwnGoal && tId === aId) || (e.isOwnGoal && tId === hId);
+    }).length;
+
+    return { homeScore: hScore, awayScore: aScore };
+  };
+
+  const notifyMatchUpdated = (matchId: string, hScore: number, aScore: number) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('match-updated', {
+          detail: { matchId, homeScore: hScore, awayScore: aScore },
+        })
+      );
+      // Sincroniza visualmente o card correspondente no DOM caso a página esteja montada
+      const card = document.querySelector(`[data-match-card][data-match-id="${matchId}"]`);
+      if (card) {
+        const scoreSpans = card.querySelectorAll('.font-display span');
+        if (scoreSpans.length >= 3) {
+          scoreSpans[0].textContent = String(hScore);
+          scoreSpans[2].textContent = String(aScore);
+        }
+      }
+    } catch {
+      // Ignora erro
+    }
+  };
+
+  const handleOpenEditModal = (ev: MatchSummaryEvent) => {
+    setActionError(null);
+    setEditingEvent(ev);
+    setEditTeamId(ev.teamId);
+    setEditIsOwnGoal(ev.isOwnGoal);
+    setEditScorerId(ev.scorerId || '');
+    setEditAssistId(ev.assistId || '');
+  };
+
+  const handleOpenDeleteModal = (ev: MatchSummaryEvent) => {
+    setActionError(null);
+    setDeletingEvent(ev);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingEvent || !selectedMatch) return;
+
+    try {
+      setIsSubmittingAction(true);
+      setActionError(null);
+
+      const res = await fetch(
+        `/api/matches/${encodeURIComponent(selectedMatch.matchId)}/events/${encodeURIComponent(deletingEvent.id)}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao excluir o evento.');
+      }
+
+      // Sucesso: atualizar estado local da partida
+      const newEvents = (selectedMatch.events || []).filter((e) => e.id !== deletingEvent.id);
+      const { homeScore: nextH, awayScore: nextA } = calculateMatchScores(
+        newEvents,
+        selectedMatch.homeTeamId,
+        selectedMatch.awayTeamId
+      );
+
+      const nextHomePlayers = recalculatePlayerStats(selectedMatch.homePlayers || [], newEvents);
+      const nextAwayPlayers = recalculatePlayerStats(selectedMatch.awayPlayers || [], newEvents);
+
+      setSelectedMatch({
+        ...selectedMatch,
+        events: newEvents,
+        homeScore: nextH,
+        awayScore: nextA,
+        homePlayers: nextHomePlayers,
+        awayPlayers: nextAwayPlayers,
+      });
+
+      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA);
+      setToastMessage('Gol excluído com sucesso! Placar recalculado.');
+      setDeletingEvent(null);
+    } catch (err: any) {
+      setActionError(err.message || 'Erro inesperado ao excluir o evento.');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  const handleConfirmEdit = async () => {
+    if (!editingEvent || !selectedMatch) return;
+
+    if (!editIsOwnGoal && !editScorerId) {
+      setActionError('Selecione o autor do gol.');
+      return;
+    }
+
+    if (!editIsOwnGoal && editScorerId && editAssistId && editScorerId === editAssistId) {
+      setActionError('O autor do gol não pode ser o mesmo da assistência.');
+      return;
+    }
+
+    try {
+      setIsSubmittingAction(true);
+      setActionError(null);
+
+      const payload = {
+        teamId: editTeamId || editingEvent.teamId,
+        scorerId: editIsOwnGoal ? null : (editScorerId || null),
+        assistId: editIsOwnGoal ? null : (editAssistId || null),
+        isOwnGoal: editIsOwnGoal,
+      };
+
+      const res = await fetch(
+        `/api/matches/${encodeURIComponent(selectedMatch.matchId)}/events/${encodeURIComponent(editingEvent.id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao salvar as alterações do lance.');
+      }
+
+      // Determinar os nomes do autor e assistência para atualizar a visualização
+      const allPlayers = [
+        ...(selectedMatch.homePlayers || []),
+        ...(selectedMatch.awayPlayers || []),
+      ];
+      const scorerObj = allPlayers.find((p) => p.id === editScorerId);
+      const assistObj = allPlayers.find((p) => p.id === editAssistId);
+
+      const scorerName = editIsOwnGoal
+        ? 'Gol Contra'
+        : (scorerObj?.nickname || scorerObj?.name || 'Jogador');
+      const assistName = editIsOwnGoal
+        ? undefined
+        : (assistObj ? (assistObj.nickname || assistObj.name) : undefined);
+
+      const newEvents = (selectedMatch.events || []).map((e) => {
+        if (e.id === editingEvent.id) {
+          return {
+            ...e,
+            teamId: payload.teamId,
+            scorerId: payload.scorerId,
+            scorerName,
+            assistId: payload.assistId,
+            assistName,
+            isOwnGoal: payload.isOwnGoal,
+          };
+        }
+        return e;
+      });
+
+      const { homeScore: nextH, awayScore: nextA } = calculateMatchScores(
+        newEvents,
+        selectedMatch.homeTeamId,
+        selectedMatch.awayTeamId
+      );
+
+      const nextHomePlayers = recalculatePlayerStats(selectedMatch.homePlayers || [], newEvents);
+      const nextAwayPlayers = recalculatePlayerStats(selectedMatch.awayPlayers || [], newEvents);
+
+      setSelectedMatch({
+        ...selectedMatch,
+        events: newEvents,
+        homeScore: nextH,
+        awayScore: nextA,
+        homePlayers: nextHomePlayers,
+        awayPlayers: nextAwayPlayers,
+      });
+
+      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA);
+      setToastMessage('Anotação de gol atualizada com sucesso!');
+      setEditingEvent(null);
+    } catch (err: any) {
+      setActionError(err.message || 'Erro inesperado ao salvar alterações.');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -571,7 +823,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                       return (
                         <div
                           key={ev.id || `${ev.eventTimeSeconds}-${index}`}
-                          className="flex items-center justify-between p-2.5 rounded-xl bg-surface-100/70 border border-white/5 hover:border-white/10 text-xs transition-all"
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-surface-100/70 border border-white/5 hover:border-white/10 text-xs transition-all group/item"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             {/* Minuto:Segundo */}
@@ -610,16 +862,46 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                             </div>
                           </div>
 
-                          {/* Tag do Time Beneficiado */}
-                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            <span className="text-[11px] font-semibold text-gray-300 hidden sm:inline truncate max-w-[120px]">
-                              {scoringTeamName}
-                            </span>
-                            <div
-                              className="w-3 h-3 rounded-full border border-white/20 shrink-0"
-                              style={{ backgroundColor: scoringTeamColor || '#10b981' }}
-                              title={`Gol pontuado para ${scoringTeamName}`}
-                            />
+                          {/* Time Beneficiado e Ações de Edição/Exclusão */}
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-gray-300 hidden sm:inline truncate max-w-[120px]">
+                                {scoringTeamName}
+                              </span>
+                              <div
+                                className="w-3 h-3 rounded-full border border-white/20 shrink-0"
+                                style={{ backgroundColor: scoringTeamColor || '#10b981' }}
+                                title={`Gol pontuado para ${scoringTeamName}`}
+                              />
+                            </div>
+
+                            {/* Botões de Ação Rápida */}
+                            <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditModal(ev);
+                                }}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 active:scale-95 transition-all"
+                                title="Editar este lance (autor, assistência ou gol contra)"
+                                aria-label="Editar lance"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDeleteModal(ev);
+                                }}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 active:scale-95 transition-all"
+                                title="Excluir este gol"
+                                aria-label="Excluir lance"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -630,6 +912,308 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
             </>
           )}
         </div>
+
+        {/* ============================================================ */}
+        {/* TOAST DE FEEDBACK DE AÇÃO */}
+        {/* ============================================================ */}
+        {toastMessage && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-emerald-500/90 text-white text-xs font-bold shadow-xl flex items-center gap-2 animate-fade-in backdrop-blur-md border border-emerald-400/30">
+            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE LANCE */}
+        {/* ============================================================ */}
+        {deletingEvent && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isSubmittingAction) setDeletingEvent(null);
+            }}
+          >
+            <div className="w-full max-w-md rounded-3xl glass-card bg-surface-100 border border-rose-500/30 p-6 shadow-2xl space-y-4 animate-scale-up">
+              <div className="flex items-center gap-3 text-rose-400">
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-lg text-white">
+                    Excluir Anotação de Gol?
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Aos ⏱ {formatTimelineTime(deletingEvent.eventTimeSeconds)} de partida
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-surface-200/60 border border-white/5 space-y-2 text-xs">
+                <div className="flex items-center justify-between text-gray-300">
+                  <span className="text-gray-400">Lance:</span>
+                  <span className="font-bold text-white">
+                    {deletingEvent.isOwnGoal ? '⚠️ Gol Contra' : `⚽ Gol de ${deletingEvent.scorerName || 'Jogador'}`}
+                  </span>
+                </div>
+                {!deletingEvent.isOwnGoal && deletingEvent.assistName && (
+                  <div className="flex items-center justify-between text-gray-300">
+                    <span className="text-gray-400">Assistência:</span>
+                    <span className="text-cyan-300 font-semibold">{deletingEvent.assistName}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2 text-[11px] text-amber-200">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                <span>
+                  O placar oficial da partida será recalculado automaticamente e os dados de artilharia serão sincronizados.
+                </span>
+              </div>
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">
+                  {actionError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingEvent(null)}
+                  disabled={isSubmittingAction}
+                  className="px-4 py-2 rounded-xl bg-surface-50 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isSubmittingAction}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingAction ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Excluindo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Confirmar Exclusão</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* MODAL DE EDIÇÃO DE LANCE (SÚMULA) */}
+        {/* ============================================================ */}
+        {editingEvent && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isSubmittingAction) setEditingEvent(null);
+            }}
+          >
+            <div className="w-full max-w-lg rounded-3xl glass-card bg-surface-100 border border-amber-500/30 p-6 shadow-2xl space-y-4 animate-scale-up">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                    <Pencil className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-black text-base sm:text-lg text-white">
+                      Editar Anotação do Lance
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      ⏱ Minuto: {formatTimelineTime(editingEvent.eventTimeSeconds)} de jogo
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingEvent(null)}
+                  disabled={isSubmittingAction}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Seleção do Time Atribuído */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-300 block">
+                  Time que Marcou o Gol:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditTeamId(selectedMatch?.homeTeamId || '');
+                      if (!editIsOwnGoal) {
+                        setEditScorerId('');
+                        setEditAssistId('');
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      normalizeId(editTeamId) === homeTeamId
+                        ? 'bg-surface-50 border-emerald-500/50 text-white shadow-sm ring-1 ring-emerald-500/50'
+                        : 'bg-surface-200/40 border-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: selectedMatch?.homeTeamColor || '#10b981' }}
+                    />
+                    <span className="truncate">{selectedMatch?.homeTeamName || 'Mandante'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditTeamId(selectedMatch?.awayTeamId || '');
+                      if (!editIsOwnGoal) {
+                        setEditScorerId('');
+                        setEditAssistId('');
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      normalizeId(editTeamId) === awayTeamId
+                        ? 'bg-surface-50 border-emerald-500/50 text-white shadow-sm ring-1 ring-emerald-500/50'
+                        : 'bg-surface-200/40 border-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: selectedMatch?.awayTeamColor || '#ef4444' }}
+                    />
+                    <span className="truncate">{selectedMatch?.awayTeamName || 'Visitante'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Checkbox / Toggle Gol Contra */}
+              <div className="p-3 rounded-2xl bg-surface-200/50 border border-white/5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">⚠️</span>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Gol Contra</span>
+                    <span className="text-[11px] text-gray-400 block">
+                      O ponto é creditado à equipe adversária. Sem assistência.
+                    </span>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editIsOwnGoal}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setEditIsOwnGoal(val);
+                      if (val) {
+                        setEditAssistId('');
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500"></div>
+                </label>
+              </div>
+
+              {/* Autor do Gol */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-300 block">
+                  {editIsOwnGoal ? 'Jogador que marcou contra (opcional):' : '⚽ Autor do Gol:'}
+                </label>
+                <select
+                  value={editScorerId}
+                  onChange={(e) => {
+                    const newScorerId = e.target.value;
+                    setEditScorerId(newScorerId);
+                    if (editAssistId === newScorerId) {
+                      setEditAssistId('');
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-amber-400 focus:outline-none"
+                >
+                  <option value="">{editIsOwnGoal ? 'Não identificado' : 'Selecione o autor do gol...'}</option>
+                  {(normalizeId(editTeamId) === homeTeamId
+                    ? selectedMatch?.homePlayers || []
+                    : selectedMatch?.awayPlayers || []
+                  ).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Assistência */}
+              {!editIsOwnGoal && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-300 block">
+                    👟 Assistência (passe para o gol):
+                  </label>
+                  <select
+                    value={editAssistId}
+                    onChange={(e) => setEditAssistId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-cyan-400 focus:outline-none"
+                  >
+                    <option value="">Sem assistência (jogada individual)</option>
+                    {(normalizeId(editTeamId) === homeTeamId
+                      ? selectedMatch?.homePlayers || []
+                      : selectedMatch?.awayPlayers || []
+                    )
+                      .filter((p) => p.id !== editScorerId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">
+                  {actionError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingEvent(null)}
+                  disabled={isSubmittingAction}
+                  className="px-4 py-2 rounded-xl bg-surface-50 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmEdit}
+                  disabled={isSubmittingAction}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingAction ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Salvar Alterações</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ============================================================ */}
         {/* FOOTER DO MODAL */}
@@ -652,3 +1236,5 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
     </div>
   );
 };
+
+

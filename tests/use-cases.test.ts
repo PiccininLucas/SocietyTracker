@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { RegisterGoalUseCase } from '../src/core/application/use-cases/RegisterGoalUseCase.ts';
+import { UpdateMatchEventUseCase } from '../src/core/application/use-cases/UpdateMatchEventUseCase.ts';
+import { DeleteMatchEventUseCase } from '../src/core/application/use-cases/DeleteMatchEventUseCase.ts';
 import { StartMatchUseCase } from '../src/core/application/use-cases/StartMatchUseCase.ts';
 import { FinishMatchUseCase } from '../src/core/application/use-cases/FinishMatchUseCase.ts';
 import { TransferPlayerUseCase } from '../src/core/application/use-cases/TransferPlayerUseCase.ts';
@@ -11,7 +13,8 @@ import { UpdatePlayerUseCase } from '../src/core/application/use-cases/UpdatePla
 import { CreateSessionUseCase } from '../src/core/application/use-cases/CreateSessionUseCase.ts';
 import { UpdateSessionTeamsUseCase } from '../src/core/application/use-cases/UpdateSessionTeamsUseCase.ts';
 import { Match } from '../src/core/domain/entities/Match.ts';
-import { MatchEvent } from '../src/core/domain/entities/MatchEvent.ts';
+import { MatchEvent, type MatchEventProps } from '../src/core/domain/entities/MatchEvent.ts';
+
 import { Player } from '../src/core/domain/entities/Player.ts';
 import type { IMatchRepository, MatchSummary, LeaderboardItem } from '../src/core/domain/repositories/IMatchRepository.ts';
 import type { ISessionRepository, CreateSessionTeamInput, UpdateSessionTeamInput } from '../src/core/domain/repositories/ISessionRepository.ts';
@@ -81,8 +84,59 @@ class MockMatchRepository implements IMatchRepository {
   }
 
   async addEvent(event: MatchEvent): Promise<MatchEvent> {
-    this.events.push(event);
-    return event;
+    const id = event.id || `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const saved = new MatchEvent({ ...event.state, id });
+    this.events.push(saved);
+    return saved;
+  }
+
+  async findEventById(eventId: string): Promise<MatchEvent | null> {
+    return this.events.find((e) => e.id === eventId) || null;
+  }
+
+  async updateEvent(eventId: string, data: Partial<MatchEventProps>): Promise<void> {
+    const idx = this.events.findIndex((e) => e.id === eventId);
+    if (idx >= 0) {
+      const current = this.events[idx];
+      const updated = new MatchEvent({
+        id: current.id,
+        matchId: current.matchId,
+        teamId: data.teamId ?? current.teamId,
+        scorerId: data.scorerId !== undefined ? data.scorerId : current.scorerId,
+        assistId: data.assistId !== undefined ? data.assistId : current.assistId,
+        eventTimeSeconds: data.eventTimeSeconds ?? current.eventTimeSeconds,
+        isOwnGoal: data.isOwnGoal ?? current.isOwnGoal,
+        createdAt: current.createdAt,
+      });
+      this.events[idx] = updated;
+    }
+  }
+
+  async deleteEvent(eventId: string): Promise<void> {
+    this.events = this.events.filter((e) => e.id !== eventId);
+  }
+
+  async recalculateMatchScore(matchId: string): Promise<{ homeScore: number; awayScore: number }> {
+    const match = this.matches.get(matchId);
+    if (!match) return { homeScore: 0, awayScore: 0 };
+
+    const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
+    const hId = norm(match.homeTeamId);
+    const aId = norm(match.awayTeamId);
+
+    const matchEvents = this.events.filter((e) => e.matchId === matchId);
+    const homeScore = matchEvents.filter((e) => {
+      const tId = norm(e.teamId);
+      return (!e.isOwnGoal && tId === hId) || (e.isOwnGoal && tId === aId);
+    }).length;
+
+    const awayScore = matchEvents.filter((e) => {
+      const tId = norm(e.teamId);
+      return (!e.isOwnGoal && tId === aId) || (e.isOwnGoal && tId === hId);
+    }).length;
+
+    match.setScores(homeScore, awayScore);
+    return { homeScore, awayScore };
   }
 
   async getEventsByMatchId(matchId: string): Promise<MatchEvent[]> {
@@ -1130,6 +1184,207 @@ describe('Use Cases Business Logic', () => {
       assert.equal(woody.totalGoals, 0);
       assert.equal(woody.totalMatchesPlayed, 3);
       assert.equal(woody.goalsPerMatch, 0);
+    });
+  });
+
+  describe('UpdateMatchEventUseCase & DeleteMatchEventUseCase', () => {
+    it('should successfully update goal scorer and assist and recalculate match score', async () => {
+      const matchRepo = new MockMatchRepository();
+      const match = await matchRepo.create(
+        new Match({
+          id: 'm-100',
+          sessionId: 's-1',
+          homeTeamId: 'team-a',
+          awayTeamId: 'team-b',
+        })
+      );
+
+      // Add a goal for team-a (scorer: p-1, assist: p-2)
+      const event = await matchRepo.addEvent(
+        new MatchEvent({
+          id: 'ev-100',
+          matchId: match.id!,
+          teamId: 'team-a',
+          scorerId: 'p-1',
+          assistId: 'p-2',
+          isOwnGoal: false,
+          eventTimeSeconds: 45,
+        })
+      );
+      await matchRepo.recalculateMatchScore(match.id!);
+
+      assert.equal(match.homeScore, 1);
+      assert.equal(match.awayScore, 0);
+
+      // Update event: scorer becomes p-3, assist becomes p-1
+      const updateUseCase = new UpdateMatchEventUseCase(matchRepo);
+      const updateResult = await updateUseCase.execute({
+        matchId: 'm-100',
+        eventId: 'ev-100',
+        teamId: 'team-a',
+        scorerId: 'p-3',
+        assistId: 'p-1',
+        isOwnGoal: false,
+      });
+
+      assert.equal(updateResult.homeScore, 1);
+      assert.equal(updateResult.awayScore, 0);
+
+      const updatedEv = await matchRepo.findEventById('ev-100');
+      assert.ok(updatedEv);
+      assert.equal(updatedEv.scorerId, 'p-3');
+      assert.equal(updatedEv.assistId, 'p-1');
+    });
+
+    it('should change normal goal to own goal, clearing assist and awarding goal to opposing team', async () => {
+      const matchRepo = new MockMatchRepository();
+      const match = await matchRepo.create(
+        new Match({
+          id: 'm-101',
+          sessionId: 's-1',
+          homeTeamId: 'team-a',
+          awayTeamId: 'team-b',
+        })
+      );
+
+      // Team A scored a normal goal -> homeScore: 1
+      await matchRepo.addEvent(
+        new MatchEvent({
+          id: 'ev-101',
+          matchId: 'm-101',
+          teamId: 'team-a',
+          scorerId: 'p-1',
+          isOwnGoal: false,
+        })
+      );
+      await matchRepo.recalculateMatchScore('m-101');
+      assert.equal(match.homeScore, 1);
+      assert.equal(match.awayScore, 0);
+
+      // Change to own goal by team-a -> now awayScore gets +1 and homeScore gets 0!
+      const updateUseCase = new UpdateMatchEventUseCase(matchRepo);
+      const updateResult = await updateUseCase.execute({
+        matchId: 'm-101',
+        eventId: 'ev-101',
+        teamId: 'team-a',
+        isOwnGoal: true,
+      });
+
+      assert.equal(updateResult.homeScore, 0);
+      assert.equal(updateResult.awayScore, 1);
+      assert.equal(match.homeScore, 0);
+      assert.equal(match.awayScore, 1);
+    });
+
+    it('should throw error when scorer and assist are identical on update', async () => {
+      const matchRepo = new MockMatchRepository();
+      await matchRepo.create(
+        new Match({
+          id: 'm-102',
+          sessionId: 's-1',
+          homeTeamId: 'team-a',
+          awayTeamId: 'team-b',
+        })
+      );
+      await matchRepo.addEvent(
+        new MatchEvent({
+          id: 'ev-102',
+          matchId: 'm-102',
+          teamId: 'team-a',
+          scorerId: 'p-1',
+        })
+      );
+
+      const updateUseCase = new UpdateMatchEventUseCase(matchRepo);
+      await assert.rejects(
+        async () => {
+          await updateUseCase.execute({
+            matchId: 'm-102',
+            eventId: 'ev-102',
+            teamId: 'team-a',
+            scorerId: 'p-1',
+            assistId: 'p-1',
+          });
+        },
+        /O autor do gol não pode ser o mesmo da assistência/
+      );
+    });
+
+    it('should throw error when normal goal has no scorer on update', async () => {
+      const matchRepo = new MockMatchRepository();
+      await matchRepo.create(
+        new Match({
+          id: 'm-103',
+          sessionId: 's-1',
+          homeTeamId: 'team-a',
+          awayTeamId: 'team-b',
+        })
+      );
+
+      const updateUseCase = new UpdateMatchEventUseCase(matchRepo);
+      await assert.rejects(
+        async () => {
+          await updateUseCase.execute({
+            matchId: 'm-103',
+            eventId: 'ev-103',
+            teamId: 'team-a',
+            isOwnGoal: false,
+          });
+        },
+        /Gol normal exige a identificação do autor do gol/
+      );
+    });
+
+    it('should delete event and recalculate match score to 0', async () => {
+      const matchRepo = new MockMatchRepository();
+      const match = await matchRepo.create(
+        new Match({
+          id: 'm-104',
+          sessionId: 's-1',
+          homeTeamId: 'team-a',
+          awayTeamId: 'team-b',
+        })
+      );
+
+      await matchRepo.addEvent(
+        new MatchEvent({
+          id: 'ev-104',
+          matchId: 'm-104',
+          teamId: 'team-a',
+          scorerId: 'p-1',
+          isOwnGoal: false,
+        })
+      );
+      await matchRepo.recalculateMatchScore('m-104');
+      assert.equal(match.homeScore, 1);
+
+      const deleteUseCase = new DeleteMatchEventUseCase(matchRepo);
+      const deleteResult = await deleteUseCase.execute({
+        matchId: 'm-104',
+        eventId: 'ev-104',
+      });
+
+      assert.equal(deleteResult.homeScore, 0);
+      assert.equal(deleteResult.awayScore, 0);
+      assert.equal(match.homeScore, 0);
+
+      const deletedEv = await matchRepo.findEventById('ev-104');
+      assert.equal(deletedEv, null);
+    });
+
+    it('should throw error when deleting event of non-existent match', async () => {
+      const matchRepo = new MockMatchRepository();
+      const deleteUseCase = new DeleteMatchEventUseCase(matchRepo);
+
+      await assert.rejects(
+        async () => {
+          await deleteUseCase.execute({
+            matchId: 'm-non-existent',
+            eventId: 'ev-999',
+          });
+        },
+        /Partida com ID 'm-non-existent' não foi encontrado/
+      );
     });
   });
 });
