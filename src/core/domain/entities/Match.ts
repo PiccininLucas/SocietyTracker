@@ -104,17 +104,15 @@ export class Match {
   public registerGoal(
     teamId: string,
     currentDurationSeconds?: number,
-    isOwnGoal = false
+    isOwnGoal = false,
+    allowFinished = false
   ): { finished: boolean; reason?: MatchEndReason } {
-    if (this.isFinished) {
+    if (this.isFinished && !allowFinished) {
       throw new MatchAlreadyFinishedError('Partida já encerrada.');
     }
 
     if (currentDurationSeconds !== undefined) {
-      this.updateDuration(currentDurationSeconds);
-      if (this.isFinished) {
-        return { finished: true, reason: this.props.endReason || 'time_limit' };
-      }
+      this.props.durationSeconds = currentDurationSeconds;
     }
 
     const norm = (id?: string | null) => (id ? id.trim().toLowerCase() : '');
@@ -147,7 +145,13 @@ export class Match {
       return { finished: true, reason: 'two_goals' };
     }
 
-    return { finished: false };
+    // Se atingiu o tempo limite
+    if ((this.props.durationSeconds ?? 0) >= MATCH_RULES.MAX_DURATION_SECONDS) {
+      this.finish('time_limit');
+      return { finished: true, reason: 'time_limit' };
+    }
+
+    return { finished: this.isFinished, reason: this.props.endReason || undefined };
   }
 
   public updateDuration(seconds: number): void {

@@ -15,6 +15,7 @@ import {
   Check,
   Users,
   Pencil,
+  X,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { soundFx } from '../ui/audio';
@@ -299,7 +300,6 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
   // ============================================================================
 
   const handleOpenGoalDrawer = (team: LiveTeam) => {
-    if (matchState.status === 'finished') return;
     hapticFeedback.click();
     soundFx.playClickBeep('normal');
     setSelectedScoringTeam(team);
@@ -706,9 +706,8 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           {/* Botão de Toque Amplo: + GOL MANDANTE (>= 56px) */}
           <button
             type="button"
-            disabled={matchState.status === 'finished'}
             onClick={() => handleOpenGoalDrawer(matchState.homeTeam)}
-            className="w-full min-h-[54px] sm:min-h-[58px] flex items-center justify-center gap-1.5 px-3 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-gray-950 font-black text-sm sm:text-base shadow-lg shadow-emerald-500/25 transition-all touch-press-scale"
+            className="w-full min-h-[54px] sm:min-h-[58px] flex items-center justify-center gap-1.5 px-3 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-gray-950 font-black text-sm sm:text-base shadow-lg shadow-emerald-500/25 transition-all touch-press-scale"
             aria-label={`Adicionar gol para ${matchState.homeTeam.name}`}
           >
             <span className="text-lg">⚽</span>
@@ -766,9 +765,8 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           {/* Botão de Toque Amplo: + GOL VISITANTE (>= 56px) */}
           <button
             type="button"
-            disabled={matchState.status === 'finished'}
             onClick={() => handleOpenGoalDrawer(matchState.awayTeam)}
-            className="w-full min-h-[54px] sm:min-h-[58px] flex items-center justify-center gap-1.5 px-3 py-3.5 rounded-2xl bg-cyan-400 hover:bg-cyan-300 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-gray-950 font-black text-sm sm:text-base shadow-lg shadow-cyan-400/25 transition-all touch-press-scale"
+            className="w-full min-h-[54px] sm:min-h-[58px] flex items-center justify-center gap-1.5 px-3 py-3.5 rounded-2xl bg-cyan-400 hover:bg-cyan-300 active:scale-95 text-gray-950 font-black text-sm sm:text-base shadow-lg shadow-cyan-400/25 transition-all touch-press-scale"
             aria-label={`Adicionar gol para ${matchState.awayTeam.name}`}
           >
             <span className="text-lg">⚽</span>
@@ -957,6 +955,16 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
       {isVictoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
           <div className="relative w-full max-w-sm rounded-3xl glass-card-glow bg-surface-100 border border-emerald-500/40 p-6 text-center shadow-2xl animate-scale-up">
+            {/* Botão de Fechar / Ajustar */}
+            <button
+              type="button"
+              onClick={() => setIsVictoryModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Fechar para ajustar súmula"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
             <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
               <Trophy className="w-8 h-8" />
             </div>
@@ -1008,7 +1016,37 @@ export const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
               )}
             </div>
 
-            <div className="space-y-2 pt-2">
+            {/* Ações de Correção / Gol no Apito Final */}
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 text-left">
+              <p className="text-[11px] text-amber-300 font-bold mb-2 flex items-center gap-1.5">
+                <span>⚡</span>
+                <span>Houve gol no último lance ou erro na súmula?</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVictoryModalOpen(false);
+                    handleOpenGoalDrawer(matchState.homeTeam);
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-surface-200 hover:bg-surface-300 border border-white/10 text-white font-bold text-xs active:scale-95 transition-all text-center truncate"
+                >
+                  + Gol {matchState.homeTeam.name.split(' ')[0]}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVictoryModalOpen(false);
+                    handleOpenGoalDrawer(matchState.awayTeam);
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-surface-200 hover:bg-surface-300 border border-white/10 text-white font-bold text-xs active:scale-95 transition-all text-center truncate"
+                >
+                  + Gol {matchState.awayTeam.name.split(' ')[0]}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
               {onNextMatch ? (
                 <button
                   type="button"

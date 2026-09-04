@@ -179,6 +179,40 @@ describe('Match Domain Entity Rules', () => {
     }, MatchAlreadyFinishedError);
   });
 
+  it('should credit goal scored at exact time limit (420s / 7min) without dropping the point', () => {
+    const match = new Match({
+      sessionId: 'session-1',
+      homeTeamId: 'team-preto',
+      awayTeamId: 'team-branco',
+    });
+
+    const result = match.registerGoal('team-preto', 420);
+
+    assert.equal(match.homeScore, 1);
+    assert.equal(match.awayScore, 0);
+    assert.equal(match.isFinished, true);
+    assert.equal(result.finished, true);
+    assert.equal(result.reason, 'time_limit');
+  });
+
+  it('should allow registering retroactive goal on finished match when allowFinished is true', () => {
+    const match = new Match({
+      sessionId: 'session-1',
+      homeTeamId: 'team-preto',
+      awayTeamId: 'team-branco',
+    });
+
+    match.updateDuration(420); // Finishes by time limit 0-0
+    assert.equal(match.isFinished, true);
+
+    // Register goal after finished with allowFinished = true
+    const result = match.registerGoal('team-branco', 420, false, true);
+
+    assert.equal(match.homeScore, 0);
+    assert.equal(match.awayScore, 1);
+    assert.equal(match.isFinished, true);
+  });
+
   it('should throw error when goal is assigned to non-participating team', () => {
     const match = new Match({
       sessionId: 'session-1',

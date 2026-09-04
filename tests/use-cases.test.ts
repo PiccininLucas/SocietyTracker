@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { RegisterGoalUseCase } from '../src/core/application/use-cases/RegisterGoalUseCase.ts';
 import { UpdateMatchEventUseCase } from '../src/core/application/use-cases/UpdateMatchEventUseCase.ts';
 import { DeleteMatchEventUseCase } from '../src/core/application/use-cases/DeleteMatchEventUseCase.ts';
+import { UpdateMatchScoreUseCase } from '../src/core/application/use-cases/UpdateMatchScoreUseCase.ts';
 import { StartMatchUseCase } from '../src/core/application/use-cases/StartMatchUseCase.ts';
 import { FinishMatchUseCase } from '../src/core/application/use-cases/FinishMatchUseCase.ts';
 import { TransferPlayerUseCase } from '../src/core/application/use-cases/TransferPlayerUseCase.ts';
@@ -1384,6 +1385,83 @@ describe('Use Cases Business Logic', () => {
           });
         },
         /Partida com ID 'm-non-existent' não foi encontrado/
+      );
+    });
+  });
+
+  describe('Post-Match Score Adjustments & Retroactive Goals', () => {
+    it('should allow registering a retroactive goal on an already finished match via RegisterGoalUseCase', async () => {
+      const matchRepo = new MockMatchRepository();
+      const match = new Match({
+        id: 'm-retro-1',
+        sessionId: 's-1',
+        homeTeamId: 't-preto',
+        awayTeamId: 't-branco',
+      });
+      match.updateDuration(420); // Finishes by time limit 0 x 0
+      assert.equal(match.isFinished, true);
+      await matchRepo.create(match);
+
+      const registerGoalUseCase = new RegisterGoalUseCase(matchRepo);
+      const result = await registerGoalUseCase.execute({
+        matchId: 'm-retro-1',
+        teamId: 't-preto',
+        scorerId: 'p-scorer-1',
+        eventTimeSeconds: 420,
+        allowFinished: true,
+      });
+
+      assert.equal(result.match.homeScore, 1);
+      assert.equal(result.match.awayScore, 0);
+      assert.equal(result.match.isFinished, true);
+
+      const updated = await matchRepo.findById('m-retro-1');
+      assert.equal(updated?.homeScore, 1);
+      assert.equal(updated?.awayScore, 0);
+    });
+
+    it('should update match scores directly using UpdateMatchScoreUseCase', async () => {
+      const matchRepo = new MockMatchRepository();
+      const match = new Match({
+        id: 'm-score-adjust',
+        sessionId: 's-1',
+        homeTeamId: 't-preto',
+        awayTeamId: 't-branco',
+        homeScore: 1,
+        awayScore: 0,
+      });
+      match.finish('time_limit');
+      await matchRepo.create(match);
+
+      const useCase = new UpdateMatchScoreUseCase(matchRepo);
+      const output = await useCase.execute({
+        matchId: 'm-score-adjust',
+        homeScore: 2,
+        awayScore: 2,
+      });
+
+      assert.equal(output.homeScore, 2);
+      assert.equal(output.awayScore, 2);
+      assert.equal(output.isFinished, true);
+
+      const updated = await matchRepo.findById('m-score-adjust');
+      assert.equal(updated?.homeScore, 2);
+      assert.equal(updated?.awayScore, 2);
+    });
+
+    it('should throw error when updating scores of non-existent match', async () => {
+      const matchRepo = new MockMatchRepository();
+      const useCase = new UpdateMatchScoreUseCase(matchRepo);
+
+      await assert.rejects(
+        async () => {
+          await useCase.execute({
+            matchId: 'm-not-found',
+            homeScore: 3,
+            awayScore: 1,
+          });
+        },
+        /Partida com ID 'm-not-found' não foi encontrado/
       );
     });
   });

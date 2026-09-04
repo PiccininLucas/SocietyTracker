@@ -5,6 +5,7 @@ export interface RegisterGoalInput {
   assistId?: string | null;
   eventTimeSeconds?: number;
   isOwnGoal?: boolean;
+  allowFinished?: boolean;
 }
 
 export interface RegisterGoalOutput {

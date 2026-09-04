@@ -32,12 +32,25 @@ export class RegisterGoalUseCase {
       isOwnGoal: input.isOwnGoal ?? false,
     });
 
-    // Registra o gol na entidade da partida (aplica regra dos 2 gols e trata gol contra)
-    const result = match.registerGoal(input.teamId, input.eventTimeSeconds, input.isOwnGoal ?? false);
+    // Registra o gol na entidade da partida (aplica regra dos 2 gols, trata gol contra e permite jogos finalizados se solicitado)
+    const result = match.registerGoal(
+      input.teamId,
+      input.eventTimeSeconds,
+      input.isOwnGoal ?? false,
+      input.allowFinished ?? true
+    );
 
     // Persiste o evento e a partida atualizada
     const savedEvent = await this.matchRepository.addEvent(event);
     const updatedMatch = await this.matchRepository.update(match);
+
+    if (this.matchRepository.recalculateMatchScore) {
+      try {
+        await this.matchRepository.recalculateMatchScore(input.matchId);
+      } catch {
+        // Recálculo seguro não-bloqueante
+      }
+    }
 
     return {
       match: {

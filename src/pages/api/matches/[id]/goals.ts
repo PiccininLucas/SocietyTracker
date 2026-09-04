@@ -25,6 +25,7 @@ export const POST: APIRoute = async ({ request, params }) => {
       assistId: body.assistId || null,
       eventTimeSeconds: body.eventTimeSeconds,
       isOwnGoal: body.isOwnGoal ?? false,
+      allowFinished: body.allowFinished ?? true,
     });
 
     return new Response(JSON.stringify(result), {

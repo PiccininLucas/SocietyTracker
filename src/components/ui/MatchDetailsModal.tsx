@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   Loader2,
   Check,
+  Plus,
+  SlidersHorizontal,
 } from 'lucide-react';
 import type { MatchSummary, MatchPlayerSummary, MatchSummaryEvent } from '../../core/domain/repositories/IMatchRepository';
 
@@ -41,6 +43,19 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
   const [editIsOwnGoal, setEditIsOwnGoal] = useState<boolean>(false);
   const [editScorerId, setEditScorerId] = useState<string>('');
   const [editAssistId, setEditAssistId] = useState<string>('');
+
+  // Estados para adição de novo gol pós-jogo
+  const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
+  const [addTeamId, setAddTeamId] = useState<string>('');
+  const [addIsOwnGoal, setAddIsOwnGoal] = useState<boolean>(false);
+  const [addScorerId, setAddScorerId] = useState<string>('');
+  const [addAssistId, setAddAssistId] = useState<string>('');
+  const [addMinuteStr, setAddMinuteStr] = useState<string>('07:00');
+
+  // Estados para ajuste direto de placar
+  const [isAdjustScoreOpen, setIsAdjustScoreOpen] = useState(false);
+  const [adjustHomeScore, setAdjustHomeScore] = useState<number>(0);
+  const [adjustAwayScore, setAdjustAwayScore] = useState<number>(0);
 
   // Auto-dismiss da mensagem de toast
   useEffect(() => {
@@ -426,6 +441,171 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
     }
   };
 
+  // Abrir e Submeter Adição de Novo Gol pós-jogo
+  const handleOpenAddGoalModal = () => {
+    if (!selectedMatch) return;
+    setAddTeamId(selectedMatch.homeTeamId || '');
+    setAddIsOwnGoal(false);
+    setAddScorerId('');
+    setAddAssistId('');
+    setAddMinuteStr(formatTimelineTime(selectedMatch.durationSeconds || 420));
+    setActionError(null);
+    setIsAddGoalOpen(true);
+  };
+
+  const handleConfirmAddGoal = async () => {
+    if (!selectedMatch) return;
+
+    if (!addIsOwnGoal && !addScorerId) {
+      setActionError('Selecione o autor do gol.');
+      return;
+    }
+
+    if (!addIsOwnGoal && addScorerId && addAssistId && addScorerId === addAssistId) {
+      setActionError('O autor do gol não pode ser o mesmo da assistência.');
+      return;
+    }
+
+    let eventTimeSeconds = selectedMatch.durationSeconds || 420;
+    if (addMinuteStr.includes(':')) {
+      const parts = addMinuteStr.split(':');
+      const mins = parseInt(parts[0], 10) || 0;
+      const secs = parseInt(parts[1], 10) || 0;
+      eventTimeSeconds = mins * 60 + secs;
+    } else if (!isNaN(Number(addMinuteStr))) {
+      eventTimeSeconds = Number(addMinuteStr);
+    }
+
+    try {
+      setIsSubmittingAction(true);
+      setActionError(null);
+
+      const payload = {
+        teamId: addTeamId,
+        scorerId: addIsOwnGoal ? null : (addScorerId || null),
+        assistId: addIsOwnGoal ? null : (addAssistId || null),
+        eventTimeSeconds,
+        isOwnGoal: addIsOwnGoal,
+        allowFinished: true,
+      };
+
+      const res = await fetch(`/api/matches/${encodeURIComponent(selectedMatch.matchId)}/goals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao registrar novo gol.');
+      }
+
+      const resData = await res.json();
+      const newEventId = resData.event?.id || `event-${Date.now()}`;
+
+      const allPlayers = [
+        ...(selectedMatch.homePlayers || []),
+        ...(selectedMatch.awayPlayers || []),
+      ];
+      const scorerObj = allPlayers.find((p) => p.id === addScorerId);
+      const assistObj = allPlayers.find((p) => p.id === addAssistId);
+
+      const scorerName = addIsOwnGoal
+        ? 'Gol Contra'
+        : (scorerObj?.nickname || scorerObj?.name || 'Jogador');
+      const assistName = addIsOwnGoal
+        ? undefined
+        : (assistObj ? (assistObj.nickname || assistObj.name) : undefined);
+
+      const newEvent: MatchSummaryEvent = {
+        id: newEventId,
+        matchId: selectedMatch.matchId,
+        teamId: addTeamId,
+        scorerId: payload.scorerId,
+        scorerName,
+        assistId: payload.assistId,
+        assistName,
+        eventTimeSeconds,
+        isOwnGoal: addIsOwnGoal,
+      };
+
+      const newEvents = [...(selectedMatch.events || []), newEvent];
+      const { homeScore: nextH, awayScore: nextA } = calculateMatchScores(
+        newEvents,
+        selectedMatch.homeTeamId,
+        selectedMatch.awayTeamId
+      );
+
+      const nextHomePlayers = recalculatePlayerStats(selectedMatch.homePlayers || [], newEvents);
+      const nextAwayPlayers = recalculatePlayerStats(selectedMatch.awayPlayers || [], newEvents);
+
+      setSelectedMatch({
+        ...selectedMatch,
+        events: newEvents,
+        homeScore: nextH,
+        awayScore: nextA,
+        homePlayers: nextHomePlayers,
+        awayPlayers: nextAwayPlayers,
+      });
+
+      notifyMatchUpdated(selectedMatch.matchId, nextH, nextA);
+      setToastMessage('Novo gol registrado na súmula com sucesso!');
+      setIsAddGoalOpen(false);
+    } catch (err: any) {
+      setActionError(err.message || 'Erro inesperado ao registrar gol.');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  // Abrir e Submeter Ajuste Direto do Placar
+  const handleOpenAdjustScore = () => {
+    if (!selectedMatch) return;
+    const currentH = selectedMatch.homeScore ?? 0;
+    const currentA = selectedMatch.awayScore ?? 0;
+    setAdjustHomeScore(currentH);
+    setAdjustAwayScore(currentA);
+    setActionError(null);
+    setIsAdjustScoreOpen(true);
+  };
+
+  const handleConfirmAdjustScore = async () => {
+    if (!selectedMatch) return;
+
+    try {
+      setIsSubmittingAction(true);
+      setActionError(null);
+
+      const res = await fetch(`/api/matches/${encodeURIComponent(selectedMatch.matchId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          homeScore: adjustHomeScore,
+          awayScore: adjustAwayScore,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao atualizar o placar.');
+      }
+
+      setSelectedMatch({
+        ...selectedMatch,
+        homeScore: adjustHomeScore,
+        awayScore: adjustAwayScore,
+      });
+
+      notifyMatchUpdated(selectedMatch.matchId, adjustHomeScore, adjustAwayScore);
+      setToastMessage(`Placar atualizado para ${adjustHomeScore} x ${adjustAwayScore}!`);
+      setIsAdjustScoreOpen(false);
+    } catch (err: any) {
+      setActionError(err.message || 'Erro inesperado ao atualizar o placar.');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const match = selectedMatch;
@@ -650,8 +830,8 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
               </div>
             </div>
 
-            {/* Placar */}
-            <div className="shrink-0 px-3 sm:px-6 py-1 rounded-xl bg-surface-200/80 border border-white/10 shadow-md">
+            {/* Placar com Ação de Ajuste */}
+            <div className="shrink-0 px-3 sm:px-6 py-1.5 rounded-xl bg-surface-200/80 border border-white/10 shadow-md flex flex-col items-center">
               <div className="font-display font-black text-2xl sm:text-4xl text-white tracking-tight flex items-center gap-2">
                 <span className={isHomeWinner ? 'text-emerald-400' : 'text-white'}>
                   {homeScore}
@@ -661,6 +841,15 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                   {awayScore}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={handleOpenAdjustScore}
+                className="mt-0.5 flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-400/90 hover:text-amber-300 active:scale-95 transition-all"
+                title="Ajustar placar diretamente"
+              >
+                <SlidersHorizontal className="w-2.5 h-2.5" />
+                <span>Ajustar Placar</span>
+              </button>
             </div>
 
             {/* Time Visitante */}
@@ -803,19 +992,39 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
               {/* LINHA DO TEMPO DOS GOLS */}
               {/* ============================================================ */}
               <div className="rounded-2xl glass-card border border-white/10 bg-surface-200/40 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/5">
-                  <h4 className="text-xs sm:text-sm font-display font-black text-gray-300 uppercase tracking-wider flex items-center gap-2">
-                    <span>⚽</span>
-                    <span>Linha do Tempo dos Gols</span>
-                  </h4>
-                  <span className="text-[11px] text-gray-400 font-semibold">
-                    {sortedEvents.length} {sortedEvents.length === 1 ? 'gol marcado' : 'gols marcados'}
-                  </span>
+                <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/5 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs sm:text-sm font-display font-black text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                      <span>⚽</span>
+                      <span>Linha do Tempo dos Gols</span>
+                    </h4>
+                    <span className="text-[11px] text-gray-400 font-semibold">
+                      ({sortedEvents.length} {sortedEvents.length === 1 ? 'gol marcado' : 'gols marcados'})
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenAddGoalModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-bold text-xs active:scale-95 transition-all shadow-sm"
+                    title="Adicionar novo gol a esta partida"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Adicionar Gol</span>
+                  </button>
                 </div>
 
                 {sortedEvents.length === 0 ? (
-                  <div className="text-center py-6 text-xs text-gray-500 italic">
-                    0 x 0 • Nenhum gol registrado nesta partida.
+                  <div className="text-center py-6 text-xs text-gray-500 italic space-y-2">
+                    <p>0 x 0 • Nenhum gol registrado nesta partida.</p>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddGoalModal}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-bold text-xs active:scale-95 transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Registrar Primeiro Gol</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1220,6 +1429,359 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                     <>
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                       <span>Salvar Alterações</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* SUB-MODAL: AJUSTAR PLACAR DIRETAMENTE */}
+        {/* ============================================================ */}
+        {isAdjustScoreOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="relative w-full max-w-sm rounded-3xl glass-card border border-amber-500/30 bg-surface-100 p-5 sm:p-6 shadow-2xl space-y-5 animate-scale-up">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                    <SlidersHorizontal className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-display font-black text-white">
+                      Ajustar Placar da Partida
+                    </h3>
+                    <p className="text-[11px] text-gray-400">
+                      Alteração direta dos gols no placar oficial
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustScoreOpen(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Contadores dos dois times */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Mandante */}
+                <div className="p-3.5 rounded-2xl bg-surface-200/60 border border-white/10 flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-center truncate max-w-full">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: selectedMatch?.homeTeamColor || '#10b981' }}
+                    />
+                    <span className="text-xs font-bold text-white truncate">
+                      {selectedMatch?.homeTeamName}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 my-1">
+                    <button
+                      type="button"
+                      onClick={() => setAdjustHomeScore((prev) => Math.max(0, prev - 1))}
+                      className="w-8 h-8 rounded-xl bg-surface-50 hover:bg-white/10 border border-white/10 text-white font-bold flex items-center justify-center active:scale-95 transition-all text-sm"
+                    >
+                      -
+                    </button>
+                    <span className="font-display font-black text-3xl text-white w-8 text-center">
+                      {adjustHomeScore}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAdjustHomeScore((prev) => prev + 1)}
+                      className="w-8 h-8 rounded-xl bg-surface-50 hover:bg-white/10 border border-white/10 text-white font-bold flex items-center justify-center active:scale-95 transition-all text-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Visitante */}
+                <div className="p-3.5 rounded-2xl bg-surface-200/60 border border-white/10 flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-center truncate max-w-full">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: selectedMatch?.awayTeamColor || '#ef4444' }}
+                    />
+                    <span className="text-xs font-bold text-white truncate">
+                      {selectedMatch?.awayTeamName}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 my-1">
+                    <button
+                      type="button"
+                      onClick={() => setAdjustAwayScore((prev) => Math.max(0, prev - 1))}
+                      className="w-8 h-8 rounded-xl bg-surface-50 hover:bg-white/10 border border-white/10 text-white font-bold flex items-center justify-center active:scale-95 transition-all text-sm"
+                    >
+                      -
+                    </button>
+                    <span className="font-display font-black text-3xl text-white w-8 text-center">
+                      {adjustAwayScore}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAdjustAwayScore((prev) => prev + 1)}
+                      className="w-8 h-8 rounded-xl bg-surface-50 hover:bg-white/10 border border-white/10 text-white font-bold flex items-center justify-center active:scale-95 transition-all text-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">
+                  {actionError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustScoreOpen(false)}
+                  disabled={isSubmittingAction}
+                  className="px-4 py-2 rounded-xl bg-surface-50 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAdjustScore}
+                  disabled={isSubmittingAction}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingAction ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Salvar Placar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* SUB-MODAL: ADICIONAR NOVO GOL */}
+        {/* ============================================================ */}
+        {isAddGoalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="relative w-full max-w-md rounded-3xl glass-card border border-emerald-500/30 bg-surface-100 p-5 sm:p-6 shadow-2xl space-y-4 animate-scale-up">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                    <Plus className="w-4 h-4 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-display font-black text-white">
+                      Adicionar Gol à Súmula
+                    </h3>
+                    <p className="text-[11px] text-gray-400">
+                      O lance será computado na classificação e artilharia
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddGoalOpen(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Seleção do Time Beneficiado */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-300 block">
+                  Time que marcou o gol:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddTeamId(selectedMatch?.homeTeamId || '');
+                      setAddScorerId('');
+                      setAddAssistId('');
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      normalizeId(addTeamId) === homeTeamId
+                        ? 'bg-surface-50 border-emerald-500/50 text-white shadow-sm ring-1 ring-emerald-500/50'
+                        : 'bg-surface-200/40 border-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: selectedMatch?.homeTeamColor || '#10b981' }}
+                    />
+                    <span className="truncate">{selectedMatch?.homeTeamName || 'Mandante'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddTeamId(selectedMatch?.awayTeamId || '');
+                      setAddScorerId('');
+                      setAddAssistId('');
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      normalizeId(addTeamId) === awayTeamId
+                        ? 'bg-surface-50 border-emerald-500/50 text-white shadow-sm ring-1 ring-emerald-500/50'
+                        : 'bg-surface-200/40 border-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: selectedMatch?.awayTeamColor || '#ef4444' }}
+                    />
+                    <span className="truncate">{selectedMatch?.awayTeamName || 'Visitante'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Checkbox Gol Contra */}
+              <div className="p-3 rounded-2xl bg-surface-200/50 border border-white/5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">⚠️</span>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Gol Contra</span>
+                    <span className="text-[11px] text-gray-400 block">
+                      O ponto é computado para o time adversário.
+                    </span>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={addIsOwnGoal}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setAddIsOwnGoal(val);
+                      if (val) {
+                        setAddAssistId('');
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500"></div>
+                </label>
+              </div>
+
+              {/* Autor do Gol e Assistência */}
+              {(() => {
+                const isHome = normalizeId(addTeamId) === homeTeamId;
+                const teamList = isHome ? selectedMatch?.homePlayers || [] : selectedMatch?.awayPlayers || [];
+                const candidatePlayers = teamList.length > 0 ? teamList : [
+                  ...(selectedMatch?.homePlayers || []),
+                  ...(selectedMatch?.awayPlayers || []),
+                ];
+
+                return (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-300 block">
+                        {addIsOwnGoal ? 'Jogador que marcou contra (opcional):' : '⚽ Autor do Gol:'}
+                      </label>
+                      <select
+                        value={addScorerId}
+                        onChange={(e) => {
+                          const newId = e.target.value;
+                          setAddScorerId(newId);
+                          if (addAssistId === newId) {
+                            setAddAssistId('');
+                          }
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-emerald-400 focus:outline-none"
+                      >
+                        <option value="">{addIsOwnGoal ? 'Não especificado' : 'Selecione quem fez o gol...'}</option>
+                        {candidatePlayers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {!addIsOwnGoal && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-300 block">
+                          👟 Assistência (opcional):
+                        </label>
+                        <select
+                          value={addAssistId}
+                          onChange={(e) => setAddAssistId(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white text-xs font-medium focus:border-cyan-400 focus:outline-none"
+                        >
+                          <option value="">Sem assistência (jogada individual)</option>
+                          {candidatePlayers
+                            .filter((p) => p.id !== addScorerId)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nickname || p.name} {p.nickname && p.name ? `(${p.name})` : ''} {p.isGoalkeeper ? '🧤' : ''} {p.isCaptain ? '⭐' : ''}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* Tempo do Lance */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-300 block">
+                  ⏱ Minuto do Gol (MM:SS):
+                </label>
+                <input
+                  type="text"
+                  value={addMinuteStr}
+                  onChange={(e) => setAddMinuteStr(e.target.value)}
+                  placeholder="07:00"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-200/80 border border-white/10 text-white font-mono text-xs font-medium focus:border-emerald-400 focus:outline-none"
+                />
+              </div>
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">
+                  {actionError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsAddGoalOpen(false)}
+                  disabled={isSubmittingAction}
+                  className="px-4 py-2 rounded-xl bg-surface-50 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAddGoal}
+                  disabled={isSubmittingAction}
+                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingAction ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Salvar Gol</span>
                     </>
                   )}
                 </button>
