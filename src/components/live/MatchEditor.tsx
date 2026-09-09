@@ -125,6 +125,24 @@ export function MatchEditor({
           )}
         </div>
       ))}
+      {editable && (
+        <div className="pt-3 border-t border-white/10">
+          <button
+            type="button"
+            className="min-h-[44px] px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm flex gap-2 items-center"
+            onClick={() => {
+              if (window.confirm(
+                'Apagar a partida #' + match.sequence + ': ' + match.homeTeamName + ' ' +
+                match.homeScore + ' × ' + match.awayScore + ' ' + match.awayTeamName +
+                '? Todos os gols, assistências e resultados desta partida deixarão de contar. Não é possível desfazer pelo aplicativo.'
+              )) onCommand({ action: 'remove_match', matchId: match.matchId, input: {} });
+            }}
+          >
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
+            Apagar partida
+          </button>
+        </div>
+      )}
       {(editing || scoreOpen) && (
         <ModalPortal label={editing ? 'Editar gol' : 'Corrigir placar'} onClose={close}>
           <div className="fixed inset-0 z-[100] bg-black/80 flex items-end sm:items-center justify-center p-3">

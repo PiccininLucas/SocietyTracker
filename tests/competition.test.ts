@@ -8,7 +8,7 @@ import {
   weekRange,
   scoreFromEvents,
 } from '../src/core/domain/services/CompetitionService';
-import { timerNow, projectPending } from '../src/components/live/matchSync';
+import { timerNow, projectPending, applyMatchResult, type SessionCache } from '../src/components/live/matchSync';
 import type {
   MatchSummary,
   MatchSummaryEvent,
@@ -192,6 +192,22 @@ test('semana cruza mês/ano sem agrupar nomes; cronômetro continua após zero e
     elapsed: 5,
   });
 });
+test('exclusão confirmada remove jogo e cronômetro do cache sem perder outras pendências', () => {
+  const m = match(1, 'a', 'b', 1, 0);
+  const other = match(2, 'a', 'b', 0, 0);
+  const cache: SessionCache = {
+    version: 2, sessionId: m.sessionId, matches: [m, other],
+    timers: { [m.matchId]: { remaining: 10, elapsed: 2, running: false, anchor: 0 } },
+    pending: [{ action: 'remove_match', matchId: m.matchId, operationId: 'delete-op', input: {} }],
+  };
+  assert.equal(projectPending(cache.matches, cache.pending).length, 2);
+  const updated = applyMatchResult(cache, { ...m, deletedAt: '2026-09-09T12:00:00Z' });
+  assert.deepEqual(updated.matches, [other]);
+  assert.deepEqual(updated.timers, {});
+  assert.deepEqual(updated.pending, cache.pending);
+  assert.equal(cache.matches.length, 2);
+});
+
 test('projeção local mostra gol pendente sem alterar a fonte confirmada', () => {
   const m = match(1, 'a', 'b', 0, 0);
   m.status = 'ongoing';

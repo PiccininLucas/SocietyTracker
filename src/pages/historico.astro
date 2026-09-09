@@ -330,4 +330,13 @@ const formatDate = (dateStr: string) => {
 
   <!-- Modal Interativo de Detalhes da Partida e Escalações -->
   <MatchDetailsModal client:load matches={matches} />
+  {Astro.url.searchParams.has('apagada') && <p role="status" class="p-4 text-emerald-300">Partida apagada. Histórico e estatísticas atualizados.</p>}
+  <script>
+    window.addEventListener('match-deleted', () => {
+      const url = new URL(location.href);
+      url.searchParams.delete('match');
+      url.searchParams.set('apagada', '1');
+      location.replace(url);
+    });
+  </script>
 </Layout>

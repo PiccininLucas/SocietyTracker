@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import {
   standings,
+  headToHead,
   playerPerformance,
   sequences,
 } from '../src/core/domain/services/CompetitionService';
@@ -37,14 +38,17 @@ async function setup(applyMigration = true) {
     }
   }
   const migration = await readFile('supabase/migrations/202609090001_match_integrity.sql', 'utf8');
-  if (applyMigration) await db.exec(migration);
+  if (applyMigration) {
+    await db.exec(migration);
+    await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
+  }
   async function command(
     action: string,
     mid: string | null,
     input: Record<string, unknown>,
     operationId = uuid()
   ) {
-    const result = await db.query<{ result: { match_id: string; event_id: string } }>(
+    const result = await db.query<{ result: { match_id: string; event_id: string; deleted_match?: MatchSummary } }>(
       'SELECT society_match_command($1,$2,$3,$4) result',
       [action, mid, JSON.stringify(input), operationId]
     );
@@ -58,6 +62,61 @@ async function setup(applyMigration = true) {
   }
   return { db, sid, teams, players, command, snapshot, migration };
 }
+
+test('exclusão preserva auditoria, remove estatísticas, resiste a retries e permite novo jogo', async () => {
+  const { db, sid, teams, players, command, snapshot } = await setup();
+  try {
+    const start = { sessionId: sid, homeTeamId: teams[0], awayTeamId: teams[1] };
+    const first = await command('start', null, start);
+    const goal = await command('goal', first.match_id, { teamId: teams[0], scorerId: players[0], assistId: players[1] });
+    await command('finish', first.match_id, {});
+    assert.equal(playerPerformance(await snapshot()).find(p => p.playerId === players[0])?.goals, 1);
+    const op = uuid();
+    const removed = await command('remove_match', first.match_id, {}, op);
+    assert.ok(removed.deleted_match?.deletedAt);
+    assert.deepEqual(await command('remove_match', first.match_id, {}, op), removed);
+    assert.deepEqual(await command('remove_match', first.match_id, {}), removed);
+    assert.deepEqual(await snapshot(), []);
+    assert.deepEqual(playerPerformance(await snapshot()), []);
+    const view = await db.query<{ total_goals: number; total_assists: number; total_matches_played: number }>('SELECT * FROM vw_player_leaderboard');
+    assert.ok(view.rows.every(p => Number(p.total_goals) === 0 && Number(p.total_assists) === 0 && Number(p.total_matches_played) === 0));
+    assert.equal((await db.query('SELECT * FROM match_events WHERE id=$1', [goal.event_id])).rows.length, 1);
+    await assert.rejects(command('finish', first.match_id, {}), /Partida apagada/);
+    await assert.rejects(command('score', first.match_id, { homeScore: 1 }), /Partida apagada/);
+    await assert.rejects(db.query('DELETE FROM match_events WHERE id=$1', [goal.event_id]), /Partida apagada/);
+    const second = await command('start', null, start);
+    assert.equal((await snapshot())[0].sequence, 2);
+    await command('remove_match', second.match_id, {});
+    const third = await command('start', null, start);
+    assert.equal((await snapshot())[0].sequence, 3);
+    assert.equal((await snapshot())[0].matchId, third.match_id);
+    await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
+    assert.equal((await snapshot()).length, 1);
+  } finally { await db.close(); }
+});
+
+test('apagar partida recente não desbloqueia consolidada e recalcula a competição', async () => {
+  const { db, sid, teams, command, snapshot } = await setup();
+  try {
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const m = await command('start', null, { sessionId: sid, homeTeamId: teams[0], awayTeamId: teams[1] });
+      ids.push(m.match_id);
+      await command('score', m.match_id, { homeScore: 1 });
+      await command('finish', m.match_id, {});
+    }
+    await assert.rejects(command('remove_match', ids[0], {}), /MATCH_LOCKED/);
+    await command('remove_match', ids[3], {});
+    const remaining = await snapshot();
+    assert.equal(remaining.length, 3);
+    assert.ok(remaining.find(m => m.matchId === ids[0])?.lockedAt);
+    assert.equal(playerPerformance(remaining)[0].played, 3);
+    assert.equal(standings(remaining, teams.map((id, i) => ({ id, name: 'Time ' + i, colorHex: '#000' })))[0].points, 9);
+    assert.equal(headToHead(remaining, teams[0], teams[1]).played, 3);
+    assert.equal(sequences(remaining).at(-1)?.winStreak, 3);
+    await assert.rejects(command('remove_match', ids[0], {}), /MATCH_LOCKED/);
+  } finally { await db.close(); }
+});
 
 test('legado com autor removido mantém a assistência e exige remoção explícita do lance', async () => {
   const { db, sid, teams, players, command, snapshot, migration } = await setup(false);

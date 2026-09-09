@@ -69,8 +69,8 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
       p_operation_id: command.operationId,
     });
     if (error) throw new Error(error.message);
-    const result = data as { match_id: string; event_id?: string };
-    const match = await this.getMatchById(result.match_id);
+    const result = data as { match_id: string; event_id?: string; deleted_match?: MatchSummary };
+    const match = result.deleted_match ?? await this.getMatchById(result.match_id);
     if (!match)
       throw new Error(
         'Partida salva, mas não foi possível carregar a confirmação. Tente novamente.'

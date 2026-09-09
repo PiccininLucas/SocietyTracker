@@ -43,6 +43,7 @@ export async function sendCommand(command: PendingCommand): Promise<MatchSummary
   if (command.action === 'goal') path += '/goals';
   if (command.action === 'finish') path += '/finish';
   if (command.action === 'score') method = 'PATCH';
+  if (command.action === 'remove_match') method = 'DELETE';
   if (command.action === 'edit' || command.action === 'delete') {
     path += '/events/' + command.input.eventId;
     method = command.action === 'edit' ? 'PATCH' : 'DELETE';
@@ -101,4 +102,13 @@ export function projectPending(matches: MatchSummary[], pending: PendingCommand[
     m.awayScore = scores.awayScore;
   }
   return [...byId.values()];
+}
+
+// Apply the server acknowledgement before removing the durable pending command.
+export function applyMatchResult(cache: SessionCache, match: MatchSummary): SessionCache {
+  const matches = cache.matches.filter((m) => m.matchId !== match.matchId);
+  const timers = { ...cache.timers };
+  if (match.deletedAt) delete timers[match.matchId];
+  else matches.push(match);
+  return { ...cache, matches, timers };
 }

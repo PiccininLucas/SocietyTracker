@@ -18,6 +18,8 @@ function Fixture() {
   const query = new URLSearchParams(location.search);
   const [report, setReport] = useState<PeriodLeaderboardOutputDTO | null>(null);
   useEffect(() => {
+    const refreshMatches = () => void fetch('/api/sessions/' + sid + '/matches').then((r) => r.json()).then(setMatches);
+    window.addEventListener('match-deleted', refreshMatches);
     if (query.has('reports'))
       void fetch('/api/reports/period?type=year&year=2026')
         .then((r) => r.json())
@@ -26,6 +28,7 @@ function Fixture() {
       void fetch('/api/sessions/' + sid + '/matches')
         .then((r) => r.json())
         .then(setMatches);
+    return () => window.removeEventListener('match-deleted', refreshMatches);
   }, []);
   if (query.has('reports'))
     return report ? (

@@ -19,6 +19,7 @@ await db.exec(
   )
 );
 await db.exec(await readFile('supabase/migrations/202609090001_match_integrity.sql', 'utf8'));
+await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
 await db.query("INSERT INTO sessions(id,session_date) VALUES($1,'2026-09-03')", [sid]);
 for (const t of teams) {
   await db.query('INSERT INTO session_teams(id,session_id,name,color_hex) VALUES($1,$2,$3,$4)', [
@@ -63,12 +64,12 @@ const reportRepository = {
 } as IMatchRepository;
 const repository = {
   async executeCommand(command: MatchCommand) {
-    const r = await db.query<{ data: { match_id: string; event_id: string } }>(
+    const r = await db.query<{ data: { match_id: string; event_id: string; deleted_match?: MatchSummary } }>(
       'SELECT society_match_command($1,$2,$3,$4) data',
       [command.action, command.matchId ?? null, JSON.stringify(command.input), command.operationId]
     );
     return {
-      match: (await snapshot()).find((m) => m.matchId === r.rows[0].data.match_id)!,
+      match: r.rows[0].data.deleted_match ?? (await snapshot()).find((m) => m.matchId === r.rows[0].data.match_id)!,
       eventId: r.rows[0].data.event_id,
     };
   },
@@ -121,7 +122,7 @@ const server = await createServer({
                         ? req.method === 'DELETE'
                           ? 'delete'
                           : 'edit'
-                        : 'score';
+                        : req.method === 'DELETE' ? 'remove_match' : 'score';
               response = await matchCommand(
                 { request, params: { id: parts[3], eventId: parts[5] } } as unknown as APIContext,
                 action,

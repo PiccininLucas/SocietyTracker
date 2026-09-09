@@ -1,5 +1,5 @@
 import type { MatchSummary } from './IMatchRepository';
-export type MatchAction = 'start' | 'goal' | 'edit' | 'delete' | 'score' | 'finish';
+export type MatchAction = 'start' | 'goal' | 'edit' | 'delete' | 'score' | 'finish' | 'remove_match';
 export interface MatchCommand {
   action: MatchAction;
   matchId?: string;

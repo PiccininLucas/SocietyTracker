@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
 import {
   readCache,
+  applyMatchResult,
   saveCache,
   sendCommand,
   type PendingCommand,
@@ -50,12 +51,11 @@ export function useMatchSession(sessionId: string) {
         const match = await sendCommand(op);
         revision.current++;
         commit({
-          ...ref.current,
-          matches: [...ref.current.matches.filter((m) => m.matchId !== match.matchId), match],
+          ...applyMatchResult(ref.current, match),
           pending: ref.current.pending.filter((p) => p.operationId !== op.operationId),
         });
         setError('');
-        setNotice(op.action === 'finish' ? 'Partida finalizada e salva.' : 'Alteração salva.');
+        setNotice(match.deletedAt ? 'Partida apagada. Estatísticas atualizadas.' : op.action === 'finish' ? 'Partida finalizada e salva.' : 'Alteração salva.');
       }
       await refresh();
     } catch (e) {
@@ -103,6 +103,7 @@ export function useMatchSession(sessionId: string) {
     };
   }, [sessionId, refresh, flush]);
   const enqueue = (command: Omit<PendingCommand, 'operationId'>) => {
+    if (command.action === 'remove_match' && ref.current.pending.length) return false;
     const op = { ...command, operationId: crypto.randomUUID() };
     try {
       commit({ ...ref.current, pending: [...ref.current.pending, op] });

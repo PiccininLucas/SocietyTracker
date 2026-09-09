@@ -42,6 +42,7 @@ export interface MatchPlayerSummary {
 }
 
 export interface MatchSummary {
+  deletedAt?: string;
   sequence?: number;
   lockedAt?: string | null;
   editable?: boolean;

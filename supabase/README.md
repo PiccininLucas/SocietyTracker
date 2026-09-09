@@ -1,6 +1,20 @@
 # Migração de integridade das partidas
 
-`migrations/202609090001_match_integrity.sql` deve ser aplicada antes de disponibilizar o código desta revisão. A migração foi testada em PostgreSQL isolado; **não foi aplicada ao Supabase configurado, que retornou HTTP 401 na leitura**.
+`migrations/202609090001_match_integrity.sql` é a migração inicial de integridade. O responsável informou que a aplicou com sucesso após conciliar as partidas simultâneas.
+
+## Nova migração: apagar partida
+
+Antes do deploy desta funcionalidade, execute **o arquivo completo** `migrations/202609090002_delete_match.sql` no SQL Editor do mesmo projeto Supabase. A migração inicial já aplicada não precisa ser repetida. Em um banco novo, aplique os dois arquivos na ordem numérica.
+
+Confirme com `SELECT * FROM society_schema_versions WHERE version = '202609090002';`.
+
+O botão “Apagar partida” exige autenticação de administrador e confirmação. Pode apagar a partida atual ou uma recente ainda editável; partidas consolidadas continuam bloqueadas, inclusive após outras exclusões.
+
+A exclusão é lógica: `matches.deleted_at` e `deleted_snapshot` preservam a súmula para auditoria e confirmação de tentativas repetidas. Os eventos e participantes permanecem armazenados, mas a partida deixa de aparecer nos históricos, classificações, rankings e relatórios do aplicativo. Consultas SQL próprias devem filtrar `deleted_at IS NULL`. Não há restauração pelo aplicativo.
+
+Os números de sequência não são reutilizados: apagar a partida #5 faz a próxima ser #6. A exclusão não altera times nem jogadores da rodada. O cliente só retira a partida após confirmação do servidor; uma falha de rede mantém a operação pendente para nova tentativa.
+
+A migração foi validada em PostgreSQL isolado e não foi executada remotamente pelo agente.
 
 ## Aplicação
 
