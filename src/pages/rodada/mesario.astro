@@ -1,6 +1,9 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { MesarioSessionWrapper, type SessionData } from '../../components/live/MesarioSessionWrapper';
+import {
+  MesarioSessionWrapper,
+  type SessionData,
+} from '../../components/live/MesarioSessionWrapper';
 import { SupabaseSessionRepository } from '../../core/infrastructure/repositories/SupabaseSessionRepository';
 import { SupabasePlayerRepository } from '../../core/infrastructure/repositories/SupabasePlayerRepository';
 import type { LivePlayer } from '../../components/live/types';
@@ -9,6 +12,7 @@ export const prerender = false;
 
 const sessionIdParam = Astro.url.searchParams.get('sessionId');
 let sessionData: SessionData | null = null;
+let errorMessage = '';
 let allRegisteredPlayers: LivePlayer[] = [];
 
 try {
@@ -16,10 +20,8 @@ try {
   const playerRepo = new SupabasePlayerRepository();
 
   const [dbSession, dbPlayers] = await Promise.all([
-    sessionIdParam
-      ? sessionRepo.findById(sessionIdParam)
-      : sessionRepo.findLatest(),
-    playerRepo.findAll(true).catch(() => []),
+    sessionIdParam ? sessionRepo.findById(sessionIdParam) : sessionRepo.findLatest(),
+    playerRepo.findAll(true),
   ]);
 
   allRegisteredPlayers = dbPlayers.map((p) => ({
@@ -56,6 +58,7 @@ try {
     };
   }
 } catch {
+  errorMessage = 'Não foi possível carregar a rodada. Confira a conexão e tente novamente.';
   sessionData = null;
 }
 ---
@@ -65,7 +68,7 @@ try {
   description="Controle o placar, cronômetro de 7 minutos, gols e assistências em tempo real na beira do campo."
   activeNav="mesario"
 >
-  {sessionData ? (
+  {errorMessage ? <div role="alert" class="text-rose-300 rounded-xl border border-rose-400 p-4">{errorMessage}<a href={Astro.url.pathname+Astro.url.search} class="block min-h-[44px] underline">Tentar novamente</a></div> : sessionData ? (
     <MesarioSessionWrapper
       client:load
       session={sessionData}
@@ -76,7 +79,7 @@ try {
       <span class="text-5xl">⏱️</span>
       <h2 class="font-display font-black text-2xl text-white">Nenhuma Rodada Ativa</h2>
       <p class="text-sm text-gray-400">
-        Para iniciar o cronômetro, gerenciar confrontos e registrar gols no Modo Mesário, monte os 4 times da rodada primeiro.
+        Para iniciar o cronômetro, gerenciar confrontos e registrar gols no Modo Mesário, monte os times da rodada primeiro.
       </p>
       <a
         href="/rodada/nova"

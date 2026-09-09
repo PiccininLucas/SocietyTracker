@@ -1,5 +1,6 @@
 import type { Match } from '../entities/Match';
 import type { MatchEvent, MatchEventProps } from '../entities/MatchEvent';
+import type { IMatchCommands } from './IMatchCommands';
 
 export interface LeaderboardItem {
   playerId: string;
@@ -15,6 +16,7 @@ export interface LeaderboardItem {
 }
 
 export interface MatchSummaryEvent {
+  isUnattributed?: boolean;
   id: string;
   matchId: string;
   teamId: string;
@@ -27,6 +29,7 @@ export interface MatchSummaryEvent {
 }
 
 export interface MatchPlayerSummary {
+  inferred?: boolean;
   id: string;
   name: string;
   nickname: string | null;
@@ -39,6 +42,10 @@ export interface MatchPlayerSummary {
 }
 
 export interface MatchSummary {
+  sequence?: number;
+  lockedAt?: string | null;
+  editable?: boolean;
+  sessionStatus?: string;
   matchId: string;
   sessionId: string;
   sessionDate: string;
@@ -61,6 +68,8 @@ export interface MatchSummary {
 }
 
 export interface IMatchRepository {
+  /** Atomic persistence when the backing store supports transactions. */
+  executeCommand?: IMatchCommands['executeCommand'];
   findById(id: string): Promise<Match | null>;
   findBySessionId(sessionId: string): Promise<Match[]>;
   findActiveMatch(sessionId: string): Promise<Match | null>;
@@ -77,4 +86,3 @@ export interface IMatchRepository {
   getMatchesSummary(sessionId?: string): Promise<MatchSummary[]>;
   getMatchById(matchId: string): Promise<MatchSummary | null>;
 }
-

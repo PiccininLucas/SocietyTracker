@@ -15,12 +15,14 @@ export interface LeaderboardRankedItemDTO {
 }
 
 export interface GetPeriodLeaderboardInputDTO {
-  type: 'all' | 'month';
+  type: 'all' | 'month' | 'year';
+  year?: string;
   yearMonth?: string; // e.g. '2026-08'
 }
 
 export interface PeriodLeaderboardOutputDTO {
-  periodType: 'all' | 'month';
+  periodType: 'all' | 'month' | 'year';
+  year?: string;
   periodLabel: string;
   yearMonth?: string;
   totalPlayers: number;

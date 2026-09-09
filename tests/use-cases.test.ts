@@ -17,8 +17,16 @@ import { Match } from '../src/core/domain/entities/Match.ts';
 import { MatchEvent, type MatchEventProps } from '../src/core/domain/entities/MatchEvent.ts';
 
 import { Player } from '../src/core/domain/entities/Player.ts';
-import type { IMatchRepository, MatchSummary, LeaderboardItem } from '../src/core/domain/repositories/IMatchRepository.ts';
-import type { ISessionRepository, CreateSessionTeamInput, UpdateSessionTeamInput } from '../src/core/domain/repositories/ISessionRepository.ts';
+import type {
+  IMatchRepository,
+  MatchSummary,
+  LeaderboardItem,
+} from '../src/core/domain/repositories/IMatchRepository.ts';
+import type {
+  ISessionRepository,
+  CreateSessionTeamInput,
+  UpdateSessionTeamInput,
+} from '../src/core/domain/repositories/ISessionRepository.ts';
 import type { IPlayerRepository } from '../src/core/domain/repositories/IPlayerRepository.ts';
 import { Session } from '../src/core/domain/entities/Session.ts';
 import { Team } from '../src/core/domain/entities/Team.ts';
@@ -235,7 +243,12 @@ class MockSessionRepository implements ISessionRepository {
           if (typeof p === 'string') {
             team.addPlayer(p, false, false, t.captainId === p);
           } else {
-            team.addPlayer(p.playerId, p.isLoaned, p.isGoalkeeper, t.captainId === p.playerId || p.isCaptain);
+            team.addPlayer(
+              p.playerId,
+              p.isLoaned,
+              p.isGoalkeeper,
+              t.captainId === p.playerId || p.isCaptain
+            );
           }
         }
       } else if (t.playerIds) {
@@ -270,7 +283,8 @@ class MockSessionRepository implements ISessionRepository {
       const existingTeam = session.teams.find((t) => t.id === update.id);
       if (existingTeam) {
         if (update.name) (existingTeam as any).props.name = update.name;
-        if (update.captainId !== undefined) (existingTeam as any).props.captainId = update.captainId || null;
+        if (update.captainId !== undefined)
+          (existingTeam as any).props.captainId = update.captainId || null;
         if (update.colorHex) (existingTeam as any).props.colorHex = update.colorHex;
 
         if (update.players) {
@@ -448,9 +462,21 @@ describe('Use Cases Business Logic', () => {
         name: 'Preto',
         colorHex: '#000000',
         players: [
-          { playerId: 'p-1', isGoalkeeper: false, player: { name: 'Artilheiro Silva', nickname: null, avatarUrl: null } },
-          { playerId: 'p-2', isGoalkeeper: false, player: { name: 'Garcom Santos', nickname: null, avatarUrl: null } },
-          { playerId: 'p-5', isGoalkeeper: true, player: { name: 'Goleiro Preto', nickname: null, avatarUrl: null } },
+          {
+            playerId: 'p-1',
+            isGoalkeeper: false,
+            player: { name: 'Artilheiro Silva', nickname: null, avatarUrl: null },
+          },
+          {
+            playerId: 'p-2',
+            isGoalkeeper: false,
+            player: { name: 'Garcom Santos', nickname: null, avatarUrl: null },
+          },
+          {
+            playerId: 'p-5',
+            isGoalkeeper: true,
+            player: { name: 'Goleiro Preto', nickname: null, avatarUrl: null },
+          },
         ],
       });
 
@@ -460,9 +486,21 @@ describe('Use Cases Business Logic', () => {
         name: 'Branco',
         colorHex: '#FFFFFF',
         players: [
-          { playerId: 'p-3', isGoalkeeper: false, player: { name: 'Craque Lima', nickname: null, avatarUrl: null } },
-          { playerId: 'p-4', isGoalkeeper: false, player: { name: 'Bola Murcha Costa', nickname: null, avatarUrl: null } },
-          { playerId: 'p-6', isGoalkeeper: true, player: { name: 'Goleiro Branco', nickname: null, avatarUrl: null } },
+          {
+            playerId: 'p-3',
+            isGoalkeeper: false,
+            player: { name: 'Craque Lima', nickname: null, avatarUrl: null },
+          },
+          {
+            playerId: 'p-4',
+            isGoalkeeper: false,
+            player: { name: 'Bola Murcha Costa', nickname: null, avatarUrl: null },
+          },
+          {
+            playerId: 'p-6',
+            isGoalkeeper: true,
+            player: { name: 'Goleiro Branco', nickname: null, avatarUrl: null },
+          },
         ],
       });
 
@@ -519,6 +557,56 @@ describe('Use Cases Business Logic', () => {
         })
       );
 
+      match1.finish('manual');
+      matchRepo.getMatchesSummary = async () => [
+        {
+          matchId: 'm-1',
+          sessionId: 's-1',
+          sessionDate: '2026-08-13',
+          status: 'finished',
+          homeScore: 2,
+          awayScore: 1,
+          homeTeamId: 't-preto',
+          awayTeamId: 't-branco',
+          homeTeamName: 'Preto',
+          awayTeamName: 'Branco',
+          homeTeamColor: '#000',
+          awayTeamColor: '#fff',
+          durationSeconds: 180,
+          endReason: 'manual',
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          events: matchRepo.events.map((e, i) => ({
+            id: 'event-' + i,
+            matchId: e.matchId,
+            teamId: e.teamId,
+            scorerId: e.scorerId,
+            assistId: e.assistId,
+            eventTimeSeconds: e.eventTimeSeconds,
+            isOwnGoal: e.isOwnGoal,
+          })),
+          homePlayers: teamPreto.players.map((p) => ({
+            id: p.playerId,
+            name: p.player!.name,
+            nickname: null,
+            isCaptain: false,
+            isGoalkeeper: !!p.isGoalkeeper,
+            isLoaned: false,
+            goals: 0,
+            assists: 0,
+          })),
+          awayPlayers: teamBranco.players.map((p) => ({
+            id: p.playerId,
+            name: p.player!.name,
+            nickname: null,
+            isCaptain: false,
+            isGoalkeeper: !!p.isGoalkeeper,
+            isLoaned: false,
+            goals: 0,
+            assists: 0,
+          })),
+        },
+      ];
       const useCase = new GetRoundHighlightsUseCase(sessionRepo, matchRepo);
       const result = await useCase.execute({ sessionId: 's-1' });
 
@@ -643,9 +731,21 @@ describe('Use Cases Business Logic', () => {
         matchDurationSeconds: 480,
         notes: 'Rodada com 3 times e 8 min',
         teams: [
-          { name: 'Time Preto', colorHex: '#1f2937', playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'] },
-          { name: 'Time Branco', colorHex: '#e5e7eb', playerIds: ['p8', 'p9', 'p10', 'p11', 'p12', 'p13'] },
-          { name: 'Time Azul', colorHex: '#3b82f6', playerIds: ['p14', 'p15', 'p16', 'p17', 'p18', 'p19'] },
+          {
+            name: 'Time Preto',
+            colorHex: '#1f2937',
+            playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'],
+          },
+          {
+            name: 'Time Branco',
+            colorHex: '#e5e7eb',
+            playerIds: ['p8', 'p9', 'p10', 'p11', 'p12', 'p13'],
+          },
+          {
+            name: 'Time Azul',
+            colorHex: '#3b82f6',
+            playerIds: ['p14', 'p15', 'p16', 'p17', 'p18', 'p19'],
+          },
         ],
       });
 
@@ -1096,9 +1196,7 @@ describe('Use Cases Business Logic', () => {
             id: team2Id,
             name: 'Time Chitao',
             captainId: 'p-chitao',
-            players: [
-              { playerId: 'p-chitao', isGoalkeeper: false, isCaptain: true },
-            ],
+            players: [{ playerId: 'p-chitao', isGoalkeeper: false, isCaptain: true }],
           },
         ],
       });
@@ -1133,7 +1231,11 @@ describe('Use Cases Business Logic', () => {
       );
 
       await assert.rejects(
-        () => updateUseCase.execute({ sessionId: 's-1', teams: [{ id: 't-1', name: '  ', players: [] }] }),
+        () =>
+          updateUseCase.execute({
+            sessionId: 's-1',
+            teams: [{ id: 't-1', name: '  ', players: [] }],
+          }),
         /Nome do time não pode ser vazio/
       );
     });
@@ -1153,7 +1255,7 @@ describe('Use Cases Business Logic', () => {
           totalContributions: 3,
           totalMatchesPlayed: 4, // 4 partidas disputadas (dois 0x0, um 2x1, um 1x1)
           totalSessionsPlayed: 1,
-          goalsPerMatch: 0.50,
+          goalsPerMatch: 0.5,
         },
         {
           playerId: 'p-woody',
@@ -1165,7 +1267,7 @@ describe('Use Cases Business Logic', () => {
           totalContributions: 0,
           totalMatchesPlayed: 3,
           totalSessionsPlayed: 1,
-          goalsPerMatch: 0.00,
+          goalsPerMatch: 0.0,
         },
       ];
 
@@ -1297,18 +1399,15 @@ describe('Use Cases Business Logic', () => {
       );
 
       const updateUseCase = new UpdateMatchEventUseCase(matchRepo);
-      await assert.rejects(
-        async () => {
-          await updateUseCase.execute({
-            matchId: 'm-102',
-            eventId: 'ev-102',
-            teamId: 'team-a',
-            scorerId: 'p-1',
-            assistId: 'p-1',
-          });
-        },
-        /O autor do gol não pode ser o mesmo da assistência/
-      );
+      await assert.rejects(async () => {
+        await updateUseCase.execute({
+          matchId: 'm-102',
+          eventId: 'ev-102',
+          teamId: 'team-a',
+          scorerId: 'p-1',
+          assistId: 'p-1',
+        });
+      }, /O autor do gol não pode ser o mesmo da assistência/);
     });
 
     it('should throw error when normal goal has no scorer on update', async () => {
@@ -1323,17 +1422,14 @@ describe('Use Cases Business Logic', () => {
       );
 
       const updateUseCase = new UpdateMatchEventUseCase(matchRepo);
-      await assert.rejects(
-        async () => {
-          await updateUseCase.execute({
-            matchId: 'm-103',
-            eventId: 'ev-103',
-            teamId: 'team-a',
-            isOwnGoal: false,
-          });
-        },
-        /Gol normal exige a identificação do autor do gol/
-      );
+      await assert.rejects(async () => {
+        await updateUseCase.execute({
+          matchId: 'm-103',
+          eventId: 'ev-103',
+          teamId: 'team-a',
+          isOwnGoal: false,
+        });
+      }, /Gol normal exige a identificação do autor do gol/);
     });
 
     it('should delete event and recalculate match score to 0', async () => {
@@ -1377,15 +1473,12 @@ describe('Use Cases Business Logic', () => {
       const matchRepo = new MockMatchRepository();
       const deleteUseCase = new DeleteMatchEventUseCase(matchRepo);
 
-      await assert.rejects(
-        async () => {
-          await deleteUseCase.execute({
-            matchId: 'm-non-existent',
-            eventId: 'ev-999',
-          });
-        },
-        /Partida com ID 'm-non-existent' não foi encontrado/
-      );
+      await assert.rejects(async () => {
+        await deleteUseCase.execute({
+          matchId: 'm-non-existent',
+          eventId: 'ev-999',
+        });
+      }, /Partida com ID 'm-non-existent' não foi encontrado/);
     });
   });
 
@@ -1398,7 +1491,8 @@ describe('Use Cases Business Logic', () => {
         homeTeamId: 't-preto',
         awayTeamId: 't-branco',
       });
-      match.updateDuration(420); // Finishes by time limit 0 x 0
+      match.updateDuration(420);
+      match.finish('manual');
       assert.equal(match.isFinished, true);
       await matchRepo.create(match);
 
@@ -1453,18 +1547,116 @@ describe('Use Cases Business Logic', () => {
       const matchRepo = new MockMatchRepository();
       const useCase = new UpdateMatchScoreUseCase(matchRepo);
 
-      await assert.rejects(
-        async () => {
-          await useCase.execute({
-            matchId: 'm-not-found',
-            homeScore: 3,
-            awayScore: 1,
-          });
-        },
-        /Partida com ID 'm-not-found' não foi encontrado/
-      );
+      await assert.rejects(async () => {
+        await useCase.execute({
+          matchId: 'm-not-found',
+          homeScore: 3,
+          awayScore: 1,
+        });
+      }, /Partida com ID 'm-not-found' não foi encontrado/);
     });
   });
 });
 
+it('seleciona temporada pelo ano civil e mantém empates e todo o histórico', async () => {
+  const repo: IMatchRepository = new MockMatchRepository();
+  let range: (string | undefined)[] = [];
+  repo.getLeaderboardByDateRange = async (start, end) => {
+    range = [start, end];
+    return ['Ana', 'Beto', 'Caio'].map((name, i) => ({
+      playerId: name,
+      name,
+      nickname: null,
+      avatarUrl: null,
+      totalGoals: i < 2 ? 2 : 1,
+      totalAssists: 0,
+      totalContributions: i < 2 ? 2 : 1,
+      totalMatchesPlayed: 3,
+      totalSessionsPlayed: 1,
+    }));
+  };
+  const useCase = new GetPeriodLeaderboardUseCase(repo);
+  const annual = await useCase.execute({ type: 'year', year: '2026' });
+  assert.deepEqual(range, ['2026-01-01', '2026-12-31']);
+  assert.equal(annual.periodLabel, 'Temporada 2026');
+  assert.deepEqual(
+    annual.byGoals.map((p) => p.rank),
+    [1, 1, 3]
+  );
+  assert.deepEqual(
+    annual.byAssists.map((p) => p.rank),
+    [1, 1, 1]
+  );
+  assert.equal((await useCase.execute({ type: 'all' })).periodLabel, 'Todo o histórico');
+  assert.deepEqual(range, [undefined, undefined]);
+  await assert.rejects(useCase.execute({ type: 'year', year: '2026-01' }), /Temporada inválida/);
+});
 
+it('casos de uso antigos delegam mutações ao comando atômico, sem gravar estado defasado', async () => {
+  const repo: IMatchRepository = new MockMatchRepository();
+  const actions: string[] = [];
+  repo.findById = async () => {
+    throw new Error('Não ler estado mutável antes da transação');
+  };
+  repo.executeCommand = async (command) => {
+    actions.push(command.action);
+    return {
+      eventId: 'event',
+      match: {
+        matchId: 'match',
+        sessionId: 'session',
+        sessionDate: '2026-09-03',
+        homeTeamId: 'home',
+        awayTeamId: 'away',
+        homeTeamName: 'A',
+        awayTeamName: 'B',
+        homeTeamColor: '#000',
+        awayTeamColor: '#fff',
+        homeScore: 1,
+        awayScore: 0,
+        durationSeconds: 430,
+        status: 'finished',
+        startedAt: '2026-09-03T20:00:00Z',
+        finishedAt: '2026-09-03T20:07:10Z',
+        endReason: 'manual',
+        events: [
+          {
+            id: 'event',
+            matchId: 'match',
+            teamId: 'home',
+            scorerId: 'player',
+            assistId: null,
+            eventTimeSeconds: 430,
+            isOwnGoal: false,
+          },
+        ],
+      },
+    };
+  };
+  assert.equal(
+    (
+      await new RegisterGoalUseCase(repo).execute({
+        matchId: 'match',
+        teamId: 'home',
+        scorerId: 'player',
+      })
+    ).isMatchFinished,
+    true
+  );
+  assert.equal(
+    (await new FinishMatchUseCase(repo).execute({ matchId: 'match', homeScore: 99, awayScore: 99 }))
+      .homeScore,
+    1
+  );
+  assert.equal(
+    (await new UpdateMatchScoreUseCase(repo).execute({ matchId: 'match', homeScore: 1 })).homeScore,
+    1
+  );
+  await new UpdateMatchEventUseCase(repo).execute({
+    matchId: 'match',
+    eventId: 'event',
+    scorerId: 'player',
+  });
+  await new DeleteMatchEventUseCase(repo).execute({ matchId: 'match', eventId: 'event' });
+  assert.deepEqual(actions, ['goal', 'finish', 'score', 'edit', 'delete']);
+});

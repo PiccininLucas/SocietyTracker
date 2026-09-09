@@ -1,3 +1,4 @@
+import { matchOutput } from '../dtos/matchOutput';
 import type { IMatchRepository } from '../../domain/repositories/IMatchRepository';
 import { MatchEvent } from '../../domain/entities/MatchEvent';
 import { EntityNotFoundError } from '../../domain/errors/EntityNotFoundError';
@@ -7,6 +8,23 @@ export class RegisterGoalUseCase {
   constructor(private matchRepository: IMatchRepository) {}
 
   public async execute(input: RegisterGoalInput): Promise<RegisterGoalOutput> {
+    if (this.matchRepository.executeCommand) {
+      const { match, eventId } = await this.matchRepository.executeCommand({
+        action: 'goal',
+        matchId: input.matchId,
+        operationId: crypto.randomUUID(),
+        input: { ...input },
+      });
+      const event = match.events?.find((e) => e.id === eventId);
+      if (!event) throw new Error('Gol salvo, mas a confirmação não pôde ser carregada.');
+      return {
+        match: matchOutput(match),
+        event,
+        isMatchFinished: match.status === 'finished',
+        matchEndReason: match.endReason,
+      };
+    }
+
     const match = await this.matchRepository.findById(input.matchId);
 
     if (!match) {
@@ -33,7 +51,7 @@ export class RegisterGoalUseCase {
     });
 
     // Registra o gol na entidade da partida (aplica regra dos 2 gols, trata gol contra e permite jogos finalizados se solicitado)
-    const result = match.registerGoal(
+    match.registerGoal(
       input.teamId,
       input.eventTimeSeconds,
       input.isOwnGoal ?? false,

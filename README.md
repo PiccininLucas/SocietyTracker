@@ -1,5 +1,7 @@
 # Astro Starter Kit: Minimal
 
+> SocietyTracker: consulte a [revisão funcional e resultados de validação](docs/IMPLEMENTATION_REVIEW.md) e as [instruções da migração de integridade](supabase/README.md) antes de disponibilizar esta versão.
+
 ```sh
 npm create astro@latest -- --template minimal
 ```

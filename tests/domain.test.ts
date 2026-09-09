@@ -22,10 +22,7 @@ describe('Player Domain Entity Rules', () => {
   });
 
   it('should throw error when name is empty upon instantiation', () => {
-    assert.throws(
-      () => new Player({ name: '   ' }),
-      /Nome do jogador é obrigatório/
-    );
+    assert.throws(() => new Player({ name: '   ' }), /Nome do jogador é obrigatório/);
   });
 
   it('should update info correctly with updateInfo method', () => {
@@ -48,10 +45,7 @@ describe('Player Domain Entity Rules', () => {
       name: 'Lucas Silva',
     });
 
-    assert.throws(
-      () => player.updateInfo('  '),
-      /Nome do jogador é obrigatório/
-    );
+    assert.throws(() => player.updateInfo('  '), /Nome do jogador é obrigatório/);
   });
 });
 
@@ -136,7 +130,7 @@ describe('Match Domain Entity Rules', () => {
     assert.equal(match.status, 'finished');
   });
 
-  it('should automatically finish match when time limit (420s / 7min) is reached', () => {
+  it('should keep match active when regulation time expires', () => {
     const match = new Match({
       sessionId: 'session-1',
       homeTeamId: 'team-preto',
@@ -145,8 +139,8 @@ describe('Match Domain Entity Rules', () => {
 
     match.updateDuration(420);
 
-    assert.equal(match.isFinished, true);
-    assert.equal(match.endReason, 'time_limit');
+    assert.equal(match.isFinished, false);
+    assert.equal(match.endReason, null);
     assert.equal(match.durationSeconds, 420);
   });
 
@@ -159,8 +153,8 @@ describe('Match Domain Entity Rules', () => {
 
     match.handleTimeExpired();
 
-    assert.equal(match.isFinished, true);
-    assert.equal(match.endReason, 'time_limit');
+    assert.equal(match.isFinished, false);
+    assert.equal(match.endReason, null);
     assert.equal(match.durationSeconds, MATCH_RULES.MAX_DURATION_SECONDS);
   });
 
@@ -190,9 +184,9 @@ describe('Match Domain Entity Rules', () => {
 
     assert.equal(match.homeScore, 1);
     assert.equal(match.awayScore, 0);
-    assert.equal(match.isFinished, true);
-    assert.equal(result.finished, true);
-    assert.equal(result.reason, 'time_limit');
+    assert.equal(match.isFinished, false);
+    assert.equal(result.finished, false);
+    assert.equal(result.reason, undefined);
   });
 
   it('should allow registering retroactive goal on finished match when allowFinished is true', () => {
@@ -202,7 +196,8 @@ describe('Match Domain Entity Rules', () => {
       awayTeamId: 'team-branco',
     });
 
-    match.updateDuration(420); // Finishes by time limit 0-0
+    match.updateDuration(420);
+    match.finish('manual');
     assert.equal(match.isFinished, true);
 
     // Register goal after finished with allowFinished = true
@@ -243,11 +238,46 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
 
   it('should accurately calculate topScorers, topAssisters, mvps and bottomPlayers excluding goalkeepers from bottomPlayers', () => {
     const stats: PlayerRoundStats[] = [
-      { playerId: 'p-1', name: 'Neymar', isGoalkeeper: false, goals: 3, assists: 1, contributions: 4 },
-      { playerId: 'p-2', name: 'Messi', isGoalkeeper: false, goals: 2, assists: 3, contributions: 5 },
-      { playerId: 'p-3', name: 'Suarez', isGoalkeeper: false, goals: 1, assists: 0, contributions: 1 },
-      { playerId: 'p-4', name: 'Casemiro', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
-      { playerId: 'p-5', name: 'Alisson (Goleiro)', isGoalkeeper: true, goals: 0, assists: 0, contributions: 0 },
+      {
+        playerId: 'p-1',
+        name: 'Neymar',
+        isGoalkeeper: false,
+        goals: 3,
+        assists: 1,
+        contributions: 4,
+      },
+      {
+        playerId: 'p-2',
+        name: 'Messi',
+        isGoalkeeper: false,
+        goals: 2,
+        assists: 3,
+        contributions: 5,
+      },
+      {
+        playerId: 'p-3',
+        name: 'Suarez',
+        isGoalkeeper: false,
+        goals: 1,
+        assists: 0,
+        contributions: 1,
+      },
+      {
+        playerId: 'p-4',
+        name: 'Casemiro',
+        isGoalkeeper: false,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
+      {
+        playerId: 'p-5',
+        name: 'Alisson (Goleiro)',
+        isGoalkeeper: true,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
     ];
 
     const result = RoundHighlightsService.calculate(stats);
@@ -264,9 +294,30 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
 
   it('should allow goalkeepers who score or assist to be MVP, top scorer and top assister', () => {
     const stats: PlayerRoundStats[] = [
-      { playerId: 'p-1', name: 'Rogério Ceni (Goleiro)', isGoalkeeper: true, goals: 2, assists: 1, contributions: 3 },
-      { playerId: 'p-2', name: 'Zagueiro', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
-      { playerId: 'p-3', name: 'Goleiro B', isGoalkeeper: true, goals: 0, assists: 0, contributions: 0 },
+      {
+        playerId: 'p-1',
+        name: 'Rogério Ceni (Goleiro)',
+        isGoalkeeper: true,
+        goals: 2,
+        assists: 1,
+        contributions: 3,
+      },
+      {
+        playerId: 'p-2',
+        name: 'Zagueiro',
+        isGoalkeeper: false,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
+      {
+        playerId: 'p-3',
+        name: 'Goleiro B',
+        isGoalkeeper: true,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
     ];
 
     const result = RoundHighlightsService.calculate(stats);
@@ -279,9 +330,30 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
 
   it('should handle ties for top scorer, assister, and MVP', () => {
     const stats: PlayerRoundStats[] = [
-      { playerId: 'p-1', name: 'Jogador A', isGoalkeeper: false, goals: 2, assists: 1, contributions: 3 },
-      { playerId: 'p-2', name: 'Jogador B', isGoalkeeper: false, goals: 2, assists: 1, contributions: 3 },
-      { playerId: 'p-3', name: 'Jogador C', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
+      {
+        playerId: 'p-1',
+        name: 'Jogador A',
+        isGoalkeeper: false,
+        goals: 2,
+        assists: 1,
+        contributions: 3,
+      },
+      {
+        playerId: 'p-2',
+        name: 'Jogador B',
+        isGoalkeeper: false,
+        goals: 2,
+        assists: 1,
+        contributions: 3,
+      },
+      {
+        playerId: 'p-3',
+        name: 'Jogador C',
+        isGoalkeeper: false,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
     ];
 
     const result = RoundHighlightsService.calculate(stats);
@@ -294,9 +366,30 @@ describe('RoundHighlightsService Pure Domain Rules', () => {
 
   it('should not award MVP or top scorer if all players scored 0 and only list line players as bottomPlayers', () => {
     const stats: PlayerRoundStats[] = [
-      { playerId: 'p-1', name: 'Jogador 1', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
-      { playerId: 'p-2', name: 'Goleiro 1', isGoalkeeper: true, goals: 0, assists: 0, contributions: 0 },
-      { playerId: 'p-3', name: 'Jogador 2', isGoalkeeper: false, goals: 0, assists: 0, contributions: 0 },
+      {
+        playerId: 'p-1',
+        name: 'Jogador 1',
+        isGoalkeeper: false,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
+      {
+        playerId: 'p-2',
+        name: 'Goleiro 1',
+        isGoalkeeper: true,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
+      {
+        playerId: 'p-3',
+        name: 'Jogador 2',
+        isGoalkeeper: false,
+        goals: 0,
+        assists: 0,
+        contributions: 0,
+      },
     ];
 
     const result = RoundHighlightsService.calculate(stats);
@@ -383,4 +476,3 @@ describe('Session and Team Flexible Structure Rules', () => {
     assert.equal(team.captainId, undefined);
   });
 });
-

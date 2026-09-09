@@ -8,6 +8,7 @@ import type { MatchSummary } from '../core/domain/repositories/IMatchRepository'
 export const prerender = false;
 
 let matches: MatchSummary[] = [];
+let errorMessage = '';
 
 try {
   const matchRepo = new SupabaseMatchRepository();
@@ -17,6 +18,7 @@ try {
     matches = dbMatches;
   }
 } catch {
+  errorMessage = 'Não foi possível carregar o histórico. Tente novamente.';
   matches = [];
 }
 
@@ -215,14 +217,17 @@ if (matches.length === 0 && Astro.url.searchParams.has('demo')) {
 }
 
 // Agrupamento por data da sessão
-const groupedMatches = matches.reduce((acc, match) => {
-  const dateKey = match.sessionDate || 'Data Não Informada';
-  if (!acc[dateKey]) {
-    acc[dateKey] = [];
-  }
-  acc[dateKey].push(match);
-  return acc;
-}, {} as Record<string, MatchSummary[]>);
+const groupedMatches = matches.reduce(
+  (acc, match) => {
+    const dateKey = match.sessionDate || 'Data Não Informada';
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(match);
+    return acc;
+  },
+  {} as Record<string, MatchSummary[]>
+);
 
 const formatDate = (dateStr: string) => {
   try {
@@ -251,6 +256,7 @@ const formatDate = (dateStr: string) => {
   description="Veja o placar, duração e detalhes de todos os confrontos disputados nas quintas-feiras."
   activeNav="historico"
 >
+  {errorMessage && <p role="alert" class="text-rose-300 border border-rose-400 p-4 rounded-xl">{errorMessage}<a href={Astro.url.pathname+Astro.url.search} class="block min-h-[44px] underline">Tentar novamente</a></p>}
   <div class="space-y-8">
     <!-- Header da Página de Histórico -->
     <div class="p-6 sm:p-8 rounded-3xl glass-card bg-surface-100/90 border border-white/10 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">

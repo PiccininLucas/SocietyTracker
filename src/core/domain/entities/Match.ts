@@ -145,28 +145,17 @@ export class Match {
       return { finished: true, reason: 'two_goals' };
     }
 
-    // Se atingiu o tempo limite
-    if ((this.props.durationSeconds ?? 0) >= MATCH_RULES.MAX_DURATION_SECONDS) {
-      this.finish('time_limit');
-      return { finished: true, reason: 'time_limit' };
-    }
-
     return { finished: this.isFinished, reason: this.props.endReason || undefined };
   }
 
   public updateDuration(seconds: number): void {
     if (this.isFinished) return;
     this.props.durationSeconds = seconds;
-
-    if (seconds >= MATCH_RULES.MAX_DURATION_SECONDS) {
-      this.finish('time_limit');
-    }
   }
 
   public handleTimeExpired(): void {
     if (!this.isFinished) {
       this.props.durationSeconds = MATCH_RULES.MAX_DURATION_SECONDS;
-      this.finish('time_limit');
     }
   }
 

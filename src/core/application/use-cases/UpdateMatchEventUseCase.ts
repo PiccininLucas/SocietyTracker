@@ -7,6 +7,21 @@ export class UpdateMatchEventUseCase {
   constructor(private matchRepository: IMatchRepository) {}
 
   public async execute(input: UpdateMatchEventInput): Promise<UpdateMatchEventOutput> {
+    if (this.matchRepository.executeCommand) {
+      const { match } = await this.matchRepository.executeCommand({
+        action: 'edit',
+        matchId: input.matchId,
+        operationId: crypto.randomUUID(),
+        input: { ...input },
+      });
+      return {
+        eventId: input.eventId,
+        matchId: input.matchId,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+      };
+    }
+
     if (!input.matchId) {
       throw new Error('ID da partida é obrigatório.');
     }
@@ -22,7 +37,9 @@ export class UpdateMatchEventUseCase {
     const isOwnGoal = input.isOwnGoal ?? false;
 
     if (!isOwnGoal && !input.scorerId) {
-      throw new InvalidGoalEventError('Gol normal exige a identificação do autor do gol (scorerId).');
+      throw new InvalidGoalEventError(
+        'Gol normal exige a identificação do autor do gol (scorerId).'
+      );
     }
 
     if (isOwnGoal && input.assistId) {
@@ -46,8 +63,8 @@ export class UpdateMatchEventUseCase {
 
     await this.matchRepository.updateEvent(input.eventId, {
       teamId: input.teamId,
-      scorerId: isOwnGoal ? null : (input.scorerId || null),
-      assistId: isOwnGoal ? null : (input.assistId || null),
+      scorerId: isOwnGoal ? null : input.scorerId || null,
+      assistId: isOwnGoal ? null : input.assistId || null,
       isOwnGoal,
     });
 

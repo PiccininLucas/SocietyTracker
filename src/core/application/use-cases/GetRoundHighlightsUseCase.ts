@@ -7,116 +7,70 @@ import {
 import type {
   GetRoundHighlightsInputDTO,
   RoundHighlightsOutputDTO,
-  RoundSummaryPlayerDTO,
 } from '../dtos/RoundHighlightsDTO';
-
 export class GetRoundHighlightsUseCase {
   constructor(
     private sessionRepo: ISessionRepository,
     private matchRepo: IMatchRepository
   ) {}
-
-  public async execute(
-    input?: GetRoundHighlightsInputDTO
-  ): Promise<RoundHighlightsOutputDTO | null> {
-    let session = null;
-
-    if (input?.sessionId) {
-      session = await this.sessionRepo.findById(input.sessionId);
-    } else if (input?.date) {
-      session = await this.sessionRepo.findByDate(input.date);
-    } else {
-      session = await this.sessionRepo.findLatest();
-    }
-
-    if (!session || !session.id) {
-      return null;
-    }
-
-    // 1. Mapear todos os jogadores presentes nos times daquela sessão
-    const playerStatsMap = new Map<string, PlayerRoundStats>();
-
-    for (const team of session.teams) {
-      for (const tp of team.players) {
-        if (!playerStatsMap.has(tp.playerId)) {
-          playerStatsMap.set(tp.playerId, {
-            playerId: tp.playerId,
-            name: tp.player?.name || 'Jogador',
-            nickname: tp.player?.nickname || null,
-            avatarUrl: tp.player?.avatarUrl || null,
-            teamName: team.name,
-            teamColor: team.colorHex,
-            isGoalkeeper: tp.isGoalkeeper ?? false,
-            goals: 0,
-            assists: 0,
-            contributions: 0,
-          });
+  async execute(input?: GetRoundHighlightsInputDTO): Promise<RoundHighlightsOutputDTO | null> {
+    const session = input?.sessionId
+      ? await this.sessionRepo.findById(input.sessionId)
+      : input?.date
+        ? await this.sessionRepo.findByDate(input.date)
+        : await this.sessionRepo.findLatest();
+    if (!session?.id) return null;
+    const matches = (await this.matchRepo.getMatchesSummary(session.id)).filter(
+      (m) => m.status === 'finished'
+    );
+    const rows = new Map<string, PlayerRoundStats>();
+    for (const m of matches) {
+      for (const [players, name, color] of [
+        [m.homePlayers ?? [], m.homeTeamName, m.homeTeamColor],
+        [m.awayPlayers ?? [], m.awayTeamName, m.awayTeamColor],
+      ] as const) {
+        for (const p of players) {
+          if (!rows.has(p.id))
+            rows.set(p.id, {
+              playerId: p.id,
+              name: p.name,
+              nickname: p.nickname,
+              avatarUrl: p.avatarUrl,
+              teamName: name,
+              teamColor: color,
+              isGoalkeeper: p.isGoalkeeper,
+              goals: 0,
+              assists: 0,
+              contributions: 0,
+            });
+          rows.get(p.id)!.isGoalkeeper ||= p.isGoalkeeper;
         }
       }
-    }
-
-    // 2. Buscar todas as partidas da sessão e seus eventos
-    const matches = await this.matchRepo.findBySessionId(session.id);
-    let totalGoals = 0;
-
-    for (const match of matches) {
-      if (!match.id) continue;
-      const events = await this.matchRepo.getEventsByMatchId(match.id);
-
-      for (const ev of events) {
-        if (ev.scorerId && !ev.isOwnGoal) {
-          totalGoals++;
-          const scorer = playerStatsMap.get(ev.scorerId);
-          if (scorer) {
-            scorer.goals += 1;
-          }
-        }
-
-        if (ev.assistId) {
-          const assister = playerStatsMap.get(ev.assistId);
-          if (assister) {
-            assister.assists += 1;
-          }
-        }
+      for (const e of m.events ?? []) {
+        if (e.isOwnGoal) continue;
+        if (e.scorerId && rows.has(e.scorerId)) rows.get(e.scorerId)!.goals++;
+        if (e.assistId && rows.has(e.assistId)) rows.get(e.assistId)!.assists++;
       }
     }
-
-    // 3. Atualizar participações (G+A)
-    const statsList: PlayerRoundStats[] = Array.from(playerStatsMap.values()).map((p) => ({
-      ...p,
-      contributions: p.goals + p.assists,
-    }));
-
-    // 4. Calcular Destaques da Rodada via Domínio Puro
-    const highlights = RoundHighlightsService.calculate(statsList);
-
-    // 5. Ordenar tabela do dia: G+A desc, Gols desc, Assists desc, Nome asc
-    const sortedStats = [...statsList].sort((a, b) => {
-      if (b.contributions !== a.contributions) {
-        return b.contributions - a.contributions;
-      }
-      if (b.goals !== a.goals) {
-        return b.goals - a.goals;
-      }
-      if (b.assists !== a.assists) {
-        return b.assists - a.assists;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    const rankedPlayers: RoundSummaryPlayerDTO[] = sortedStats.map((p, index) => ({
-      ...p,
-      rank: index + 1,
-    }));
-
+    const stats = [...rows.values()]
+      .map((r) => ({ ...r, contributions: r.goals + r.assists }))
+      .sort(
+        (a, b) =>
+          b.contributions - a.contributions ||
+          b.goals - a.goals ||
+          a.name.localeCompare(b.name, 'pt-BR')
+      );
     return {
       sessionId: session.id,
       sessionDate: session.sessionDate,
       status: session.status,
       totalMatches: matches.length,
-      totalGoals,
-      highlights,
-      players: rankedPlayers,
+      totalGoals: matches.reduce((n, m) => n + m.homeScore + m.awayScore, 0),
+      highlights: RoundHighlightsService.calculate(stats),
+      players: stats.map((p) => ({
+        ...p,
+        rank: 1 + stats.filter((o) => o.contributions > p.contributions).length,
+      })),
     };
   }
 }

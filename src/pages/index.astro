@@ -1,29 +1,93 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import PodiumCard from '../components/ui/PodiumCard.astro';
-import LeaderboardTable from '../components/ui/LeaderboardTable.astro';
+import { TeamStandings } from '../components/stats/TeamStandings';
+import { PlayerPerformanceTable } from '../components/stats/PlayerPerformanceTable';
+import { SupabaseSessionRepository } from '../core/infrastructure/repositories/SupabaseSessionRepository';
+import { SupabasePlayerRepository } from '../core/infrastructure/repositories/SupabasePlayerRepository';
+import {
+  playerPerformance,
+  weekRange,
+  type PlayerPerformance,
+} from '../core/domain/services/CompetitionService';
+import type { MatchSummary } from '../core/domain/repositories/IMatchRepository';
 import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
-import { GetLeaderboardUseCase } from '../core/application/use-cases/GetLeaderboardUseCase';
 import type { LeaderboardItemDTO } from '../core/application/dtos/LeaderboardDTO';
 
 export const prerender = false;
 
 let leaderboard: LeaderboardItemDTO[] = [];
-
+const season = Astro.url.searchParams.get('season') ?? String(new Date().getFullYear());
+const sort = Astro.url.searchParams.get('sort') ?? 'contributions';
+const direction = Astro.url.searchParams.get('direction') ?? 'desc';
+let totalGoalsAll = 0;
+let errorMessage = '',
+  selectedWeek = Astro.url.searchParams.get('week') ?? '';
+let years: string[] = [String(new Date().getFullYear())],
+  weeklyMatches: MatchSummary[] = [],
+  performance: PlayerPerformance[] = [];
+let weeklyTeams: { id: string; name: string; colorHex: string }[] = [];
+let weekLabel = '';
 try {
   const matchRepo = new SupabaseMatchRepository();
-  const useCase = new GetLeaderboardUseCase(matchRepo);
-  const result = await useCase.execute();
-
-  if (result && result.length > 0) {
-    leaderboard = result;
-  }
-} catch {
-  leaderboard = [];
+  const [matches, sessions, players] = await Promise.all([
+    matchRepo.getMatchesSummary(),
+    new SupabaseSessionRepository().findAll(),
+    new SupabasePlayerRepository().findAll(),
+  ]);
+  years = [...new Set([...years, ...sessions.map((s) => s.sessionDate.slice(0, 4))])]
+    .sort()
+    .reverse();
+  if (!selectedWeek)
+    selectedWeek = sessions[0]?.sessionDate ?? new Date().toISOString().slice(0, 10);
+  const range = weekRange(selectedWeek);
+  weekLabel =
+    range.start.split('-').reverse().join('/') + ' a ' + range.end.split('-').reverse().join('/');
+  weeklyMatches = matches.filter((m) => m.sessionDate >= range.start && m.sessionDate <= range.end);
+  const weekSessions = sessions.filter(
+    (s) => s.sessionDate >= range.start && s.sessionDate <= range.end
+  );
+  weeklyTeams = weekSessions.flatMap((s) =>
+    s.teams.map((t) => ({
+      id: t.id!,
+      name:
+        t.name +
+        (weekSessions.length > 1 ? ' · ' + s.sessionDate.split('-').reverse().join('/') : ''),
+      colorHex: t.colorHex,
+    }))
+  );
+  const seasonal = matches.filter((m) => season === 'all' || m.sessionDate.slice(0, 4) === season);
+  totalGoalsAll = seasonal
+    .filter((m) => m.status === 'finished')
+    .reduce((sum, m) => sum + m.homeScore + m.awayScore, 0);
+  performance = playerPerformance(
+    seasonal,
+    players.map((p) => ({
+      id: p.id!,
+      name: p.name,
+      nickname: p.nickname,
+      avatarUrl: p.avatarUrl,
+      isActive: p.isActive,
+    }))
+  );
+  leaderboard = performance.map((p) => ({
+    playerId: p.playerId,
+    name: p.name,
+    nickname: p.nickname,
+    displayName: p.nickname || p.name,
+    avatarUrl: p.avatarUrl,
+    totalGoals: p.goals,
+    totalAssists: p.assists,
+    totalContributions: p.contributions,
+    totalMatchesPlayed: p.played,
+    totalSessionsPlayed: p.sessions,
+    goalsPerMatch: p.played ? p.goals / p.played : 0,
+  }));
+} catch (e) {
+  errorMessage = e instanceof Error ? e.message : 'Não foi possível carregar as estatísticas.';
 }
-
 // Estatísticas Agregadas
-const totalGoalsAll = leaderboard.reduce((acc, p) => acc + (p.totalGoals || 0), 0);
+
 const totalAssistsAll = leaderboard.reduce((acc, p) => acc + (p.totalAssists || 0), 0);
 
 // Top 3 do Pódio:
@@ -33,9 +97,11 @@ const topScorer = sortedByGoals[0];
 const sortedByAssists = [...leaderboard].sort((a, b) => b.totalAssists - a.totalAssists);
 const topAssister = sortedByAssists[0];
 
-const sortedByContributions = [...leaderboard].sort((a, b) => b.totalContributions - a.totalContributions);
+const sortedByContributions = [...leaderboard].sort(
+  (a, b) => b.totalContributions - a.totalContributions
+);
 const topContributor = sortedByContributions[0];
-const hasPodium = leaderboard.length > 0 && topScorer;
+const hasPodium = leaderboard.some((p) => p.totalContributions > 0);
 ---
 
 <Layout
@@ -57,7 +123,7 @@ const hasPodium = leaderboard.length > 0 && topScorer;
             Pelada das <span class="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">Quintas</span>
           </h1>
           <p class="text-sm sm:text-base text-gray-400 mt-2 max-w-xl">
-            Tabela oficial de artilharia, garçons e participações diretas. Jogos rápidos de 7 minutos ou 2 gols.
+            Tabela oficial de artilharia, garçons e participações diretas. Tempo regulamentar com encerramento pelo mesário; vitória automática aos 2 gols.
           </p>
         </div>
 
@@ -142,6 +208,13 @@ const hasPodium = leaderboard.length > 0 && topScorer;
     )}
 
     <!-- Tabela Geral de Classificação SSR -->
-    <LeaderboardTable players={leaderboard} />
+    <form method="GET" class="glass-card rounded-2xl p-4 flex flex-wrap gap-4 items-end">
+ <label class="block text-sm">Temporada<select name="season" class="block mt-1 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/20">{years.map(year=><option value={year} selected={season===year}>{year}</option>)}<option value="all" selected={season==='all'}>Todo o histórico</option></select></label>
+ <label class="block text-sm">Semana que inclui<input type="date" name="week" value={selectedWeek} class="block mt-1 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/20" /></label>
+ <button class="min-h-[44px] rounded-xl px-4 bg-emerald-500 text-gray-950 font-bold">Aplicar filtros</button>
+</form>
+{errorMessage&&<div role="alert" class="text-rose-300 rounded-xl border border-rose-500 p-4">{errorMessage}<a href={Astro.url.pathname+Astro.url.search} class="block py-3 underline">Tentar novamente</a></div>}
+<TeamStandings matches={weeklyMatches} teams={weeklyTeams} scope={'Semana selecionada: '+weekLabel+' · somente partidas finalizadas'} />
+<PlayerPerformanceTable players={performance} season={season} sort={sort} direction={direction} week={selectedWeek} />
   </div>
 </Layout>

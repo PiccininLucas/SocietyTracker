@@ -11,7 +11,9 @@
     "preview": "astro preview",
     "astro": "astro",
     "check": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "check:astro": "astro check"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.2",
@@ -31,6 +33,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.2.0",
     "tsx": "^4.19.3",
     "typescript": "5.7.3"

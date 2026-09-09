@@ -53,7 +53,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       playerId: row.player_id,
       isLoaned: row.is_loaned ?? false,
       isGoalkeeper: row.is_goalkeeper ?? false,
-      isCaptain: row.is_captain ?? (captainId ? captainId === row.player_id : false),
+      isCaptain: captainId !== undefined ? captainId === row.player_id : (row.is_captain ?? false),
       player: row.players
         ? {
             name: row.players.name,
@@ -104,7 +104,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       throw new Error(`Erro ao listar sessões: ${error.message}`);
     }
 
-    return (data as SessionRow[] || []).map((row) => this.mapSessionToDomain(row));
+    return ((data as SessionRow[]) || []).map((row) => this.mapSessionToDomain(row));
   }
 
   public async findLatest(): Promise<Session | null> {
@@ -166,8 +166,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
         notes: session.notes || null,
         match_duration_seconds: session.matchDurationSeconds ?? 420,
       },
-      (cleanPayload) =>
-        this.client.from('sessions').insert(cleanPayload).select('*').single()
+      (cleanPayload) => this.client.from('sessions').insert(cleanPayload).select('*').single()
     );
 
     if (sessionError || !sessionData) {
@@ -202,7 +201,11 @@ export class SupabaseSessionRepository implements ISessionRepository {
           const normalized = teamInput.players.map((p) =>
             typeof p === 'string'
               ? { playerId: p, isGoalkeeper: false, isLoaned: false }
-              : { playerId: p.playerId, isGoalkeeper: p.isGoalkeeper ?? false, isLoaned: p.isLoaned ?? false }
+              : {
+                  playerId: p.playerId,
+                  isGoalkeeper: p.isGoalkeeper ?? false,
+                  isLoaned: p.isLoaned ?? false,
+                }
           );
 
           const playerRows = normalized.map((p) => ({
@@ -220,7 +223,9 @@ export class SupabaseSessionRepository implements ISessionRepository {
           );
 
           if (playersError) {
-            throw new Error(`Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`);
+            throw new Error(
+              `Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`
+            );
           }
 
           teamPlayers.push(
@@ -247,7 +252,9 @@ export class SupabaseSessionRepository implements ISessionRepository {
           );
 
           if (playersError) {
-            throw new Error(`Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`);
+            throw new Error(
+              `Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`
+            );
           }
 
           teamPlayers.push(
@@ -279,17 +286,15 @@ export class SupabaseSessionRepository implements ISessionRepository {
       sessionDate: sessionData.session_date,
       status: sessionData.status,
       notes: sessionData.notes,
-      matchDurationSeconds: sessionData.match_duration_seconds ?? session.matchDurationSeconds ?? 420,
+      matchDurationSeconds:
+        sessionData.match_duration_seconds ?? session.matchDurationSeconds ?? 420,
       teams: createdTeams,
       createdAt: new Date(sessionData.created_at),
     });
   }
 
   public async updateStatus(id: string, status: SessionStatus): Promise<void> {
-    const { error } = await this.client
-      .from('sessions')
-      .update({ status })
-      .eq('id', id);
+    const { error } = await this.client.from('sessions').update({ status }).eq('id', id);
 
     if (error) {
       throw new Error(`Erro ao atualizar status da sessão (${id}): ${error.message}`);
@@ -306,73 +311,15 @@ export class SupabaseSessionRepository implements ISessionRepository {
       throw new Error(`Erro ao buscar times da sessão (${sessionId}): ${error.message}`);
     }
 
-    return (data as TeamRow[] || []).map((row) => this.mapTeamToDomain(row));
+    return ((data as TeamRow[]) || []).map((row) => this.mapTeamToDomain(row));
   }
 
   public async updateTeams(sessionId: string, teams: UpdateSessionTeamInput[]): Promise<Team[]> {
-    for (const team of teams) {
-      // 1. Atualizar dados do time (nome, cor, capitão)
-      const teamUpdates: Record<string, any> = {};
-      if (team.name !== undefined) teamUpdates.name = team.name;
-      if (team.captainId !== undefined) teamUpdates.captain_id = team.captainId || null;
-      if (team.colorHex !== undefined) teamUpdates.color_hex = team.colorHex;
-
-      if (Object.keys(teamUpdates).length > 0) {
-        const { error: teamError } = await executeWithSchemaFallback(
-          'session_teams',
-          teamUpdates,
-          (cleanPayload) =>
-            this.client.from('session_teams').update(cleanPayload).eq('id', team.id)
-        );
-        if (teamError) {
-          throw new Error(`Erro ao atualizar dados do time (${team.id}): ${teamError.message}`);
-        }
-      }
-
-      // 2. Se jogadores fornecidos, sincronizar session_team_players
-      if (team.players !== undefined) {
-        const newPlayerIds = team.players.map((p) => p.playerId);
-
-        // Remove jogadores que não estão mais escalados neste time
-        if (newPlayerIds.length > 0) {
-          await this.client
-            .from('session_team_players')
-            .delete()
-            .eq('session_team_id', team.id)
-            .not('player_id', 'in', `(${newPlayerIds.join(',')})`);
-        } else {
-          await this.client
-            .from('session_team_players')
-            .delete()
-            .eq('session_team_id', team.id);
-        }
-
-        // Insere ou atualiza os jogadores escalados
-        if (team.players.length > 0) {
-          const playerRows = team.players.map((p) => ({
-            session_team_id: team.id,
-            player_id: p.playerId,
-            is_loaned: p.isLoaned ?? false,
-            is_goalkeeper: p.isGoalkeeper ?? false,
-            is_captain: p.isCaptain ?? (team.captainId ? team.captainId === p.playerId : false),
-          }));
-
-          const { error: playersError } = await executeWithSchemaFallback(
-            'session_team_players',
-            playerRows,
-            (cleanPayload) =>
-              this.client
-                .from('session_team_players')
-                .upsert(cleanPayload, { onConflict: 'session_team_id,player_id' })
-          );
-
-          if (playersError) {
-            throw new Error(`Erro ao sincronizar jogadores do time (${team.id}): ${playersError.message}`);
-          }
-        }
-      }
-    }
-
+    const { error } = await this.client.rpc('society_update_teams', {
+      p_session_id: sessionId,
+      p_teams: teams,
+    });
+    if (error) throw new Error(error.message);
     return this.getTeamsBySessionId(sessionId);
   }
 
@@ -422,9 +369,13 @@ export class SupabaseSessionRepository implements ISessionRepository {
     isLoaned = false,
     isGoalkeeper = false
   ): Promise<void> {
-    // Remove do time anterior
-    await this.removePlayerFromTeam(fromTeamId, playerId);
-    // Adiciona no novo time
-    await this.addPlayerToTeam(toTeamId, playerId, isLoaned, isGoalkeeper);
+    const { error } = await this.client.rpc('society_transfer_player', {
+      p_from: fromTeamId,
+      p_to: toTeamId,
+      p_player: playerId,
+      p_loaned: isLoaned,
+      p_goalkeeper: isGoalkeeper,
+    });
+    if (error) throw new Error(error.message);
   }
 }

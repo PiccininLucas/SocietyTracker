@@ -6,6 +6,21 @@ export class DeleteMatchEventUseCase {
   constructor(private matchRepository: IMatchRepository) {}
 
   public async execute(input: DeleteMatchEventInput): Promise<DeleteMatchEventOutput> {
+    if (this.matchRepository.executeCommand) {
+      const { match } = await this.matchRepository.executeCommand({
+        action: 'delete',
+        matchId: input.matchId,
+        operationId: crypto.randomUUID(),
+        input: { eventId: input.eventId },
+      });
+      return {
+        eventId: input.eventId,
+        matchId: input.matchId,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+      };
+    }
+
     if (!input.matchId) {
       throw new Error('ID da partida é obrigatório.');
     }

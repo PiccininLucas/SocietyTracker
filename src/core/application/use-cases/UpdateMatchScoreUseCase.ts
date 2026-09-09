@@ -1,3 +1,4 @@
+import { matchOutput } from '../dtos/matchOutput';
 import type { IMatchRepository } from '../../domain/repositories/IMatchRepository';
 import { EntityNotFoundError } from '../../domain/errors/EntityNotFoundError';
 import type { UpdateMatchScoreInput, UpdateMatchScoreOutput } from '../dtos/UpdateMatchScoreDTO';
@@ -6,6 +7,16 @@ export class UpdateMatchScoreUseCase {
   constructor(private matchRepository: IMatchRepository) {}
 
   public async execute(input: UpdateMatchScoreInput): Promise<UpdateMatchScoreOutput> {
+    if (this.matchRepository.executeCommand) {
+      const { match } = await this.matchRepository.executeCommand({
+        action: input.status === 'finished' ? 'finish' : 'score',
+        matchId: input.matchId,
+        operationId: crypto.randomUUID(),
+        input: { ...input },
+      });
+      return matchOutput(match);
+    }
+
     const match = await this.matchRepository.findById(input.matchId);
 
     if (!match) {

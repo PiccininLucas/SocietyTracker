@@ -8,12 +8,18 @@ import type {
 export class GetPeriodLeaderboardUseCase {
   constructor(private matchRepo: IMatchRepository) {}
 
-  public async execute(
-    input: GetPeriodLeaderboardInputDTO
-  ): Promise<PeriodLeaderboardOutputDTO> {
+  public async execute(input: GetPeriodLeaderboardInputDTO): Promise<PeriodLeaderboardOutputDTO> {
     let startDate: string | undefined = undefined;
     let endDate: string | undefined = undefined;
-    let periodLabel = 'Temporada Completa';
+    let periodLabel = 'Todo o histórico';
+
+    if (input.type === 'year') {
+      if (!input.year || !/^\d{4}$/.test(input.year))
+        throw new Error('Temporada inválida. Informe o ano.');
+      startDate = input.year + '-01-01';
+      endDate = input.year + '-12-31';
+      periodLabel = 'Temporada ' + input.year;
+    }
 
     if (input.type === 'month' && input.yearMonth) {
       const [yearStr, monthStr] = input.yearMonth.split('-');
@@ -50,8 +56,9 @@ export class GetPeriodLeaderboardUseCase {
         }
         return a.name.localeCompare(b.name);
       })
-      .map((item, index): LeaderboardRankedItemDTO => ({
-        rank: index + 1,
+      .map((item): LeaderboardRankedItemDTO => ({
+        rank:
+          1 + items.filter((other) => other.totalContributions > item.totalContributions).length,
         playerId: item.playerId,
         name: item.name,
         nickname: item.nickname,
@@ -77,16 +84,17 @@ export class GetPeriodLeaderboardUseCase {
         }
         return a.name.localeCompare(b.name);
       })
-      .map((item, index): LeaderboardRankedItemDTO => {
+      .map((item): LeaderboardRankedItemDTO => {
         const matchesCount = item.totalMatchesPlayed ?? item.totalSessionsPlayed;
-        const avgGoals = item.goalsPerMatch !== undefined
-          ? item.goalsPerMatch.toFixed(2)
-          : matchesCount > 0
-          ? (item.totalGoals / matchesCount).toFixed(2)
-          : '0.00';
+        const avgGoals =
+          item.goalsPerMatch !== undefined
+            ? item.goalsPerMatch.toFixed(2)
+            : matchesCount > 0
+              ? (item.totalGoals / matchesCount).toFixed(2)
+              : '0.00';
 
         return {
-          rank: index + 1,
+          rank: 1 + items.filter((other) => other.totalGoals > item.totalGoals).length,
           playerId: item.playerId,
           name: item.name,
           nickname: item.nickname,
@@ -113,10 +121,10 @@ export class GetPeriodLeaderboardUseCase {
         }
         return a.name.localeCompare(b.name);
       })
-      .map((item, index): LeaderboardRankedItemDTO => {
+      .map((item): LeaderboardRankedItemDTO => {
         const matchesCount = item.totalMatchesPlayed ?? item.totalSessionsPlayed;
         return {
-          rank: index + 1,
+          rank: 1 + items.filter((other) => other.totalAssists > item.totalAssists).length,
           playerId: item.playerId,
           name: item.name,
           nickname: item.nickname,
@@ -136,6 +144,7 @@ export class GetPeriodLeaderboardUseCase {
       periodType: input.type,
       periodLabel,
       yearMonth: input.yearMonth,
+      year: input.year,
       totalPlayers: items.length,
       byContributions: sortedByContributions,
       byGoals: sortedByGoals,

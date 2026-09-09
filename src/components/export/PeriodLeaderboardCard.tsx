@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import type { PeriodLeaderboardOutputDTO, LeaderboardRankedItemDTO } from '../../core/application/dtos/PeriodLeaderboardDTO';
+import type {
+  PeriodLeaderboardOutputDTO,
+  LeaderboardRankedItemDTO,
+} from '../../core/application/dtos/PeriodLeaderboardDTO';
 import { downloadElementAsPng, copyElementToClipboard } from '../../lib/exportPng';
 
 interface PeriodLeaderboardCardProps {
@@ -11,8 +14,8 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
   const [isCopying, setIsCopying] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const cardElementId = `period-card-export-${data.periodType}-${data.yearMonth || 'all'}`;
-  const filename = `ranking-${data.periodType}-${data.yearMonth || 'geral'}`;
+  const cardElementId = `period-card-export-${data.periodType}-${data.yearMonth || data.year || 'all'}`;
+  const filename = `ranking-${data.periodType}-${data.yearMonth || data.year || 'geral'}`;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -78,13 +81,19 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
     }[accentColor];
 
     return (
-      <div className={`flex flex-col rounded-2xl border ${colorClasses.border} bg-surface-100/85 overflow-hidden shadow-lg`}>
+      <div
+        className={`flex flex-col rounded-2xl border ${colorClasses.border} bg-surface-100/85 overflow-hidden shadow-lg`}
+      >
         {/* Col Header */}
-        <div className={`p-3.5 bg-gradient-to-r ${colorClasses.bgGradient} border-b border-white/10 flex items-center justify-between`}>
+        <div
+          className={`p-3.5 bg-gradient-to-r ${colorClasses.bgGradient} border-b border-white/10 flex items-center justify-between`}
+        >
           <div className="flex items-center gap-2">
             <span className="text-xl">{icon}</span>
             <div>
-              <h3 className={`font-display font-black text-sm uppercase tracking-wider ${colorClasses.text}`}>
+              <h3
+                className={`font-display font-black text-sm uppercase tracking-wider ${colorClasses.text}`}
+              >
                 {title}
               </h3>
               <p className="text-[10px] text-gray-400 font-medium">{valueLabel}</p>
@@ -137,9 +146,7 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
                     </div>
 
                     <div className="min-w-0 truncate">
-                      <span className="text-white font-medium truncate block">
-                        {player.name}
-                      </span>
+                      <span className="text-white font-medium truncate block">{player.name}</span>
                     </div>
                   </div>
 
@@ -186,7 +193,7 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
             type="button"
             onClick={handleCopy}
             disabled={isCopying || isDownloading}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-50 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 rounded-xl bg-surface-50 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
             title="Copiar imagem para colar no WhatsApp Web"
           >
             <span>{isCopying ? '⏳' : '📋'}</span>
@@ -197,7 +204,7 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
             type="button"
             onClick={handleDownload}
             disabled={isDownloading || isCopying}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 text-xs font-black shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 text-xs font-black shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
             title="Baixar card como arquivo PNG em alta resolução"
           >
             <span>{isDownloading ? '⏳' : '📥'}</span>
@@ -217,13 +224,13 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
         className="w-full text-white p-6 sm:p-7 rounded-3xl border-2 border-emerald-500/30 shadow-2xl font-sans"
       >
         {/* Cabeçalho do Card */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-gray-950 font-black text-xl shadow-lg shadow-emerald-500/30">
               🏆
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-display font-black text-lg sm:text-xl tracking-tight text-white uppercase">
                   Society<span className="text-emerald-400">Tracker</span>
                 </span>
@@ -235,12 +242,12 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
             </div>
           </div>
 
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-base sm:text-lg font-display font-black text-emerald-400 tracking-wide uppercase">
               {data.periodLabel}
             </div>
             <div className="text-[11px] text-gray-400 font-semibold">
-              {data.totalPlayers} atletas pontuando
+              {data.totalPlayers} jogadores no período
             </div>
           </div>
         </div>
@@ -257,26 +264,14 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
           )}
 
           {/* Tabela 2: Artilheiro (Gols) */}
-          {renderRankingColumn(
-            'Artilheiro',
-            '⚽',
-            'emerald',
-            data.byGoals,
-            'Gols Marcados'
-          )}
+          {renderRankingColumn('Artilheiro', '⚽', 'emerald', data.byGoals, 'Gols Marcados')}
 
           {/* Tabela 3: Garçom (Assistências) */}
-          {renderRankingColumn(
-            'Garçom',
-            '👟',
-            'blue',
-            data.byAssists,
-            'Assistências'
-          )}
+          {renderRankingColumn('Garçom', '👟', 'blue', data.byAssists, 'Assistências')}
         </div>
 
         {/* Rodapé do Card */}
-        <div className="mt-5 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-400">
+        <div className="mt-5 pt-3 border-t border-white/5 flex flex-wrap gap-2 items-center justify-between text-[10px] text-gray-400">
           <span>SocietyTracker • Ranking Oficial</span>
           <span>societytracker.vercel.app</span>
         </div>

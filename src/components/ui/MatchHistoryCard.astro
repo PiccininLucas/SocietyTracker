@@ -24,12 +24,11 @@ const calculatedAwayScore = events.filter((e) => {
   return (!e.isOwnGoal && tId === awayTeamId) || (e.isOwnGoal && tId === homeTeamId);
 }).length;
 
-const homeScore = Math.max(calculatedHomeScore, match.homeScore ?? 0);
-const awayScore = Math.max(calculatedAwayScore, match.awayScore ?? 0);
+const homeScore = match.homeScore;
+const awayScore = match.awayScore;
 
 const isHomeWinner = homeScore > awayScore;
 const isAwayWinner = awayScore > homeScore;
-const isDraw = homeScore === awayScore;
 
 const extraHomeGoals = Math.max(0, homeScore - calculatedHomeScore);
 const extraAwayGoals = Math.max(0, awayScore - calculatedAwayScore);
@@ -62,7 +61,6 @@ const awayEvents = events.filter((e) => {
 });
 
 const totalGoals = homeScore + awayScore;
-const hasEvents = events.length > 0 || totalGoals > 0;
 ---
 
 <div
@@ -273,6 +271,10 @@ const hasEvents = events.length > 0 || totalGoals > 0;
   }
 
   // Sincroniza placar, vencedor e lances instantaneamente quando uma súmula é editada no modal
+  function escapeEventText(value: unknown): string {
+    const entities: Record<string,string> = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+    return String(value ?? '').replace(/[&<>"']/g, char => entities[char]);
+  }
   function setupMatchUpdatedListener() {
     if ((window as any).__matchUpdatedBound) return;
     (window as any).__matchUpdatedBound = true;
@@ -374,11 +376,11 @@ const hasEvents = events.length > 0 || totalGoals > 0;
           (card as any).__events = currentEvents;
         }
 
-        const hEvents = currentEvents.filter((ev: any) => {
+        const hEvents = (currentEvents ?? []).filter((ev: any) => {
           const tId = norm(ev.teamId);
           return (!ev.isOwnGoal && tId === homeTId) || (ev.isOwnGoal && tId === awayTId);
         });
-        const aEvents = currentEvents.filter((ev: any) => {
+        const aEvents = (currentEvents ?? []).filter((ev: any) => {
           const tId = norm(ev.teamId);
           return (!ev.isOwnGoal && tId === awayTId) || (ev.isOwnGoal && tId === homeTId);
         });
@@ -387,10 +389,10 @@ const hasEvents = events.length > 0 || totalGoals > 0;
         const extraA = Math.max(0, a - aEvents.length);
 
         let hHtml = hEvents.map((ev: any) => `
-          <div class="flex items-center gap-1.5 text-gray-300 truncate" title="${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}">
+          <div class="flex items-center gap-1.5 text-gray-300 truncate" title="${ev.isOwnGoal ? 'Gol Contra' : escapeEventText(ev.scorerName || 'Gol')}">
             <span class="shrink-0 text-sm">${ev.isOwnGoal ? '⚠️' : '⚽'}</span>
-            <span class="font-bold truncate ${ev.isOwnGoal ? 'text-rose-400' : 'text-white'}">${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}</span>
-            ${!ev.isOwnGoal && ev.assistName ? `<span class="text-cyan-400 font-medium text-[11px] truncate">(${ev.assistName})</span>` : ''}
+            <span class="font-bold truncate ${ev.isOwnGoal ? 'text-rose-400' : 'text-white'}">${ev.isOwnGoal ? 'Gol Contra' : escapeEventText(ev.scorerName || 'Gol')}</span>
+            ${!ev.isOwnGoal && ev.assistName ? `<span class="text-cyan-400 font-medium text-[11px] truncate">(${escapeEventText(ev.assistName)})</span>` : ''}
           </div>
         `).join('');
 
@@ -409,9 +411,9 @@ const hasEvents = events.length > 0 || totalGoals > 0;
         homeGoalsEl.innerHTML = hHtml;
 
         let aHtml = aEvents.map((ev: any) => `
-          <div class="flex items-center justify-end gap-1.5 text-gray-300 truncate" title="${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}">
-            ${!ev.isOwnGoal && ev.assistName ? `<span class="text-cyan-400 font-medium text-[11px] truncate">(${ev.assistName})</span>` : ''}
-            <span class="font-bold truncate ${ev.isOwnGoal ? 'text-rose-400' : 'text-white'}">${ev.isOwnGoal ? 'Gol Contra' : (ev.scorerName || 'Gol')}</span>
+          <div class="flex items-center justify-end gap-1.5 text-gray-300 truncate" title="${ev.isOwnGoal ? 'Gol Contra' : escapeEventText(ev.scorerName || 'Gol')}">
+            ${!ev.isOwnGoal && ev.assistName ? `<span class="text-cyan-400 font-medium text-[11px] truncate">(${escapeEventText(ev.assistName)})</span>` : ''}
+            <span class="font-bold truncate ${ev.isOwnGoal ? 'text-rose-400' : 'text-white'}">${ev.isOwnGoal ? 'Gol Contra' : escapeEventText(ev.scorerName || 'Gol')}</span>
             <span class="shrink-0 text-sm">${ev.isOwnGoal ? '⚠️' : '⚽'}</span>
           </div>
         `).join('');

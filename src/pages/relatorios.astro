@@ -4,19 +4,25 @@ import { SupabaseSessionRepository } from '../core/infrastructure/repositories/S
 import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
 import { GetRoundHighlightsUseCase } from '../core/application/use-cases/GetRoundHighlightsUseCase';
 import { GetPeriodLeaderboardUseCase } from '../core/application/use-cases/GetPeriodLeaderboardUseCase';
-import { ReportsIsland, type SessionOption, type MonthOption } from '../components/export/ReportsIsland';
+import {
+  ReportsIsland,
+  type SessionOption,
+  type MonthOption,
+} from '../components/export/ReportsIsland';
 import type { RoundHighlightsOutputDTO } from '../core/application/dtos/RoundHighlightsDTO';
 import type { PeriodLeaderboardOutputDTO } from '../core/application/dtos/PeriodLeaderboardDTO';
 
 export const prerender = false;
 
+let errorMessage = '';
+let initialYearData: PeriodLeaderboardOutputDTO | null = null;
 let sessionOptions: SessionOption[] = [];
 let monthOptions: MonthOption[] = [];
 let initialRoundData: RoundHighlightsOutputDTO | null = null;
 let initialMonthData: PeriodLeaderboardOutputDTO | null = null;
 let initialAllTimeData: PeriodLeaderboardOutputDTO = {
   periodType: 'all',
-  periodLabel: 'Temporada Completa',
+  periodLabel: 'Todo o histórico',
   totalPlayers: 0,
   byContributions: [],
   byGoals: [],
@@ -76,11 +82,17 @@ try {
     });
   }
 
+  initialYearData = await periodUseCase.execute({
+    type: 'year',
+    year: String(new Date().getFullYear()),
+  });
+
   // 5. Carregar dados gerais da temporada
   initialAllTimeData = await periodUseCase.execute({
     type: 'all',
   });
 } catch (error) {
+  errorMessage = 'Não foi possível carregar os relatórios. Confira a conexão e tente novamente.';
   console.error('Erro ao carregar dados de relatórios no SSR:', error);
 }
 ---
@@ -119,6 +131,7 @@ try {
     </div>
 
     <!-- Island Interativo com Abas de Exportação -->
+    {errorMessage && <p role="alert" class="text-rose-300">{errorMessage}<a href="/relatorios" class="block min-h-[44px] underline">Tentar novamente</a></p>}
     <ReportsIsland
       client:load
       sessions={sessionOptions}
@@ -126,6 +139,7 @@ try {
       initialRoundData={initialRoundData}
       initialMonthData={initialMonthData}
       initialAllTimeData={initialAllTimeData}
+      initialYearData={initialYearData}
     />
   </div>
 </Layout>

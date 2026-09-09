@@ -8,6 +8,7 @@ export interface MatchEventProps {
   assistId?: string | null;
   eventTimeSeconds?: number;
   isOwnGoal?: boolean;
+  isUnattributed?: boolean;
   createdAt?: Date;
 }
 
@@ -24,8 +25,10 @@ export class MatchEvent {
 
     const isOwnGoal = props.isOwnGoal ?? false;
 
-    if (!isOwnGoal && !props.scorerId) {
-      throw new InvalidGoalEventError('Gol normal exige a identificação do autor do gol (scorerId).');
+    if (!isOwnGoal && !props.scorerId && !props.isUnattributed) {
+      throw new InvalidGoalEventError(
+        'Gol normal exige a identificação do autor do gol (scorerId).'
+      );
     }
 
     if (isOwnGoal && props.assistId) {
