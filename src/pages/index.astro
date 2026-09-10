@@ -184,9 +184,7 @@ const hasPodium = leaderboard.some((p) => p.totalContributions > 0);
               statValue={topScorer.totalGoals}
               statLabel="Gols Marcados"
               secondaryStat={topScorer.hasHistoricalTotals
-                ? topScorer.recordedGoalsPerMatch != null
-                  ? `No app: ${topScorer.recordedGoalsPerMatch.toFixed(2)} gols/jogo (${topScorer.recordedMatchesPlayed} jogos). Jogos antigos não informados.`
-                  : 'Jogos antigos não informados'
+                ? undefined
                 : `Média de ${(topScorer.goalsPerMatch ?? 0).toFixed(2)} gols/jogo (${topScorer.totalMatchesPlayed} jogos)`}
             />
           </div>

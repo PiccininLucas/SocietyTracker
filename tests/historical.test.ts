@@ -42,8 +42,8 @@ test('totais até o corte não duplicam gols, assistências ou bola murcha; méd
   assert.equal((await new GetLeaderboardUseCase(repo).execute())[0].totalMatchesPlayed, null);
   const report = await new GetPeriodLeaderboardUseCase(repo).execute({ type: 'all' });
   assert.equal(report.byGoals[0].goalsPerMatch, null);
-  assert.match(report.byGoals[0].secondaryInfo!, /0.50 G\/J no app/);
-  assert.match(report.byAssists[0].secondaryInfo!, /não informados/);
+  assert.equal(report.byGoals[0].secondaryInfo, undefined);
+  assert.equal(report.byAssists[0].secondaryInfo, undefined);
 });
 
 test('snapshot entra apenas em períodos que o contêm por inteiro e mantém jogador sem jogos', () => {

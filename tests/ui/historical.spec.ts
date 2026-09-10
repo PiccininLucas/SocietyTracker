@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-test('totais antigos no celular preservam zero e mostram jogos desconhecidos', async ({ page }) => {
+test('totais acumulados no celular preservam zero sem expor detalhes da migração', async ({ page }) => {
   await page.goto('/tests/ui/index.html?historical');
-  await expect(page.getByText('A quantidade de jogos antigos não foi informada', { exact: false })).toBeVisible();
+  await expect(page.getByText(/totais antigos|jogos antigos|inclui totais/i)).toHaveCount(0);
   const scorer = page.getByRole('row').filter({ hasText: 'Barbaroto' });
   await expect(scorer.getByRole('cell').nth(0)).toHaveText('—');
   await expect(scorer.getByRole('cell').nth(5)).toHaveText('64');

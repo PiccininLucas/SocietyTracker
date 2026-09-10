@@ -4,22 +4,15 @@ import MatchHistoryCard from '../components/ui/MatchHistoryCard.astro';
 import { MatchDetailsModal } from '../components/ui/MatchDetailsModal';
 import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
 import type { MatchSummary } from '../core/domain/repositories/IMatchRepository';
-import { SupabaseHistoricalRepository } from '../core/infrastructure/repositories/SupabaseHistoricalRepository';
-import type { HistoricalPlayerTotal } from '../core/domain/entities/HistoricalPlayerTotal';
-import HistoricalTotals from '../components/stats/HistoricalTotals.astro';
 
 export const prerender = false;
 
 let matches: MatchSummary[] = [];
 let errorMessage = '';
-let historicalTotals: HistoricalPlayerTotal[] = [];
 
 try {
   const matchRepo = new SupabaseMatchRepository();
-  const [dbMatches, historical] = await Promise.all([
-    matchRepo.getMatchesSummary(), new SupabaseHistoricalRepository().findAll(),
-  ]);
-  historicalTotals = historical;
+  const dbMatches = await matchRepo.getMatchesSummary();
 
   if (dbMatches && dbMatches.length > 0) {
     matches = dbMatches;
@@ -336,8 +329,6 @@ const formatDate = (dateStr: string) => {
         {hasFilters ? `Exibindo ${filteredMatches.length} de ${matches.length} partidas. Os totais consideram os filtros aplicados.` : 'Selecione um confronto, uma data ou combine os dois filtros.'}
       </p>
     </form>
-
-    <HistoricalTotals totals={historicalTotals} />
 
     <!-- Lista de Sessões Agrupadas por Data -->
     <div class="space-y-8">

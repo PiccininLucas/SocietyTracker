@@ -27,7 +27,6 @@ export function PlayerPerformanceTable({
   ];
   const key = keys.includes(sort as SortKey) ? (sort as SortKey) : 'contributions',
     sign = direction === 'asc' ? 1 : -1;
-  const hasHistorical = players.some(p => p.hasHistoricalTotals);
   const sorted = [...players].sort(
     (a, b) =>
       (typeof a[key] === 'number'
@@ -67,11 +66,6 @@ export function PlayerPerformanceTable({
         Deslize a tabela e toque nos títulos para ordenar. Empates compartilham posição (1, 1, 3).
         Aproveitamento: (3 × vitórias + empates) ÷ (3 × jogos).
       </p>
-      {hasHistorical && <p className="text-sm text-amber-200">
-        Gols, assistências e Bola Murcha incluem os totais antigos. Jogos, vitórias, empates,
-        derrotas e aproveitamento consideram somente partidas registradas no app.
-        A quantidade de jogos antigos não foi informada; “—” indica ausência de partidas registradas.
-      </p>}
       <div
         className="overflow-x-auto"
         tabIndex={0}
@@ -127,7 +121,6 @@ export function PlayerPerformanceTable({
                       {p.inferred && (
                         <small className="block text-amber-300">Histórico inferido</small>
                       )}
-                      {p.hasHistoricalTotals && <small className="block text-amber-200">Inclui totais antigos</small>}
                     </th>
                   ) : (
                     <td key={field} className="p-2">
@@ -144,9 +137,7 @@ export function PlayerPerformanceTable({
       {!players.length && <p className="text-gray-400">Nenhum jogador neste período.</p>}
       <p className="text-xs text-gray-400">
         Bola Murcha: uma ocorrência por rodada disputada sem gols ou assistências; goleiros são
-        imunes. Rodadas ainda em andamento têm valores provisórios. Participações anteriores à
-        migração foram inferidas dos registros disponíveis. As ocorrências de Bola Murcha
-        importadas são preservadas conforme o levantamento original.
+        imunes. Rodadas ainda em andamento têm valores provisórios.
       </p>
     </section>
   );

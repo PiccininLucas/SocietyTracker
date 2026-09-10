@@ -101,7 +101,7 @@ export class GetPeriodLeaderboardUseCase {
           avatarUrl: item.avatarUrl,
           value: item.totalGoals,
           secondaryInfo: matchesCount === null
-            ? `Jogos antigos não informados${item.recordedGoalsPerMatch != null ? ` • ${item.recordedGoalsPerMatch.toFixed(2)} G/J no app (${item.recordedMatchesPlayed} jogos)` : ''}`
+            ? undefined
             : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''} • ${avgGoals} G/J`,
           totalGoals: item.totalGoals,
           totalAssists: item.totalAssists,
@@ -132,7 +132,7 @@ export class GetPeriodLeaderboardUseCase {
           nickname: item.nickname,
           avatarUrl: item.avatarUrl,
           value: item.totalAssists,
-          secondaryInfo: matchesCount === null ? 'Jogos antigos não informados' : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''}`,
+          secondaryInfo: matchesCount === null ? undefined : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''}`,
           totalGoals: item.totalGoals,
           totalAssists: item.totalAssists,
           totalContributions: item.totalContributions,
