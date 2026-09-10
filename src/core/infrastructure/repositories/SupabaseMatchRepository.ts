@@ -14,6 +14,9 @@ import type {
 } from '../../domain/repositories/IMatchCommands';
 import { playerPerformance } from '../../domain/services/CompetitionService';
 import { SupabasePlayerRepository } from './SupabasePlayerRepository';
+import { SupabaseHistoricalRepository } from './SupabaseHistoricalRepository';
+import { historicalTotalsForPeriod } from '../../domain/entities/HistoricalPlayerTotal';
+import { performanceLeaderboard } from '../../application/dtos/performanceLeaderboard';
 
 export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands {
   constructor(private readonly client: SupabaseClient = supabaseAdmin) {}
@@ -168,9 +171,10 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
     return this.getLeaderboardByDateRange();
   }
   async getLeaderboardByDateRange(start?: string, end?: string): Promise<LeaderboardItem[]> {
-    const [all, players] = await Promise.all([
+    const [all, players, historical] = await Promise.all([
       this.getMatchesSummary(),
       new SupabasePlayerRepository(this.client).findAll(),
+      new SupabaseHistoricalRepository(this.client).findAll(),
     ]);
     return playerPerformance(
       all.filter((m) => (!start || m.sessionDate >= start) && (!end || m.sessionDate <= end)),
@@ -180,18 +184,8 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
         nickname: p.nickname,
         avatarUrl: p.avatarUrl,
         isActive: p.isActive,
-      }))
-    ).map((p) => ({
-      playerId: p.playerId,
-      name: p.name,
-      nickname: p.nickname,
-      avatarUrl: p.avatarUrl,
-      totalGoals: p.goals,
-      totalAssists: p.assists,
-      totalContributions: p.contributions,
-      totalMatchesPlayed: p.played,
-      totalSessionsPlayed: p.sessions,
-      goalsPerMatch: p.played ? Number((p.goals / p.played).toFixed(2)) : 0,
-    }));
+      })),
+      historicalTotalsForPeriod(historical, start, end)
+    ).map(performanceLeaderboard);
   }
 }

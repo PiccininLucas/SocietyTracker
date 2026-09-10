@@ -10,9 +10,13 @@ export interface LeaderboardItem {
   totalGoals: number;
   totalAssists: number;
   totalContributions: number;
-  totalMatchesPlayed?: number;
-  totalSessionsPlayed: number;
-  goalsPerMatch?: number;
+  totalMatchesPlayed?: number | null;
+  totalSessionsPlayed: number | null;
+  goalsPerMatch?: number | null;
+  hasHistoricalTotals?: boolean;
+  totalBottomCount?: number;
+  recordedMatchesPlayed?: number;
+  recordedGoalsPerMatch?: number | null;
 }
 
 export interface MatchSummaryEvent {

@@ -3,6 +3,7 @@ import type {
   MatchSummaryEvent,
   MatchPlayerSummary,
 } from '../repositories/IMatchRepository';
+import { isCoveredByHistoricalTotal, type HistoricalPlayerTotal } from '../entities/HistoricalPlayerTotal';
 
 export const normalizeId = (id?: string | null): string => (id ?? '').trim().toLowerCase();
 export function scoreFromEvents(home: string, away: string, events: readonly MatchSummaryEvent[]) {
@@ -180,6 +181,8 @@ export function sequences(matches: readonly MatchSummary[]) {
   });
 }
 export interface PlayerPerformance {
+  hasHistoricalTotals?: boolean;
+  recordedGoals?: number;
   playerId: string;
   name: string;
   nickname: string | null;
@@ -208,7 +211,8 @@ export function playerPerformance(
     nickname?: string | null;
     avatarUrl?: string | null;
     isActive?: boolean;
-  }[] = []
+  }[] = [],
+  historical: readonly HistoricalPlayerTotal[] = []
 ): PlayerPerformance[] {
   const rows = new Map<string, PlayerPerformance>();
   const ensure = (p: {
@@ -239,13 +243,22 @@ export function playerPerformance(
         bottomCount: 0,
         sessions: 0,
         inferred: false,
+        recordedGoals: 0,
       });
     return rows.get(p.id)!;
   };
   registered.filter((p) => p.isActive !== false).forEach(ensure);
+  for (const t of historical) {
+    const r = ensure(registered.find((p) => p.id === t.playerId)
+      ?? { id: t.playerId, name: t.sourceName, isActive: false });
+    r.hasHistoricalTotals = true;
+    r.goals += t.goals;
+    r.assists += t.assists;
+    r.bottomCount += t.bottomCount;
+  }
   const round = new Map<
     string,
-    { playerId: string; g: number; a: number; gk: boolean; matches: Set<string> }
+    { playerId: string; date: string; g: number; a: number; gk: boolean; matches: Set<string> }
   >();
   for (const m of matches.filter((m) => m.status === 'finished')) {
     const seen = new Set<string>();
@@ -267,7 +280,7 @@ export function playerPerformance(
         else r.losses++;
         const key = m.sessionId + ':' + p.id;
         if (!round.has(key))
-          round.set(key, { playerId: p.id, g: 0, a: 0, gk: false, matches: new Set() });
+          round.set(key, { playerId: p.id, date: m.sessionDate, g: 0, a: 0, gk: false, matches: new Set() });
         const rr = round.get(key)!;
         rr.gk ||= p.isGoalkeeper;
         rr.matches.add(m.matchId);
@@ -282,8 +295,11 @@ export function playerPerformance(
         if (!id) continue;
         const r = rows.get(id);
         if (r) {
-          if (kind === 'g') r.goals++;
-          else r.assists++;
+          if (kind === 'g') r.recordedGoals = (r.recordedGoals ?? 0) + 1;
+          if (!isCoveredByHistoricalTotal(historical, id, m.sessionDate)) {
+            if (kind === 'g') r.goals++;
+            else r.assists++;
+          }
         }
         const rr = round.get(m.sessionId + ':' + id);
         if (rr) rr[kind]++;
@@ -293,7 +309,8 @@ export function playerPerformance(
   for (const rr of round.values()) {
     const r = rows.get(rr.playerId)!;
     r.sessions++;
-    if (rr.matches.size && !rr.gk && !rr.g && !rr.a) r.bottomCount++;
+    if (rr.matches.size && !rr.gk && !rr.g && !rr.a
+      && !isCoveredByHistoricalTotal(historical, rr.playerId, rr.date)) r.bottomCount++;
   }
   const list = [...rows.values()];
   for (const r of list) {

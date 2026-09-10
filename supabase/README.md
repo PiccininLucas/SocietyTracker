@@ -1,5 +1,57 @@
 # Migração de integridade das partidas
 
+## Importação dos totais de 2026 até 03/09
+
+O CSV `Transicao_app (1).csv` foi conferido linha a linha: 39 jogadores, 357 gols,
+258 assistências, 615 participações e 16 ocorrências de Bola Murcha. A última coluna
+é Bola Murcha, não gols contra. O período é a temporada de 2026 até 03/09/2026, inclusive.
+
+No SQL Editor do projeto Supabase, execute nesta ordem:
+
+1. `migrations/202609100001_historical_totals.sql` completo, para criar a tabela.
+2. `imports/2026_ate_03_09.sql` completo, para importar os dados.
+3. Publique a versão do aplicativo que lê os totais antigos. A importação sozinha não
+   altera o comportamento de uma versão anterior do site.
+
+O segundo arquivo reutiliza cadastros cujo nome ou apelido coincide com o CSV,
+ignorando acentos, caixa e espaços repetidos. Nomes não encontrados geram novos
+cadastros. **Antes de executar, confira se algum jogador já existe com outro apelido**:
+nesse caso, preencha o vínculo `player_id` no ponto indicado no próprio SQL.
+Mais de um candidato, dois nomes associados ao mesmo jogador ou um histórico
+anterior com valores diferentes abortam a transação inteira. Reexecutar o mesmo
+arquivo não soma valores nem duplica jogadores, inclusive após renomear um cadastro.
+Cadastros existentes preservam nome, apelido, status ativo e demais atributos.
+
+O resultado da importação lista o vínculo de cada nome. Confirme os totais:
+
+```sql
+SELECT count(*) AS jogadores, sum(goals) AS gols, sum(assists) AS assistencias,
+       sum(goals + assists) AS participacoes, sum(bottom_count) AS bola_murcha
+FROM historical_player_totals
+WHERE season = 2026 AND through_date = DATE '2026-09-03'
+  AND source_file = 'Transicao_app (1).csv';
+-- Esperado: 39 | 357 | 258 | 615 | 16
+```
+
+No aplicativo, o Histórico apresenta o levantamento separado das súmulas.
+Rankings anuais e gerais usam o acumulado mais os eventos posteriores ao corte,
+por jogador. Eventos até 03/09 não somam novamente gols, assistências ou Bola Murcha
+de quem consta no levantamento. As partidas e seus detalhes permanecem disponíveis.
+Jogadores sem totais importados continuam usando todos os seus eventos registrados.
+
+Jogos, rodadas e médias históricas são desconhecidos (`null` na API), inclusive
+quando o CSV informa zero gols. Jogos/vitórias/empates/derrotas/aproveitamento da
+tabela e médias identificadas como “no app” usam somente registros do app. O
+numerador dessas médias usa apenas os gols registrados, nunca o total importado.
+Relatórios mensais e semanais mantêm somente dados registrados, pois o acumulado
+não permite distribuir eventos por mês ou dia. `vw_player_leaderboard` permanece
+uma consulta das partidas; a combinação usada no app está no serviço de domínio.
+
+Migração e importação validadas localmente com PostgreSQL isolado, incluindo
+reexecução e rollback. **Não aplicadas remotamente**: a chave do ambiente local foi
+recusada pelo Supabase com `Legacy API keys are disabled`. Atualize as credenciais
+somente nas configurações de ambiente; não cole chaves em mensagens.
+
 `migrations/202609090001_match_integrity.sql` é a migração inicial de integridade. O responsável informou que a aplicou com sucesso após conciliar as partidas simultâneas.
 
 ## Nova migração: apagar partida

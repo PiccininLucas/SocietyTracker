@@ -252,6 +252,13 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
           </div>
         </div>
 
+        {data.periodType === 'month' && <p className="text-xs text-gray-400 mb-4">
+          Somente partidas registradas no app. Totais antigos acumulados não podem ser divididos por mês.
+        </p>}
+        {data.byGoals.some(p => p.totalMatchesPlayed === null) && <p className="text-xs text-amber-200 mb-4">
+          Inclui totais antigos. Jogos antigos não informados; médias identificadas como “no app”
+          usam somente gols e partidas registrados no app.
+        </p>}
         {/* 3 Colunas de Rankings Lado a Lado */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Tabela 1: Craque do Futebol (G+A) */}

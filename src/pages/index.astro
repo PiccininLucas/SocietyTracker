@@ -13,6 +13,9 @@ import {
 import type { MatchSummary } from '../core/domain/repositories/IMatchRepository';
 import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
 import type { LeaderboardItemDTO } from '../core/application/dtos/LeaderboardDTO';
+import { SupabaseHistoricalRepository } from '../core/infrastructure/repositories/SupabaseHistoricalRepository';
+import { historicalTotalsForPeriod, isCoveredByHistoricalTotal } from '../core/domain/entities/HistoricalPlayerTotal';
+import { performanceLeaderboard } from '../core/application/dtos/performanceLeaderboard';
 
 export const prerender = false;
 
@@ -30,12 +33,13 @@ let weeklyTeams: { id: string; name: string; colorHex: string }[] = [];
 let weekLabel = '';
 try {
   const matchRepo = new SupabaseMatchRepository();
-  const [matches, sessions, players] = await Promise.all([
+  const [matches, sessions, players, historical] = await Promise.all([
     matchRepo.getMatchesSummary(),
     new SupabaseSessionRepository().findAll(),
     new SupabasePlayerRepository().findAll(),
+    new SupabaseHistoricalRepository().findAll(),
   ]);
-  years = [...new Set([...years, ...sessions.map((s) => s.sessionDate.slice(0, 4))])]
+  years = [...new Set([...years, ...sessions.map((s) => s.sessionDate.slice(0, 4)), ...historical.map(t => String(t.season))])]
     .sort()
     .reverse();
   if (!selectedWeek)
@@ -57,9 +61,14 @@ try {
     }))
   );
   const seasonal = matches.filter((m) => season === 'all' || m.sessionDate.slice(0, 4) === season);
-  totalGoalsAll = seasonal
-    .filter((m) => m.status === 'finished')
-    .reduce((sum, m) => sum + m.homeScore + m.awayScore, 0);
+  const seasonalHistorical = historicalTotalsForPeriod(historical,
+    season === 'all' ? undefined : `${season}-01-01`,
+    season === 'all' ? undefined : `${season}-12-31`);
+  // Preserve own/unattributed goals from recorded matches; count each imported scorer once.
+  totalGoalsAll = seasonalHistorical.reduce((sum, t) => sum + t.goals, 0)
+    + seasonal.filter(m => m.status === 'finished').reduce((sum, m) => sum + m.homeScore + m.awayScore
+      - (m.events ?? []).filter(e => !e.isOwnGoal && e.scorerId
+        && isCoveredByHistoricalTotal(seasonalHistorical, e.scorerId, m.sessionDate)).length, 0);
   performance = playerPerformance(
     seasonal,
     players.map((p) => ({
@@ -68,21 +77,10 @@ try {
       nickname: p.nickname,
       avatarUrl: p.avatarUrl,
       isActive: p.isActive,
-    }))
+    })),
+    seasonalHistorical
   );
-  leaderboard = performance.map((p) => ({
-    playerId: p.playerId,
-    name: p.name,
-    nickname: p.nickname,
-    displayName: p.nickname || p.name,
-    avatarUrl: p.avatarUrl,
-    totalGoals: p.goals,
-    totalAssists: p.assists,
-    totalContributions: p.contributions,
-    totalMatchesPlayed: p.played,
-    totalSessionsPlayed: p.sessions,
-    goalsPerMatch: p.played ? p.goals / p.played : 0,
-  }));
+  leaderboard = performance.map(performanceLeaderboard);
 } catch (e) {
   errorMessage = e instanceof Error ? e.message : 'Não foi possível carregar as estatísticas.';
 }
@@ -185,7 +183,11 @@ const hasPodium = leaderboard.some((p) => p.totalContributions > 0);
               avatarUrl={topScorer.avatarUrl}
               statValue={topScorer.totalGoals}
               statLabel="Gols Marcados"
-              secondaryStat={`Média de ${topScorer.goalsPerMatch.toFixed(2)} gols/jogo (${topScorer.totalMatchesPlayed} jogos)`}
+              secondaryStat={topScorer.hasHistoricalTotals
+                ? topScorer.recordedGoalsPerMatch != null
+                  ? `No app: ${topScorer.recordedGoalsPerMatch.toFixed(2)} gols/jogo (${topScorer.recordedMatchesPlayed} jogos). Jogos antigos não informados.`
+                  : 'Jogos antigos não informados'
+                : `Média de ${(topScorer.goalsPerMatch ?? 0).toFixed(2)} gols/jogo (${topScorer.totalMatchesPlayed} jogos)`}
             />
           </div>
 

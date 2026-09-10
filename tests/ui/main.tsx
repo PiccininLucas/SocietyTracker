@@ -30,6 +30,15 @@ function Fixture() {
         .then(setMatches);
     return () => window.removeEventListener('match-deleted', refreshMatches);
   }, []);
+  if (query.has('historical')) return <div className="p-3">
+    <PlayerPerformanceTable season="2026" players={playerPerformance([], [
+      { id: 'old', name: 'Barbaroto', isActive: true },
+      { id: 'zero', name: 'Caio', isActive: true },
+    ], [
+      { playerId: 'old', sourceName: 'Barbaroto', season: 2026, throughDate: '2026-09-03', goals: 41, assists: 23, bottomCount: 0 },
+      { playerId: 'zero', sourceName: 'Caio', season: 2026, throughDate: '2026-09-03', goals: 0, assists: 0, bottomCount: 1 },
+    ])} />
+  </div>;
   if (query.has('reports'))
     return report ? (
       <div className="p-3">

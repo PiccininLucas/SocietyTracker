@@ -1,0 +1,39 @@
+---
+import type { HistoricalPlayerTotal } from '../../core/domain/entities/HistoricalPlayerTotal';
+interface Props { totals: HistoricalPlayerTotal[] }
+const { totals } = Astro.props;
+const groups = [...new Set(totals.map(t => `${t.season}|${t.throughDate}`))];
+---
+{groups.map(group => {
+  const rows = totals.filter(t => `${t.season}|${t.throughDate}` === group)
+    .sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists) || b.goals - a.goals);
+  const first = rows[0];
+  return <section class="glass-card rounded-3xl p-5 sm:p-6 space-y-4" aria-label={`Totais antigos de ${first.season}`}>
+    <h2 class="font-display text-xl font-bold">Histórico anterior ao app · {first.season}</h2>
+    <p class="text-sm text-gray-300">Acumulado até {first.throughDate.split('-').reverse().join('/')}, incluindo essa rodada.
+      Quantidade de jogos: não informada. Os totais entram no ranking da temporada e em todo o histórico.</p>
+    <p class="text-xs text-gray-400">Não há datas de cada gol ou assistência neste levantamento.
+      Os filtros de confronto e data se aplicam às partidas registradas, sem dividir estes totais.</p>
+    <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Estatísticas antigas por jogador">
+      <table class="w-full text-sm whitespace-nowrap">
+        <thead><tr class="text-left text-gray-400">
+          <th scope="col" class="p-2">Jogador</th><th scope="col" class="p-2">G+A</th>
+          <th scope="col" class="p-2">Gols</th><th scope="col" class="p-2">Assistências</th>
+          <th scope="col" class="p-2">Bola Murcha</th>
+        </tr></thead>
+        <tbody>{rows.map(t => <tr class="border-t border-white/10">
+          <th scope="row" class="p-2 text-left font-semibold">{t.sourceName}</th>
+          <td class="p-2">{t.goals + t.assists}</td><td class="p-2">{t.goals}</td>
+          <td class="p-2">{t.assists}</td><td class="p-2">{t.bottomCount}</td>
+        </tr>)}</tbody>
+        <tfoot><tr class="border-t border-white/20 font-bold">
+          <th scope="row" class="p-2 text-left">{rows.length} jogadores</th>
+          <td class="p-2">{rows.reduce((s,t) => s+t.goals+t.assists,0)}</td>
+          <td class="p-2">{rows.reduce((s,t) => s+t.goals,0)}</td>
+          <td class="p-2">{rows.reduce((s,t) => s+t.assists,0)}</td>
+          <td class="p-2">{rows.reduce((s,t) => s+t.bottomCount,0)}</td>
+        </tr></tfoot>
+      </table>
+    </div>
+  </section>;
+})}

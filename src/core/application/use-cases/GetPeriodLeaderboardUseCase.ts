@@ -68,7 +68,7 @@ export class GetPeriodLeaderboardUseCase {
         totalGoals: item.totalGoals,
         totalAssists: item.totalAssists,
         totalContributions: item.totalContributions,
-        totalMatchesPlayed: item.totalMatchesPlayed ?? item.totalSessionsPlayed,
+        totalMatchesPlayed: item.hasHistoricalTotals ? null : item.totalMatchesPlayed ?? item.totalSessionsPlayed,
         totalSessionsPlayed: item.totalSessionsPlayed,
         goalsPerMatch: item.goalsPerMatch,
       }));
@@ -85,9 +85,9 @@ export class GetPeriodLeaderboardUseCase {
         return a.name.localeCompare(b.name);
       })
       .map((item): LeaderboardRankedItemDTO => {
-        const matchesCount = item.totalMatchesPlayed ?? item.totalSessionsPlayed;
+        const matchesCount = item.hasHistoricalTotals ? null : item.totalMatchesPlayed ?? item.totalSessionsPlayed;
         const avgGoals =
-          item.goalsPerMatch !== undefined
+          matchesCount === null ? null : item.goalsPerMatch != null
             ? item.goalsPerMatch.toFixed(2)
             : matchesCount > 0
               ? (item.totalGoals / matchesCount).toFixed(2)
@@ -100,13 +100,15 @@ export class GetPeriodLeaderboardUseCase {
           nickname: item.nickname,
           avatarUrl: item.avatarUrl,
           value: item.totalGoals,
-          secondaryInfo: `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''} • ${avgGoals} G/J`,
+          secondaryInfo: matchesCount === null
+            ? `Jogos antigos não informados${item.recordedGoalsPerMatch != null ? ` • ${item.recordedGoalsPerMatch.toFixed(2)} G/J no app (${item.recordedMatchesPlayed} jogos)` : ''}`
+            : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''} • ${avgGoals} G/J`,
           totalGoals: item.totalGoals,
           totalAssists: item.totalAssists,
           totalContributions: item.totalContributions,
           totalMatchesPlayed: matchesCount,
           totalSessionsPlayed: item.totalSessionsPlayed,
-          goalsPerMatch: Number(avgGoals),
+          goalsPerMatch: avgGoals === null ? null : Number(avgGoals),
         };
       });
 
@@ -122,7 +124,7 @@ export class GetPeriodLeaderboardUseCase {
         return a.name.localeCompare(b.name);
       })
       .map((item): LeaderboardRankedItemDTO => {
-        const matchesCount = item.totalMatchesPlayed ?? item.totalSessionsPlayed;
+        const matchesCount = item.hasHistoricalTotals ? null : item.totalMatchesPlayed ?? item.totalSessionsPlayed;
         return {
           rank: 1 + items.filter((other) => other.totalAssists > item.totalAssists).length,
           playerId: item.playerId,
@@ -130,7 +132,7 @@ export class GetPeriodLeaderboardUseCase {
           nickname: item.nickname,
           avatarUrl: item.avatarUrl,
           value: item.totalAssists,
-          secondaryInfo: `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''}`,
+          secondaryInfo: matchesCount === null ? 'Jogos antigos não informados' : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''}`,
           totalGoals: item.totalGoals,
           totalAssists: item.totalAssists,
           totalContributions: item.totalContributions,
