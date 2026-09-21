@@ -1,13 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Users,
   Dices,
-  Plus,
   Trash2,
   CheckCircle2,
   ArrowRight,
   ShieldAlert,
-  Sparkles,
   Search,
   UserPlus,
   X,
@@ -356,7 +353,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     });
 
     // 5. Distribui os jogadores de linha equitativamente
-    shuffledOutfielders.forEach((player, index) => {
+    shuffledOutfielders.forEach((player) => {
       // Prioriza times com menos jogadores para balancear
       const sortedTeamsByCount = [...newTeams].sort(
         (a, b) => a.players.length - b.players.length
@@ -433,7 +430,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   };
 
   // Cadastrar jogador avulso na hora
-  const handleCreatePlayer = async (e: React.FormEvent) => {
+  const handleCreatePlayer = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!newPlayerName.trim()) return;
 

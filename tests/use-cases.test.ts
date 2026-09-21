@@ -660,6 +660,63 @@ describe('Use Cases Business Logic', () => {
       assert.equal(result.byAssists[0].value, 6);
       assert.equal(result.byAssists[0].rank, 1);
     });
+
+    it('should compute period leaderboard using preloadedData without querying match repository', async () => {
+      let repoCalled = false;
+      const throwingMatchRepo = {
+        getLeaderboardByDateRange: async () => {
+          repoCalled = true;
+          throw new Error('Repository should not have been called when preloadedData is provided');
+        },
+      } as unknown as IMatchRepository;
+
+      const useCase = new GetPeriodLeaderboardUseCase(throwingMatchRepo);
+
+      const result = await useCase.execute({
+        type: 'month',
+        yearMonth: '2026-08',
+        preloadedData: {
+          matches: [
+            {
+              matchId: 'm-1',
+              sessionId: 's-1',
+              sessionDate: '2026-08-15',
+              homeScore: 1,
+              awayScore: 0,
+              durationSeconds: 420,
+              status: 'finished',
+              endReason: 'two_goals',
+              startedAt: '2026-08-15T20:00:00Z',
+              finishedAt: '2026-08-15T20:07:00Z',
+              events: [
+                {
+                  id: 'e-1',
+                  matchId: 'm-1',
+                  teamId: 't-1',
+                  scorerId: 'p-1',
+                  assistId: 'p-2',
+                  isOwnGoal: false,
+                  eventTimeSeconds: 120,
+                },
+              ],
+            },
+          ],
+          players: [
+            { id: 'p-1', name: 'Neymar Jr', nickname: 'Ney', isActive: true },
+            { id: 'p-2', name: 'Lionel Messi', nickname: 'Leo', isActive: true },
+          ],
+          historical: [],
+        },
+      });
+
+      assert.equal(repoCalled, false);
+      assert.equal(result.periodType, 'month');
+      assert.equal(result.totalPlayers, 2);
+      assert.equal(result.byGoals[0].playerId, 'p-1');
+      assert.equal(result.byGoals[0].totalGoals, 1);
+      assert.equal(result.byAssists[0].playerId, 'p-2');
+      assert.equal(result.byAssists[0].totalAssists, 1);
+    });
   });
 
   describe('UpdatePlayerUseCase', () => {

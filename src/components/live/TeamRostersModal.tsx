@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Users, Star, ArrowRightLeft, Shield, Pencil } from 'lucide-react';
+import { X, Users, Star, ArrowRightLeft, Pencil } from 'lucide-react';
 import type { LiveTeam } from './types';
 import { cn } from '../ui/utils';
 

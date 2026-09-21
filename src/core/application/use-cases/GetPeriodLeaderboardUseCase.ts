@@ -4,6 +4,9 @@ import type {
   PeriodLeaderboardOutputDTO,
   LeaderboardRankedItemDTO,
 } from '../dtos/PeriodLeaderboardDTO';
+import { playerPerformance } from '../../domain/services/CompetitionService';
+import { historicalTotalsForPeriod } from '../../domain/entities/HistoricalPlayerTotal';
+import { performanceLeaderboard } from '../dtos/performanceLeaderboard';
 
 export class GetPeriodLeaderboardUseCase {
   constructor(private matchRepo: IMatchRepository) {}
@@ -37,10 +40,15 @@ export class GetPeriodLeaderboardUseCase {
       }
     }
 
-    const items: LeaderboardItem[] = await this.matchRepo.getLeaderboardByDateRange(
-      startDate,
-      endDate
-    );
+    const items: LeaderboardItem[] = input.preloadedData
+      ? playerPerformance(
+          input.preloadedData.matches.filter(
+            (m) => (!startDate || m.sessionDate >= startDate) && (!endDate || m.sessionDate <= endDate)
+          ),
+          input.preloadedData.players,
+          historicalTotalsForPeriod(input.preloadedData.historical, startDate, endDate)
+        ).map(performanceLeaderboard)
+      : await this.matchRepo.getLeaderboardByDateRange(startDate, endDate);
 
     // 1. Tabela Craque do Futebol (G+A)
     const sortedByContributions = [...items]

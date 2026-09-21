@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 export const ADMIN_COOKIE_NAME = 'society_admin_session';
 export const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60; // 24 horas (86400s)
 
@@ -10,6 +12,15 @@ export function getAdminPin(): string {
   return envPin.toString().trim();
 }
 
+export function getSessionSecret(): string {
+  const g = globalThis as any;
+  const secret =
+    import.meta.env?.SESSION_SECRET ||
+    (typeof g.process !== 'undefined' && g.process?.env?.SESSION_SECRET) ||
+    'society_salt_2026_default_secret_key';
+  return secret.toString().trim();
+}
+
 /**
  * Valida se o PIN informado confere com a variável ADMIN_PIN
  */
@@ -19,78 +30,61 @@ export function verifyPin(inputPin: string): boolean {
   return inputPin.trim() === currentPin;
 }
 
-// Função de hash determinística para validação de integridade do token
-function computeSignature(payload: string, secret: string): string {
-  let hash = 0x811c9dc5;
-  const combined = `${payload}:${secret}:society_salt_2026`;
-  for (let i = 0; i < combined.length; i++) {
-    hash ^= combined.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return (hash >>> 0).toString(36) + combined.length.toString(36);
-}
-
-function base64UrlEncode(str: string): string {
-  const g = globalThis as any;
-  if (typeof g.Buffer !== 'undefined') {
-    return g.Buffer.from(str, 'utf-8').toString('base64url');
-  }
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-function base64UrlDecode(str: string): string {
-  const g = globalThis as any;
-  if (typeof g.Buffer !== 'undefined') {
-    return g.Buffer.from(str, 'base64url').toString('utf-8');
-  }
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-  return decodeURIComponent(escape(atob(padded)));
-}
-
-/**
- * Gera um token de sessão assinado contendo timestamp, PIN e assinatura
- */
-export function generateSessionToken(pin: string): string {
+function getDerivedHmacKey(): string {
   const currentPin = getAdminPin();
-  const timestamp = Date.now().toString();
-  const signature = computeSignature(timestamp, currentPin);
-  const raw = `${timestamp}:${pin}:${signature}`;
-  return base64UrlEncode(raw);
+  const secret = getSessionSecret();
+  return `${currentPin}:${secret}`;
+}
+
+function computeHmacSignature(payload: string, secretKey: string): string {
+  return createHmac('sha256', secretKey).update(payload).digest('base64url');
 }
 
 /**
- * Valida a integridade, o PIN e a expiração (24h) do token de sessão
+ * Gera um token de sessão assinado contendo timestamp e validade (HMAC-SHA256).
+ * O PIN nunca é incluído no payload do token.
+ */
+export function generateSessionToken(_pin?: string): string {
+  const now = Date.now();
+  const expiresAt = now + SESSION_MAX_AGE_SECONDS * 1000;
+  const payload = `${now}.${expiresAt}`;
+  const signature = computeHmacSignature(payload, getDerivedHmacKey());
+  return `${payload}.${signature}`;
+}
+
+/**
+ * Valida a integridade, expiração (24h) e autenticidade do token de sessão.
  */
 export function validateSessionToken(token?: string | null): boolean {
   if (!token || typeof token !== 'string') return false;
 
   try {
-    const decoded = base64UrlDecode(token);
-    const parts = decoded.split(':');
+    const parts = token.split('.');
     if (parts.length !== 3) return false;
 
-    const [timestampStr, pin, signature] = parts;
+    const [timestampStr, expiresAtStr, signature] = parts;
     const timestamp = parseInt(timestampStr, 10);
-    if (isNaN(timestamp)) return false;
+    const expiresAt = parseInt(expiresAtStr, 10);
 
-    // Verifica se expirou (24 horas)
+    if (isNaN(timestamp) || isNaN(expiresAt)) return false;
+
     const now = Date.now();
-    const maxAgeMs = SESSION_MAX_AGE_SECONDS * 1000;
-    if (now - timestamp > maxAgeMs || timestamp > now + 60000) {
+    // Rejeita tokens já expirados ou com timestamp absurdo no futuro (+60s de tolerância para clock skew)
+    if (now > expiresAt || timestamp > now + 60000) {
       return false;
     }
 
-    const currentPin = getAdminPin();
-    if (pin !== currentPin) {
+    const payload = `${timestampStr}.${expiresAtStr}`;
+    const expectedSignature = computeHmacSignature(payload, getDerivedHmacKey());
+
+    const sigBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (sigBuffer.length !== expectedBuffer.length) {
       return false;
     }
 
-    const expectedSignature = computeSignature(timestampStr, currentPin);
-    return signature === expectedSignature;
+    return timingSafeEqual(sigBuffer, expectedBuffer);
   } catch {
     return false;
   }

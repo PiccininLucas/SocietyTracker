@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRightLeft, X, UserCheck, Users, Check, AlertCircle } from 'lucide-react';
+import { ArrowRightLeft, X, UserCheck, Check, AlertCircle } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { soundFx } from '../ui/audio';
 import { hapticFeedback } from '../ui/vibration';
-import type { LivePlayer, LiveTeam } from './types';
+import type { LiveTeam } from './types';
 
 export interface QuickPlayerTransferModalProps {
   isOpen: boolean;
@@ -37,8 +37,12 @@ export const QuickPlayerTransferModal: React.FC<QuickPlayerTransferModalProps> =
   // Inicializa os times padrão quando o modal abre
   useEffect(() => {
     if (isOpen && teams.length >= 2) {
-      const defaultFrom = teams[0].id;
-      const defaultTo = teams.find((t) => t.id !== defaultFrom)?.id || teams[1].id;
+      const defaultFrom = (currentHomeTeamId && teams.some(t => t.id === currentHomeTeamId))
+        ? currentHomeTeamId
+        : teams[0].id;
+      const defaultTo = (currentAwayTeamId && currentAwayTeamId !== defaultFrom && teams.some(t => t.id === currentAwayTeamId))
+        ? currentAwayTeamId
+        : teams.find((t) => t.id !== defaultFrom)?.id || teams[1].id;
       setFromTeamId(defaultFrom);
       setToTeamId(defaultTo);
       setSelectedPlayerId('');
@@ -46,12 +50,11 @@ export const QuickPlayerTransferModal: React.FC<QuickPlayerTransferModalProps> =
       setErrorMsg(null);
       setIsSubmitting(false);
     }
-  }, [isOpen, teams]);
+  }, [isOpen, teams, currentHomeTeamId, currentAwayTeamId]);
 
   if (!isOpen) return null;
 
   const sourceTeam = teams.find((t) => t.id === fromTeamId);
-  const destinationTeam = teams.find((t) => t.id === toTeamId);
   const availablePlayers = sourceTeam?.players || [];
 
   const handleConfirm = async () => {

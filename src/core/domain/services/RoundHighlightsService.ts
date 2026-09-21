@@ -28,14 +28,16 @@ export class RoundHighlightsService {
     const maxAssists = Math.max(...stats.map((s) => s.assists));
     const maxContributions = Math.max(...stats.map((s) => s.contributions));
 
+    const getDisplayName = (s: PlayerRoundStats) => (s.nickname ? s.nickname.trim() : s.name.trim());
+
     return {
-      topScorers: maxGoals > 0 ? stats.filter((s) => s.goals === maxGoals).map((s) => s.name) : [],
-      topAssisters: maxAssists > 0 ? stats.filter((s) => s.assists === maxAssists).map((s) => s.name) : [],
-      mvps: maxContributions > 0 ? stats.filter((s) => s.contributions === maxContributions).map((s) => s.name) : [],
-      // REGRA: Apenas jogadores de LINHA (não goleiros) entram no Bola Murcha
+      topScorers: maxGoals > 0 ? stats.filter((s) => s.goals === maxGoals).map(getDisplayName) : [],
+      topAssisters: maxAssists > 0 ? stats.filter((s) => s.assists === maxAssists).map(getDisplayName) : [],
+      mvps: maxContributions > 0 ? stats.filter((s) => s.contributions === maxContributions).map(getDisplayName) : [],
+      // REGRA: Apenas jogadores de LINHA (não goleiros de ofício) entram no Bola Murcha
       bottomPlayers: stats
         .filter((s) => !s.isGoalkeeper && s.goals === 0 && s.assists === 0)
-        .map((s) => s.name),
+        .map(getDisplayName),
     };
   }
 }

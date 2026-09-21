@@ -2,6 +2,8 @@
 import Layout from '../layouts/Layout.astro';
 import { SupabaseSessionRepository } from '../core/infrastructure/repositories/SupabaseSessionRepository';
 import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
+import { SupabasePlayerRepository } from '../core/infrastructure/repositories/SupabasePlayerRepository';
+import { SupabaseHistoricalRepository } from '../core/infrastructure/repositories/SupabaseHistoricalRepository';
 import { GetRoundHighlightsUseCase } from '../core/application/use-cases/GetRoundHighlightsUseCase';
 import { GetPeriodLeaderboardUseCase } from '../core/application/use-cases/GetPeriodLeaderboardUseCase';
 import {
@@ -32,12 +34,32 @@ let initialAllTimeData: PeriodLeaderboardOutputDTO = {
 try {
   const sessionRepo = new SupabaseSessionRepository();
   const matchRepo = new SupabaseMatchRepository();
+  const playerRepo = new SupabasePlayerRepository();
+  const historicalRepo = new SupabaseHistoricalRepository();
 
   const roundUseCase = new GetRoundHighlightsUseCase(sessionRepo, matchRepo);
   const periodUseCase = new GetPeriodLeaderboardUseCase(matchRepo);
 
-  // 1. Buscar todas as sessões registradas
-  const allSessions = await sessionRepo.findAll();
+  // 1. Buscar simultaneamente sessões, partidas, jogadores e histórico em uma única rodada de queries
+  const [allSessions, allMatches, allPlayers, allHistorical] = await Promise.all([
+    sessionRepo.findAll(),
+    matchRepo.getMatchesSummary(),
+    playerRepo.findAll(),
+    historicalRepo.findAll(),
+  ]);
+
+  const preloadedData = {
+    matches: allMatches,
+    players: allPlayers.map((p) => ({
+      id: p.id!,
+      name: p.name,
+      nickname: p.nickname,
+      avatarUrl: p.avatarUrl,
+      isActive: p.isActive,
+    })),
+    historical: allHistorical,
+  };
+
   sessionOptions = allSessions.map((s) => ({
     id: s.id || '',
     sessionDate: s.sessionDate,
@@ -73,23 +95,26 @@ try {
   // 3. Carregar dados iniciais da rodada mais recente
   initialRoundData = await roundUseCase.execute();
 
-  // 4. Carregar dados iniciais do mês mais recente
+  // 4. Carregar dados iniciais do mês mais recente reutilizando os dados em memória
   const currentMonth = sortedMonths[0];
   if (currentMonth) {
     initialMonthData = await periodUseCase.execute({
       type: 'month',
       yearMonth: currentMonth,
+      preloadedData,
     });
   }
 
   initialYearData = await periodUseCase.execute({
     type: 'year',
     year: String(new Date().getFullYear()),
+    preloadedData,
   });
 
-  // 5. Carregar dados gerais da temporada
+  // 5. Carregar dados gerais da temporada reutilizando os dados em memória
   initialAllTimeData = await periodUseCase.execute({
     type: 'all',
+    preloadedData,
   });
 } catch (error) {
   errorMessage = 'Não foi possível carregar os relatórios. Confira a conexão e tente novamente.';

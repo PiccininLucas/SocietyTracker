@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, X, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
+import { UserCheck, X, ShieldAlert, Loader2 } from 'lucide-react';
 import { cn } from './utils';
 
 export interface EditablePlayerData {
@@ -40,7 +40,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
 
   if (!isOpen || !player) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setErrorMessage('O nome do atleta é obrigatório.');

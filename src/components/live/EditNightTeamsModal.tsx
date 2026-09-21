@@ -3,7 +3,6 @@ import {
   X,
   Star,
   Trash2,
-  ArrowRightLeft,
   UserPlus,
   Search,
   Check,

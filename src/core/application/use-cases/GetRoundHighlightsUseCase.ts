@@ -23,6 +23,18 @@ export class GetRoundHighlightsUseCase {
     const matches = (await this.matchRepo.getMatchesSummary(session.id)).filter(
       (m) => m.status === 'finished'
     );
+    // Identifica goleiros oficiais a partir dos elencos escalados na sessão
+    const officialGoalkeepers = new Set<string>();
+    if (session.teams && session.teams.length > 0) {
+      for (const team of session.teams) {
+        for (const tp of team.players) {
+          if (tp.isGoalkeeper) {
+            officialGoalkeepers.add(tp.playerId);
+          }
+        }
+      }
+    }
+
     const rows = new Map<string, PlayerRoundStats>();
     for (const m of matches) {
       for (const [players, name, color] of [
@@ -30,7 +42,10 @@ export class GetRoundHighlightsUseCase {
         [m.awayPlayers ?? [], m.awayTeamName, m.awayTeamColor],
       ] as const) {
         for (const p of players) {
-          if (!rows.has(p.id))
+          if (!rows.has(p.id)) {
+            const isGk = officialGoalkeepers.size > 0
+              ? officialGoalkeepers.has(p.id)
+              : (p.isGoalkeeper ?? false);
             rows.set(p.id, {
               playerId: p.id,
               name: p.name,
@@ -38,12 +53,12 @@ export class GetRoundHighlightsUseCase {
               avatarUrl: p.avatarUrl,
               teamName: name,
               teamColor: color,
-              isGoalkeeper: p.isGoalkeeper,
+              isGoalkeeper: isGk,
               goals: 0,
               assists: 0,
               contributions: 0,
             });
-          rows.get(p.id)!.isGoalkeeper ||= p.isGoalkeeper;
+          }
         }
       }
       for (const e of m.events ?? []) {

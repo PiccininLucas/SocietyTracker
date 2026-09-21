@@ -14,10 +14,17 @@ export interface LeaderboardRankedItemDTO {
   goalsPerMatch?: number | null;
 }
 
+export interface PreloadedLeaderboardData {
+  matches: any[];
+  players: { id: string; name: string; nickname?: string | null; avatarUrl?: string | null; isActive?: boolean }[];
+  historical: any[];
+}
+
 export interface GetPeriodLeaderboardInputDTO {
   type: 'all' | 'month' | 'year';
   year?: string;
   yearMonth?: string; // e.g. '2026-08'
+  preloadedData?: PreloadedLeaderboardData;
 }
 
 export interface PeriodLeaderboardOutputDTO {

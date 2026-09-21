@@ -172,10 +172,14 @@ const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
                 : 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30',
             ]}
           >
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
+            {hasLiveMatch ? (
+              <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            ) : (
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400/60"></span>
+            )}
             <span>Modo Mesário</span>
           </a>
         </div>

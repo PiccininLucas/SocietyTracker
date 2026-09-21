@@ -85,3 +85,68 @@ export async function copyElementToClipboard(
     return false;
   }
 }
+
+/**
+ * Verifica se o dispositivo/navegador atual tem capacidade nativa de compartilhar arquivos de imagem (ex: WhatsApp no celular).
+ */
+export function canShareImages(): boolean {
+  if (typeof navigator === 'undefined' || !navigator.canShare) return false;
+  try {
+    const testFile = new File([''], 'test.png', { type: 'image/png' });
+    return navigator.canShare({ files: [testFile] });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Converte o elemento DOM em PNG e invoca a API nativa de compartilhamento (Web Share API), permitindo enviar direto ao WhatsApp.
+ */
+export async function shareElementAsPng(
+  elementId: string,
+  filename: string,
+  title: string = 'SocietyTracker • Destaques da Pelada',
+  options: ExportPngOptions = {}
+): Promise<boolean> {
+  try {
+    const node = document.getElementById(elementId);
+    if (!node) {
+      console.warn(`[exportPng] Elemento #${elementId} não foi encontrado no DOM.`);
+      return false;
+    }
+
+    const pixelRatio = options.pixelRatio ?? 2;
+    const backgroundColor = options.backgroundColor ?? '#090d16';
+
+    const blob = await toBlob(node, {
+      pixelRatio,
+      cacheBust: true,
+      backgroundColor,
+    });
+
+    if (!blob) {
+      console.error('[exportPng] Falha ao converter elemento em Blob PNG.');
+      return false;
+    }
+
+    const cleanFilename = `${filename.replace(/[/\\?%*:|"<>]/g, '-')}.png`;
+    const file = new File([blob], cleanFilename, { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title,
+      });
+      return true;
+    }
+
+    return false;
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      // Usuário fechou ou cancelou o menu de compartilhamento do sistema
+      return true;
+    }
+    console.error('[exportPng] Erro ao compartilhar via Web Share API:', error);
+    return false;
+  }
+}

@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { RoundHighlightsOutputDTO } from '../../core/application/dtos/RoundHighlightsDTO';
-import { downloadElementAsPng, copyElementToClipboard } from '../../lib/exportPng';
+import {
+  downloadElementAsPng,
+  copyElementToClipboard,
+  shareElementAsPng,
+  canShareImages,
+} from '../../lib/exportPng';
 
 interface RoundSummaryCardProps {
   data: RoundHighlightsOutputDTO;
@@ -9,7 +14,13 @@ interface RoundSummaryCardProps {
 export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [canShare, setCanShare] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCanShare(canShareImages());
+  }, []);
 
   const cardElementId = `round-card-export-${data.sessionId}`;
 
@@ -43,6 +54,24 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);
+  };
+
+  const handleShare = async () => {
+    try {
+      setIsSharing(true);
+      const success = await shareElementAsPng(
+        cardElementId,
+        filename,
+        `SocietyTracker • Destaques da Rodada (${formattedDate})`
+      );
+      if (success) {
+        showToast('Card pronto para compartilhamento!');
+      } else {
+        showToast('Não foi possível compartilhar. Use Baixar PNG.');
+      }
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -100,22 +129,35 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
         </div>
 
         <div className="flex items-center gap-2">
+          {canShare && (
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={isSharing || isCopying || isDownloading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 text-xs font-black shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+              title="Compartilhar card diretamente no WhatsApp"
+            >
+              <span>{isSharing ? '⏳' : '📲'}</span>
+              <span>{isSharing ? 'Abrindo...' : 'WhatsApp'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleCopy}
-            disabled={isCopying || isDownloading}
+            disabled={isCopying || isDownloading || isSharing}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-50 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
             title="Copiar imagem para colar no WhatsApp Web"
           >
             <span>{isCopying ? '⏳' : '📋'}</span>
-            <span>{isCopying ? 'Copiando...' : 'Copiar Imagem'}</span>
+            <span>{isCopying ? 'Copiando...' : 'Copiar'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleDownload}
-            disabled={isDownloading || isCopying}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 text-xs font-black shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+            disabled={isDownloading || isCopying || isSharing}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-50 hover:bg-white/10 text-white border border-white/20 text-xs font-bold shadow-lg transition-all active:scale-95 disabled:opacity-50"
             title="Baixar card como arquivo PNG em alta resolução"
           >
             <span>{isDownloading ? '⏳' : '📥'}</span>
