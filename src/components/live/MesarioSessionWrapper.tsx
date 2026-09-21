@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LiveScoreboard } from './LiveScoreboard';
 import { TeamRostersModal } from './TeamRostersModal';
 import { EditNightTeamsModal } from './EditNightTeamsModal';
-import { QuickPlayerTransferModal } from './QuickPlayerTransferModal';
 import { MatchEditor, actionClass } from './MatchEditor';
 import { useMatchSession } from './useMatchSession';
 import { projectPending, type PendingCommand } from './matchSync';
@@ -27,7 +26,7 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
     [home, setHome] = useState(session.teams[0]?.id ?? ''),
     [away, setAway] = useState(session.teams[1]?.id ?? '');
   const [selected, setSelected] = useState<string | null>(null),
-    [modal, setModal] = useState<'rosters' | 'edit' | 'transfer' | null>(null);
+    [modal, setModal] = useState<'rosters' | 'edit' | null>(null);
   const [teamError, setTeamError] = useState('');
   const sync = useMatchSession(session.id);
   const pending = sync.cache.pending.length > 0;
@@ -52,35 +51,7 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
     if (command.action === 'start' || command.action === 'finish') actionRef.current = true;
     if (!sync.enqueue(command)) actionRef.current = false;
   };
-  const reloadTeams = async () => {
-    const res = await fetch('/api/sessions?id=' + session.id);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    setTeams(data.teams);
-  };
-  const transfer = async (data: {
-    fromTeamId: string;
-    toTeamId: string;
-    playerId: string;
-    isLoaned: boolean;
-  }) => {
-    try {
-      const res = await fetch('/api/sessions/' + session.id + '/transfer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      await reloadTeams();
-      await sync.refresh();
-      setModal(null);
-      setTeamError('');
-    } catch (e) {
-      setTeamError(e instanceof Error ? e.message : 'Falha ao transferir jogador.');
-      throw e;
-    }
-  };
+
   const next = () => {
     if (pending || !current || current.status !== 'finished') return;
     if (current.homeScore !== current.awayScore) {
@@ -106,9 +77,6 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
           </button>
           <button className={actionClass} disabled={pending} onClick={() => setModal('edit')}>
             Editar times
-          </button>
-          <button className={actionClass} disabled={pending} onClick={() => setModal('transfer')}>
-            Emprestar jogador
           </button>
         </div>
       </header>
@@ -320,18 +288,6 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
               setTeams(t);
               void sync.refresh();
             }}
-          />
-        </ModalPortal>
-      )}
-      {modal === 'transfer' && (
-        <ModalPortal label="Emprestar jogador" onClose={() => setModal(null)}>
-          <QuickPlayerTransferModal
-            isOpen
-            teams={teams}
-            currentHomeTeamId={current?.homeTeamId ?? home}
-            currentAwayTeamId={current?.awayTeamId ?? away}
-            onTransfer={transfer}
-            onClose={() => setModal(null)}
           />
         </ModalPortal>
       )}

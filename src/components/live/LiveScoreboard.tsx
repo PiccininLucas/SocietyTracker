@@ -4,7 +4,7 @@ import { MatchTimer } from './MatchTimer';
 import { MatchEditor, actionClass } from './MatchEditor';
 import { timerNow, type TimerState, type PendingCommand } from './matchSync';
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
-import type { LiveTeam } from './types';
+import type { LiveTeam, LivePlayer } from './types';
 export interface LiveScoreboardProps {
   match: MatchSummary;
   teams: LiveTeam[];
@@ -51,13 +51,44 @@ export function LiveScoreboard({
   const team = (home: boolean): LiveTeam => {
     const id = (home ? match.homeTeamId : match.awayTeamId)!;
     const current = teams.find((t) => t.id === id);
+    const matchParticipants = (home ? match.homePlayers : match.awayPlayers) ?? [];
+    const basePlayers = current?.players ?? [];
+    const combinedMap = new Map<string, LivePlayer>();
+    for (const p of basePlayers) combinedMap.set(p.id, p);
+    for (const p of matchParticipants) {
+      if (!combinedMap.has(p.id)) {
+        combinedMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          nickname: p.nickname,
+          avatarUrl: p.avatarUrl,
+          isGoalkeeper: p.isGoalkeeper,
+          isLoaned: p.isLoaned,
+        });
+      }
+    }
     return {
       id,
       name: home ? match.homeTeamName : match.awayTeamName,
       colorHex: home ? match.homeTeamColor : match.awayTeamColor,
-      players: current?.players ?? (home ? match.homePlayers : match.awayPlayers) ?? [],
+      players: Array.from(combinedMap.values()),
     };
   };
+
+  const homeId = match.homeTeamId;
+  const awayId = match.awayTeamId;
+  const otherTeams = teams.filter((t) => t.id !== homeId && t.id !== awayId);
+  const opponentTeam = goalTeam?.id === team(true).id ? team(false) : team(true);
+  const opponentPlayerIds = new Set((opponentTeam.players || []).map((p) => p.id));
+  const currentTeamPlayerIds = new Set((goalTeam?.players || []).map((p) => p.id));
+
+  const availableLoanPlayers = otherTeams
+    .flatMap((t) => t.players || [])
+    .filter((p, index, self) => self.findIndex((x) => x.id === p.id) === index)
+    .filter((p) => !opponentPlayerIds.has(p.id) && !currentTeamPlayerIds.has(p.id))
+    .sort((a, b) =>
+      (a.nickname || a.name).localeCompare(b.nickname || b.name, 'pt-BR', { sensitivity: 'base' })
+    );
   return (
     <section className="space-y-4" aria-label="Partida atual">
       <h2 className="text-lg font-bold">Partida #{match.sequence ?? '—'}</h2>
@@ -156,6 +187,7 @@ export function LiveScoreboard({
       <GoalDrawer
         isOpen={!!goalTeam}
         team={goalTeam}
+        availableLoanPlayers={availableLoanPlayers}
         onClose={() => setGoalTeam(null)}
         onConfirmGoal={(data) =>
           onCommand({

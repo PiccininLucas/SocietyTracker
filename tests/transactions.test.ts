@@ -41,6 +41,7 @@ async function setup(applyMigration = true) {
   if (applyMigration) {
     await db.exec(migration);
     await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
+    await db.exec(await readFile('supabase/migrations/202609210001_loan_in_goal.sql', 'utf8'));
   }
   async function command(
     action: string,
@@ -395,3 +396,47 @@ test('gol contra, placar sem autoria, exclusão até zero e estatísticas histó
     await db.close();
   }
 });
+
+test('empréstimo de jogador no gol adiciona participante como emprestado na partida', async () => {
+  const { db, sid, teams, players, command, snapshot } = await setup();
+  try {
+    // Partida entre time 0 e time 1
+    const m = await command('start', null, {
+      sessionId: sid,
+      homeTeamId: teams[0],
+      awayTeamId: teams[1],
+    });
+
+    // Jogador 4 pertence ao time 2 (time de fora)
+    const loanedPlayerId = players[4];
+    const originalHomePlayer = players[0];
+
+    // Marca gol para o time 0, com autor sendo o jogador emprestado (players[4]) e assistência de players[0]
+    await command('goal', m.match_id, {
+      teamId: teams[0],
+      scorerId: loanedPlayerId,
+      assistId: originalHomePlayer,
+      isOwnGoal: false,
+      loanPlayerIds: [loanedPlayerId],
+    });
+
+    const matches = await snapshot();
+    assert.equal(matches[0].homeScore, 1);
+
+    // Jogador emprestado deve constar em homePlayers com isLoaned = true
+    const loanedParticipant = matches[0].homePlayers?.find((p) => p.id === loanedPlayerId);
+    assert.ok(loanedParticipant, 'Jogador emprestado deve estar listado nos jogadores do time na partida');
+    assert.equal(loanedParticipant.isLoaned, true);
+    assert.equal(loanedParticipant.goals, 1);
+
+    // O time de origem do jogador não deve perder o jogador na rodada base (apenas na partida específica)
+    const resOrig = await db.query<{ session_team_id: string }>(
+      'SELECT session_team_id FROM session_team_players WHERE player_id=$1',
+      [loanedPlayerId]
+    );
+    assert.equal(resOrig.rows[0].session_team_id, teams[2]);
+  } finally {
+    await db.close();
+  }
+});
+

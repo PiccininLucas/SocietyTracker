@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ModalPortal } from '../ui/ModalPortal';
-import { X, ArrowLeft, User, Sparkles, ShieldAlert } from 'lucide-react';
+import { X, ArrowLeft, User, Sparkles, ShieldAlert, ArrowRightLeft, Search } from 'lucide-react';
 import { soundFx } from '../ui/audio';
 import { hapticFeedback } from '../ui/vibration';
 import type { LivePlayer, LiveTeam } from './types';
@@ -9,6 +9,7 @@ export interface GoalDrawerProps {
   isOpen: boolean;
   team: LiveTeam | null;
   opponentTeam?: LiveTeam | null;
+  availableLoanPlayers?: LivePlayer[];
   onConfirmGoal: (data: {
     teamId: string;
     scorerId?: string | null;
@@ -16,16 +17,25 @@ export interface GoalDrawerProps {
     isOwnGoal: boolean;
     scorerName?: string;
     assistName?: string;
+    loanPlayerIds?: string[];
   }) => void;
   onClose: () => void;
 }
 
-type Step = 'select_scorer' | 'select_assist';
+type Step = 'select_scorer' | 'select_assist' | 'select_loan_scorer' | 'select_loan_assist';
 
-export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmGoal, onClose }) => {
+export const GoalDrawer: React.FC<GoalDrawerProps> = ({
+  isOpen,
+  team,
+  availableLoanPlayers = [],
+  onConfirmGoal,
+  onClose,
+}) => {
   const confirming = useRef(false);
   const [step, setStep] = useState<Step>('select_scorer');
   const [selectedScorer, setSelectedScorer] = useState<LivePlayer | null>(null);
+  const [isScorerLoaned, setIsScorerLoaned] = useState<boolean>(false);
+  const [filterQuery, setFilterQuery] = useState<string>('');
 
   // Reseta o estado interno sempre que o drawer é aberto
   useEffect(() => {
@@ -33,26 +43,45 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
       confirming.current = false;
       setStep('select_scorer');
       setSelectedScorer(null);
+      setIsScorerLoaned(false);
+      setFilterQuery('');
     }
   }, [isOpen, team?.id]);
 
   if (!isOpen || !team) return null;
 
-  // Jogadores disponíveis para autor do gol
+  // Jogadores disponíveis para autor do gol (do time em campo)
   const teamPlayers = team.players || [];
 
   // Jogadores elegíveis para assistência (exclui o próprio autor do gol)
   const assistCandidates = teamPlayers.filter((p) => !selectedScorer || p.id !== selectedScorer.id);
 
-  // Toque 1: Selecionar o autor do gol
-  const handleSelectScorer = (player: LivePlayer) => {
+  // Lista de jogadores emprestados disponíveis dos outros times (ordem alfabética)
+  const filteredLoanPlayers = availableLoanPlayers
+    .filter((p) => (step === 'select_loan_scorer' ? true : !selectedScorer || p.id !== selectedScorer.id))
+    .filter((p) => {
+      if (!filterQuery.trim()) return true;
+      const term = filterQuery.toLowerCase();
+      return (
+        (p.name && p.name.toLowerCase().includes(term)) ||
+        (p.nickname && p.nickname.toLowerCase().includes(term))
+      );
+    })
+    .sort((a, b) =>
+      (a.nickname || a.name).localeCompare(b.nickname || b.name, 'pt-BR', { sensitivity: 'base' })
+    );
+
+  // Selecionar o autor do gol (seja do time ou emprestado)
+  const handleSelectScorer = (player: LivePlayer, isLoan = false) => {
     hapticFeedback.click();
     soundFx.playClickBeep('high');
     setSelectedScorer(player);
+    setIsScorerLoaned(isLoan);
+    setFilterQuery('');
     setStep('select_assist');
   };
 
-  // Toque 1 Alternativo: Gol Contra
+  // Gol Contra
   const handleSelectOwnGoal = () => {
     if (confirming.current) return;
     confirming.current = true;
@@ -69,13 +98,17 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
     onClose();
   };
 
-  // Toque 2: Confirmar assistência ou Jogada Individual
-  const handleSelectAssist = (assistPlayer: LivePlayer | null) => {
+  // Confirmar assistência ou Jogada Individual
+  const handleSelectAssist = (assistPlayer: LivePlayer | null, isAssistLoan = false) => {
     if (!selectedScorer || confirming.current) return;
     confirming.current = true;
 
     hapticFeedback.goal();
     soundFx.playGoalSound();
+
+    const loanPlayerIds: string[] = [];
+    if (isScorerLoaned && selectedScorer) loanPlayerIds.push(selectedScorer.id);
+    if (isAssistLoan && assistPlayer) loanPlayerIds.push(assistPlayer.id);
 
     onConfirmGoal({
       teamId: team.id,
@@ -84,6 +117,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
       isOwnGoal: false,
       scorerName: selectedScorer.nickname || selectedScorer.name,
       assistName: assistPlayer ? assistPlayer.nickname || assistPlayer.name : undefined,
+      loanPlayerIds: loanPlayerIds.length > 0 ? loanPlayerIds : undefined,
     });
 
     onClose();
@@ -108,15 +142,18 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
           {/* Header do Drawer */}
           <div className="shrink-0 flex items-center justify-between pb-3 border-b border-gray-800">
             <div className="flex items-center gap-3">
-              {step === 'select_assist' && (
+              {step !== 'select_scorer' && (
                 <button
                   type="button"
                   onClick={() => {
                     hapticFeedback.click();
-                    setStep('select_scorer');
+                    setFilterQuery('');
+                    if (step === 'select_loan_scorer') setStep('select_scorer');
+                    else if (step === 'select_loan_assist') setStep('select_assist');
+                    else setStep('select_scorer');
                   }}
                   className="min-h-[44px] min-w-[44px] p-1.5 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
-                  aria-label="Voltar para seleção de autor"
+                  aria-label="Voltar"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -129,12 +166,17 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
                 />
                 <div>
                   <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
-                    {step === 'select_scorer'
-                      ? '⚽ Quem marcou o gol?'
-                      : '👟 Quem deu a assistência?'}
+                    {step === 'select_scorer' && '⚽ Quem marcou o gol?'}
+                    {step === 'select_assist' && '👟 Quem deu a assistência?'}
+                    {step === 'select_loan_scorer' && '🔄 Quem marcou? (Emprestado)'}
+                    {step === 'select_loan_assist' && '🔄 Quem assistiu? (Emprestado)'}
                   </h3>
                   <p className="text-xs text-gray-400">
-                    {team.name} • {step === 'select_scorer' ? 'Passo 1 de 2' : 'Passo 2 de 2'}
+                    {team.name} •{' '}
+                    {step === 'select_scorer' && 'Passo 1 de 2'}
+                    {step === 'select_assist' && 'Passo 2 de 2'}
+                    {step === 'select_loan_scorer' && 'Passo 1 de 2 · Outros times'}
+                    {step === 'select_loan_assist' && 'Passo 2 de 2 · Outros times'}
                   </p>
                 </div>
               </div>
@@ -152,7 +194,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
 
           {/* Conteúdo Dinâmico do Fluxo */}
           <div className="min-h-0 overscroll-contain overflow-y-auto py-3 space-y-2.5 flex-1 pr-1">
-            {/* PASSO 1: SELEÇÃO DO AUTOR DO GOL */}
+            {/* PASSO 1: SELEÇÃO DO AUTOR DO GOL (TIME) */}
             {step === 'select_scorer' && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -163,7 +205,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
                     <button
                       key={player.id}
                       type="button"
-                      onClick={() => handleSelectScorer(player)}
+                      onClick={() => handleSelectScorer(player, false)}
                       className="min-h-[52px] w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-gray-800/80 hover:bg-gray-700 active:scale-[0.98] border border-gray-700/60 hover:border-emerald-500/50 text-left transition-all touch-press-scale group"
                     >
                       <div className="flex items-center gap-3">
@@ -188,8 +230,24 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
                   ))}
                 </div>
 
-                {/* Botão de Gol Contra em destaque */}
-                <div className="pt-2">
+                {/* Opções especiais: Empréstimo e Gol Contra */}
+                <div className="pt-2 space-y-2">
+                  {availableLoanPlayers.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticFeedback.click();
+                        soundFx.playClickBeep('normal');
+                        setFilterQuery('');
+                        setStep('select_loan_scorer');
+                      }}
+                      className="min-h-[48px] w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-blue-950/40 hover:bg-blue-900/50 active:scale-[0.98] border border-blue-700/40 text-blue-300 font-bold text-sm transition-all touch-press-scale"
+                    >
+                      <ArrowRightLeft className="w-4 h-4" />
+                      <span>Jogador Emprestado (Outros Times)</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleSelectOwnGoal}
@@ -202,13 +260,67 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
               </>
             )}
 
+            {/* PASSO 1 SUBVISÃO: SELEÇÃO DE JOGADOR EMPRESTADO (AUTOR DO GOL) */}
+            {step === 'select_loan_scorer' && (
+              <div className="space-y-3">
+                {availableLoanPlayers.length > 4 && (
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={filterQuery}
+                      onChange={(e) => setFilterQuery(e.target.value)}
+                      placeholder="Buscar jogador emprestado..."
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-gray-800/90 border border-gray-700 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {filteredLoanPlayers.length === 0 ? (
+                    <p className="text-gray-400 text-sm p-3 text-center col-span-full">
+                      Nenhum atleta disponível para empréstimo.
+                    </p>
+                  ) : (
+                    filteredLoanPlayers.map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        onClick={() => handleSelectScorer(player, true)}
+                        className="min-h-[52px] w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-gray-800/80 hover:bg-blue-900/40 active:scale-[0.98] border border-gray-700/60 hover:border-blue-500/50 text-left transition-all touch-press-scale group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-950 border border-blue-600/30 flex items-center justify-center text-blue-300 font-bold text-xs group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <User className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="font-semibold text-white text-sm sm:text-base block">
+                              {player.nickname || player.name}
+                            </span>
+                            {player.nickname && player.name && (
+                              <span className="text-xs text-gray-400 block -mt-0.5">
+                                {player.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold px-2 py-1 rounded bg-blue-900/40 text-blue-300 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          GOL ⚽
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* PASSO 2: SELEÇÃO DA ASSISTÊNCIA */}
             {step === 'select_assist' && (
               <>
                 {/* Botão Principal: Sem Assistência (Jogada Individual) */}
                 <button
                   type="button"
-                  onClick={() => handleSelectAssist(null)}
+                  onClick={() => handleSelectAssist(null, false)}
                   className="min-h-[54px] w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-gray-950 font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-500/20 transition-all touch-press-scale mb-3"
                 >
                   <Sparkles className="w-5 h-5 fill-current" />
@@ -224,7 +336,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
                     <button
                       key={player.id}
                       type="button"
-                      onClick={() => handleSelectAssist(player)}
+                      onClick={() => handleSelectAssist(player, false)}
                       className="min-h-[50px] w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-gray-800/80 hover:bg-gray-700 active:scale-[0.98] border border-gray-700/60 hover:border-cyan-500/50 text-left transition-all touch-press-scale group"
                     >
                       <div className="flex items-center gap-3">
@@ -241,7 +353,72 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({ isOpen, team, onConfirmG
                     </button>
                   ))}
                 </div>
+
+                {availableLoanPlayers.length > 0 && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticFeedback.click();
+                        soundFx.playClickBeep('normal');
+                        setFilterQuery('');
+                        setStep('select_loan_assist');
+                      }}
+                      className="min-h-[48px] w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-blue-950/40 hover:bg-blue-900/50 active:scale-[0.98] border border-blue-700/40 text-blue-300 font-bold text-sm transition-all touch-press-scale"
+                    >
+                      <ArrowRightLeft className="w-4 h-4" />
+                      <span>Jogador Emprestado (Assistência)</span>
+                    </button>
+                  </div>
+                )}
               </>
+            )}
+
+            {/* PASSO 2 SUBVISÃO: SELEÇÃO DE JOGADOR EMPRESTADO (ASSISTÊNCIA) */}
+            {step === 'select_loan_assist' && (
+              <div className="space-y-3">
+                {availableLoanPlayers.length > 4 && (
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={filterQuery}
+                      onChange={(e) => setFilterQuery(e.target.value)}
+                      placeholder="Buscar jogador emprestado..."
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-gray-800/90 border border-gray-700 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {filteredLoanPlayers.length === 0 ? (
+                    <p className="text-gray-400 text-sm p-3 text-center col-span-full">
+                      Nenhum outro atleta disponível para empréstimo.
+                    </p>
+                  ) : (
+                    filteredLoanPlayers.map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        onClick={() => handleSelectAssist(player, true)}
+                        className="min-h-[50px] w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-gray-800/80 hover:bg-blue-900/40 active:scale-[0.98] border border-gray-700/60 hover:border-blue-500/50 text-left transition-all touch-press-scale group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-950 border border-blue-600/30 flex items-center justify-center text-blue-300 font-bold text-xs group-hover:bg-cyan-400 group-hover:text-gray-950 transition-colors">
+                            <User className="w-4 h-4" />
+                          </div>
+                          <span className="font-semibold text-white text-sm">
+                            {player.nickname || player.name}
+                          </span>
+                        </div>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-900/40 text-blue-300 group-hover:bg-cyan-400 group-hover:text-gray-950 transition-colors">
+                          Passe 👟
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

@@ -67,6 +67,34 @@ export function projectPending(matches: MatchSummary[], pending: PendingCommand[
       // A refresh may observe a committed goal before its lost acknowledgement is retried.
       if (m.events.some((event) => event.id === op.operationId)) continue;
       const d = op.input;
+      const isHome = d.teamId === m.homeTeamId;
+      const teamPlayerList = isHome ? (m.homePlayers ??= []) : (m.awayPlayers ??= []);
+
+      if (d.scorerId && !teamPlayerList.some((p) => p.id === d.scorerId)) {
+        teamPlayerList.push({
+          id: String(d.scorerId),
+          name: (d.scorerName as string) || 'Atleta',
+          nickname: (d.scorerName as string) || null,
+          isLoaned: true,
+          isGoalkeeper: false,
+          isCaptain: false,
+          goals: 0,
+          assists: 0,
+        });
+      }
+      if (d.assistId && !teamPlayerList.some((p) => p.id === d.assistId)) {
+        teamPlayerList.push({
+          id: String(d.assistId),
+          name: (d.assistName as string) || 'Atleta',
+          nickname: (d.assistName as string) || null,
+          isLoaned: true,
+          isGoalkeeper: false,
+          isCaptain: false,
+          goals: 0,
+          assists: 0,
+        });
+      }
+
       const players = [...(m.homePlayers ?? []), ...(m.awayPlayers ?? [])];
       const scorer = players.find((p) => p.id === d.scorerId),
         assist = players.find((p) => p.id === d.assistId);
@@ -78,8 +106,8 @@ export function projectPending(matches: MatchSummary[], pending: PendingCommand[
         assistId: d.assistId as string | null,
         eventTimeSeconds: Number(d.eventTimeSeconds ?? 0),
         isOwnGoal: !!d.isOwnGoal,
-        scorerName: scorer?.nickname ?? scorer?.name,
-        assistName: assist?.nickname ?? assist?.name,
+        scorerName: scorer?.nickname ?? scorer?.name ?? (d.scorerName as string | undefined),
+        assistName: assist?.nickname ?? assist?.name ?? (d.assistName as string | undefined),
       });
     }
     if (op.action === 'delete') m.events = m.events.filter((e) => e.id !== op.input.eventId);

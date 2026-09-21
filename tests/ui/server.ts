@@ -20,6 +20,7 @@ await db.exec(
 );
 await db.exec(await readFile('supabase/migrations/202609090001_match_integrity.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
+await db.exec(await readFile('supabase/migrations/202609210001_loan_in_goal.sql', 'utf8'));
 await db.query("INSERT INTO sessions(id,session_date) VALUES($1,'2026-09-03')", [sid]);
 for (const t of teams) {
   await db.query('INSERT INTO session_teams(id,session_id,name,color_hex) VALUES($1,$2,$3,$4)', [
