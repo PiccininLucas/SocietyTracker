@@ -1,4 +1,5 @@
 import { Team } from './Team';
+import { DomainError } from '../errors/DomainError';
 
 export type SessionStatus = 'ongoing' | 'finished';
 
@@ -42,7 +43,7 @@ export function assertValidRoundFormat(teams: RoundTeamShape[] | undefined): voi
   const list = teams ?? [];
 
   if (list.length < ROUND_RULES.MIN_TEAMS || list.length > ROUND_RULES.MAX_TEAMS) {
-    throw new Error(
+    throw new DomainError(
       `A rodada deve ter ${ROUND_RULES.MIN_TEAMS} ou ${ROUND_RULES.MAX_TEAMS} times (recebido: ${list.length}).`
     );
   }
@@ -53,7 +54,7 @@ export function assertValidRoundFormat(teams: RoundTeamShape[] | undefined): voi
     .map((t, i) => ({ nome: naming(t, i), n: teamPlayerIds(t).length }))
     .filter((t) => t.n > ROUND_RULES.MAX_PLAYERS_PER_TEAM);
   if (overfull.length) {
-    throw new Error(
+    throw new DomainError(
       `Cada time pode ter no máximo ${ROUND_RULES.MAX_PLAYERS_PER_TEAM} jogadores. ` +
         `Acima do limite: ${overfull.map((t) => `${t.nome} (${t.n})`).join(', ')}.`
     );
@@ -63,7 +64,7 @@ export function assertValidRoundFormat(teams: RoundTeamShape[] | undefined): voi
     .map((t, i) => ({ nome: naming(t, i), n: teamPlayerIds(t).length }))
     .filter((t) => t.n < ROUND_RULES.MIN_PLAYERS_PER_TEAM);
   if (empty.length) {
-    throw new Error(
+    throw new DomainError(
       `Todo time precisa de pelo menos um jogador. Sem jogadores: ${empty
         .map((t) => t.nome)
         .join(', ')}.`
@@ -72,14 +73,14 @@ export function assertValidRoundFormat(teams: RoundTeamShape[] | undefined): voi
 
   const ids = list.flatMap(teamPlayerIds);
   if (ids.length > ROUND_RULES.MAX_PLAYERS_PER_ROUND) {
-    throw new Error(
+    throw new DomainError(
       `A rodada comporta no máximo ${ROUND_RULES.MAX_PLAYERS_PER_ROUND} jogadores (recebido: ${ids.length}).`
     );
   }
 
   const repeated = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
   if (repeated.length) {
-    throw new Error(`Um jogador não pode estar em dois times da mesma rodada.`);
+    throw new DomainError(`Um jogador não pode estar em dois times da mesma rodada.`);
   }
 }
 

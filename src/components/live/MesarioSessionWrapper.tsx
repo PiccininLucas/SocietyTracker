@@ -162,9 +162,23 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
           className="rounded-xl p-3 bg-rose-950 border border-rose-400 text-rose-100 space-y-2"
         >
           <p>{sync.error}</p>
-          <button className={actionClass} onClick={() => void sync.retry()}>
-            Tentar novamente
-          </button>
+          {sync.needsLogin ? (
+            // Os lances pendentes ficam no localStorage; ao voltar do login a página
+            // recarrega e o envio da fila recomeça sozinho.
+            <a
+              className={actionClass + ' inline-flex items-center'}
+              href={
+                '/login?redirect=' +
+                encodeURIComponent(window.location.pathname + window.location.search)
+              }
+            >
+              Entrar com o PIN
+            </a>
+          ) : (
+            <button className={actionClass} onClick={() => void sync.retry()}>
+              Tentar novamente
+            </button>
+          )}
           {pending && (
             <button className={actionClass + ' ml-2'} onClick={sync.discard}>
               Descartar operação pendente

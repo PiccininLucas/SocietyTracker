@@ -77,33 +77,71 @@ describe('Admin Authentication & HMAC-SHA256 Token Rules', () => {
     assert.equal(validateSessionToken(expiredToken), false);
   });
 
-  it('should authenticate from cookies, x-admin-pin header, or Bearer token', () => {
+  it('authenticates from the session cookie (cookie API or raw header)', () => {
     const token = generateSessionToken();
-    const pin = getAdminPin();
 
-    // 1. Via Cookie
     const mockCookies = {
       get: (name: string) => (name === ADMIN_COOKIE_NAME ? { value: token } : undefined),
     };
     assert.equal(isAuthenticatedFromRequest(mockCookies), true);
 
-    // 2. Via x-admin-pin header
-    const pinRequest = new Request('http://localhost', {
-      headers: { 'x-admin-pin': pin },
+    const cookieRequest = new Request('http://localhost', {
+      headers: { cookie: `other=1; ${ADMIN_COOKIE_NAME}=${token}` },
     });
-    assert.equal(isAuthenticatedFromRequest(null, pinRequest), true);
+    assert.equal(isAuthenticatedFromRequest(null, cookieRequest), true);
+  });
 
-    // 3. Via Bearer token
-    const bearerRequest = new Request('http://localhost', {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    assert.equal(isAuthenticatedFromRequest(null, bearerRequest), true);
+  it('rejects the PIN or a token sent in headers — only /api/auth/login accepts the PIN', () => {
+    const pin = getAdminPin();
+    const token = generateSessionToken();
 
-    // 4. Invalid requests
-    const invalidRequest = new Request('http://localhost', {
-      headers: { authorization: 'Bearer invalid-token' },
+    const attempts: Record<string, string>[] = [
+      { 'x-admin-pin': pin },
+      { authorization: `Bearer ${pin}` },
+      { authorization: `Bearer ${token}` },
+    ];
+    for (const headers of attempts) {
+      const request = new Request('http://localhost', { headers });
+      assert.equal(isAuthenticatedFromRequest(null, request), false);
+    }
+  });
+
+  describe('SESSION_SECRET em produção', () => {
+    const original = {
+      NODE_ENV: process.env.NODE_ENV,
+      SESSION_SECRET: process.env.SESSION_SECRET,
+      ADMIN_PIN: process.env.ADMIN_PIN,
+    };
+    const inProduction = (secret: string | undefined, run: () => void) => {
+      const pin = getAdminPin();
+      try {
+        process.env.NODE_ENV = 'production';
+        // Com o PIN definido, o teste não dispara o aviso de ADMIN_PIN ausente.
+        process.env.ADMIN_PIN = pin;
+        if (secret === undefined) delete process.env.SESSION_SECRET;
+        else process.env.SESSION_SECRET = secret;
+        run();
+      } finally {
+        for (const [key, value] of Object.entries(original)) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
+    };
+
+    it('recusa emitir e aceitar sessão quando a variável falta', () => {
+      const token = generateSessionToken();
+      inProduction(undefined, () => {
+        assert.throws(() => generateSessionToken(), /SESSION_SECRET/);
+        assert.equal(validateSessionToken(token), false);
+      });
     });
-    assert.equal(isAuthenticatedFromRequest(null, invalidRequest), false);
+
+    it('funciona normalmente quando a variável está definida', () => {
+      inProduction('segredo-de-teste', () => {
+        assert.equal(validateSessionToken(generateSessionToken()), true);
+      });
+    });
   });
 });
 

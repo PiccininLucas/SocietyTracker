@@ -51,6 +51,10 @@ async function setup(applyMigration = true) {
     await db.exec(await readFile('supabase/migrations/202609210006_snapshot_date_range.sql', 'utf8'));
     await db.exec(await readFile('supabase/migrations/202609210007_session_team_players_captain.sql', 'utf8'));
     await db.exec(await readFile('supabase/migrations/202609210008_round_goalkeeper.sql', 'utf8'));
+    await db.exec(await readFile('supabase/migrations/202609220001_create_session_rpc.sql', 'utf8'));
+    await db.exec(
+      await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
+    );
   }
   async function command(
     action: string,
@@ -623,6 +627,178 @@ test('snapshot expõe isRoundGoalkeeper vindo da escalação, não do retrato da
     assert.ok(p0);
     assert.equal(p0.isGoalkeeper, false, 'retrato da partida preserva o que era verdade');
     assert.equal(p0.isRoundGoalkeeper, true, 'escalação da rodada manda para a regra da noite');
+  } finally {
+    await db.close();
+  }
+});
+
+test('society_create_session cria sessão, times e escalações numa transação só', async () => {
+  const { db, players } = await setup();
+  try {
+    const teams = [
+      {
+        name: 'Time Azul',
+        colorHex: '#1d4ed8',
+        captainId: players[0],
+        players: [
+          { playerId: players[0], isGoalkeeper: false },
+          { playerId: players[1], isGoalkeeper: true },
+        ],
+      },
+      { name: 'Time Verde', players: [{ playerId: players[2] }, { playerId: players[3] }] },
+      { name: 'Time Preto', players: [{ playerId: players[4], isLoaned: true }] },
+    ];
+    const r = await db.query<{ id: string }>('SELECT society_create_session($1,$2,$3,$4) id', [
+      '2026-09-24',
+      '  ',
+      480,
+      JSON.stringify(teams),
+    ]);
+    const sid = r.rows[0].id;
+
+    const session = await db.query<{ notes: string | null; match_duration_seconds: number }>(
+      'SELECT notes, match_duration_seconds FROM sessions WHERE id=$1',
+      [sid]
+    );
+    assert.equal(session.rows[0].notes, null, 'observação em branco vira NULL');
+    assert.equal(session.rows[0].match_duration_seconds, 480);
+
+    const rows = await db.query<{
+      name: string;
+      color_hex: string;
+      player_id: string;
+      is_goalkeeper: boolean;
+      is_loaned: boolean;
+      is_captain: boolean;
+    }>(
+      `SELECT st.name, st.color_hex, stp.player_id, stp.is_goalkeeper, stp.is_loaned, stp.is_captain
+         FROM session_teams st JOIN session_team_players stp ON stp.session_team_id=st.id
+        WHERE st.session_id=$1`,
+      [sid]
+    );
+    assert.equal(rows.rows.length, 5);
+    const byPlayer = new Map(rows.rows.map((row) => [row.player_id, row]));
+    assert.equal(byPlayer.get(players[0])?.is_captain, true, 'is_captain derivado de captainId');
+    assert.equal(byPlayer.get(players[1])?.is_captain, false);
+    assert.equal(byPlayer.get(players[1])?.is_goalkeeper, true);
+    assert.equal(byPlayer.get(players[4])?.is_loaned, true);
+    assert.equal(byPlayer.get(players[2])?.color_hex, '#333333', 'cor padrão quando não vem');
+  } finally {
+    await db.close();
+  }
+});
+
+test('society_create_session não deixa rodada pela metade quando algo falha', async () => {
+  const { db, players } = await setup();
+  const count = async () =>
+    (
+      await db.query<{ n: number }>(
+        "SELECT count(*)::int n FROM sessions WHERE session_date='2026-09-24'"
+      )
+    ).rows[0].n;
+  try {
+    // O jogador repetido só é detectado depois de a sessão e os times terem sido inseridos.
+    await assert.rejects(
+      db.query('SELECT society_create_session($1,$2,$3,$4)', [
+        '2026-09-24',
+        null,
+        420,
+        JSON.stringify([
+          { name: 'A', players: [{ playerId: players[0] }] },
+          { name: 'B', players: [{ playerId: players[0] }] },
+          { name: 'C', players: [] },
+        ]),
+      ]),
+      /dois times/
+    );
+    assert.equal(await count(), 0, 'rollback completo: nenhuma sessão órfã');
+
+    // Jogador inexistente (FK) no último time também desfaz tudo.
+    await assert.rejects(
+      db.query('SELECT society_create_session($1,$2,$3,$4)', [
+        '2026-09-24',
+        null,
+        420,
+        JSON.stringify([
+          { name: 'A', players: [{ playerId: players[0] }] },
+          { name: 'B', players: [{ playerId: crypto.randomUUID() }] },
+        ]),
+      ])
+    );
+    assert.equal(await count(), 0);
+
+    // E a data continua livre para a tentativa correta.
+    await db.query('SELECT society_create_session($1,$2,$3,$4)', [
+      '2026-09-24',
+      null,
+      420,
+      JSON.stringify([{ name: 'A', players: [{ playerId: players[0] }] }]),
+    ]);
+    assert.equal(await count(), 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test('society_create_session recusa data repetida como CONFLICT e valida a duração', async () => {
+  const { db } = await setup();
+  try {
+    // setup() já criou a rodada de 03/09/2026.
+    await assert.rejects(
+      db.query('SELECT society_create_session($1,$2,$3,$4)', ['2026-09-03', null, 420, '[]']),
+      (e: Error & { code?: string }) => {
+        assert.match(e.message, /^CONFLICT: Já existe uma rodada em 03\/09\/2026/);
+        assert.equal(e.code, 'P0001');
+        return true;
+      }
+    );
+    await assert.rejects(
+      db.query('SELECT society_create_session($1,$2,$3,$4)', ['2026-09-24', null, 5, '[]']),
+      /entre 1 e 60 minutos/
+    );
+    // SECURITY DEFINER: só a service_role (servidor, atrás do PIN) pode chamar.
+    for (const role of ['anon', 'authenticated']) {
+      const r = await db.query<{ ok: boolean }>(
+        "SELECT has_function_privilege($1, 'society_create_session(date,text,integer,jsonb)', 'EXECUTE') ok",
+        [role]
+      );
+      assert.equal(r.rows[0].ok, false, role + ' não pode criar rodada pela API pública');
+    }
+  } finally {
+    await db.close();
+  }
+});
+
+test('RPCs de escrita só podem ser chamadas pela service_role', async () => {
+  const { db } = await setup();
+  try {
+    const writers = [
+      'society_match_command(text,uuid,jsonb,uuid)',
+      'society_update_teams(uuid,jsonb)',
+      'society_transfer_player(uuid,uuid,uuid,boolean,boolean)',
+      'society_create_session(date,text,integer,jsonb)',
+    ];
+    // Reproduz os default privileges do Supabase, que concedem EXECUTE explicitamente a
+    // anon e authenticated — o motivo de REVOKE FROM PUBLIC não bastar. O PGlite não tem
+    // esses defaults, então sem este GRANT o teste passaria mesmo sem as migrations.
+    for (const fn of writers) {
+      await db.exec('GRANT EXECUTE ON FUNCTION ' + fn + ' TO anon, authenticated');
+    }
+    await db.exec(await readFile('supabase/migrations/202609220001_create_session_rpc.sql', 'utf8'));
+    await db.exec(
+      await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
+    );
+
+    const expected = { anon: false, authenticated: false, service_role: true };
+    for (const fn of writers) {
+      for (const [role, allowed] of Object.entries(expected)) {
+        const r = await db.query<{ ok: boolean }>(
+          "SELECT has_function_privilege($1, $2, 'EXECUTE') ok",
+          [role, fn]
+        );
+        assert.equal(r.rows[0].ok, allowed, role + ' em ' + fn);
+      }
+    }
   } finally {
     await db.close();
   }

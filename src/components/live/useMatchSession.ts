@@ -6,6 +6,8 @@ import {
   saveCache,
   sendCommand,
   CommandRejectedError,
+  AuthRequiredError,
+  describeNetworkError,
   type PendingCommand,
   type SessionCache,
   type TimerState,
@@ -17,6 +19,8 @@ export function useMatchSession(sessionId: string) {
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
   const [legacyCache, setLegacyCache] = useState<string | null>(null);
+  // Sessão expirada: a fila fica parada (e intacta) até o mesário entrar de novo.
+  const [needsLogin, setNeedsLogin] = useState(false);
   const pumping = useRef(false);
   const revision = useRef(0);
   const commit = useCallback((next: SessionCache) => {
@@ -31,15 +35,16 @@ export function useMatchSession(sessionId: string) {
         cache: 'no-store',
         signal: AbortSignal.timeout(15000),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      // Um 502/504 do gateway responde HTML; sem o catch o mesário via "Unexpected token '<'".
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? 'Servidor indisponível no momento.');
       if (requestRevision === revision.current)
         commit({ ...ref.current, matches: data as MatchSummary[] });
       if (!ref.current.pending.length) setError('');
       setReady(true);
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sem conexão.');
+      setError(describeNetworkError(e));
       return false;
     }
   }, [sessionId, commit]);
@@ -54,6 +59,7 @@ export function useMatchSession(sessionId: string) {
         try {
           match = await sendCommand(op);
         } catch (e) {
+          if (e instanceof AuthRequiredError) setNeedsLogin(true);
           if (!(e instanceof CommandRejectedError)) throw e;
           // Recusa definitiva do servidor: reenviar não muda nada e a operação
           // bloquearia todos os lances seguintes da fila. Descarta e segue.
@@ -65,6 +71,7 @@ export function useMatchSession(sessionId: string) {
           });
           continue;
         }
+        setNeedsLogin(false);
         revision.current++;
         commit({
           ...applyMatchResult(ref.current, match),
@@ -77,10 +84,7 @@ export function useMatchSession(sessionId: string) {
       if (rejected)
         setError(rejected + ' O registro foi descartado; confira a súmula antes de seguir.');
     } catch (e) {
-      setError(
-        (e instanceof Error ? e.message : 'Falha de rede.') +
-          ' A operação está pendente neste dispositivo.'
-      );
+      setError(describeNetworkError(e) + ' A operação está pendente neste dispositivo.');
     } finally {
       pumping.current = false;
     }
@@ -164,6 +168,7 @@ export function useMatchSession(sessionId: string) {
     ready,
     error,
     notice,
+    needsLogin,
     legacyCache,
     enqueue,
     setTimer,

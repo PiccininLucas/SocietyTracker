@@ -51,9 +51,28 @@ export class CommandRejectedError extends Error {
   }
 }
 
+/**
+ * A sessão do mesário expirou (cookie de 24h) ou foi invalidada. Não é uma recusa do
+ * lance: a operação fica na fila e é reenviada depois de um novo login.
+ */
+export class AuthRequiredError extends Error {
+  constructor() {
+    super('Sessão de mesário expirada. Entre com o PIN de novo para enviar os lances.');
+    this.name = 'AuthRequiredError';
+  }
+}
+
 /** 4xx é definitivo, exceto os que pedem explicitamente para tentar de novo. */
 function isRetryable(status: number) {
   return status >= 500 || status === 408 || status === 429;
+}
+
+/** Troca "Failed to fetch" / "signal timed out" do navegador por uma mensagem em português. */
+export function describeNetworkError(error: unknown): string {
+  const name = (error as { name?: unknown } | null)?.name;
+  if (name === 'TimeoutError' || name === 'AbortError') return 'O servidor demorou para responder.';
+  if (error instanceof TypeError) return 'Sem conexão com o servidor.';
+  return error instanceof Error && error.message ? error.message : 'Falha de rede.';
 }
 
 export async function sendCommand(command: PendingCommand): Promise<MatchSummary> {
@@ -67,17 +86,23 @@ export async function sendCommand(command: PendingCommand): Promise<MatchSummary
     path += '/events/' + command.input.eventId;
     method = command.action === 'edit' ? 'PATCH' : 'DELETE';
   }
-  const res = await fetch(path, {
-    method,
-    signal: AbortSignal.timeout(15000),
-    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': command.operationId },
-    ...(method === 'DELETE' ? {} : { body: JSON.stringify(command.input) }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      signal: AbortSignal.timeout(15000),
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': command.operationId },
+      ...(method === 'DELETE' ? {} : { body: JSON.stringify(command.input) }),
+    });
+  } catch (error) {
+    throw new Error(describeNetworkError(error));
+  }
 
   // Um 502/504 do gateway responde HTML: `res.json()` lançaria SyntaxError antes de
   // chegarmos ao tratamento de status, e o mesário veria "Unexpected token '<'".
   const body = await res.json().catch(() => null);
 
+  if (res.status === 401) throw new AuthRequiredError();
   if (!res.ok) {
     const message =
       body?.error ??

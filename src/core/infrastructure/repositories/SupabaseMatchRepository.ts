@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../database/supabaseClient';
+import { DatabaseError } from '../database/DatabaseError';
 import { Match, type MatchEndReason } from '../../domain/entities/Match';
 import { MatchEvent, type MatchEventProps } from '../../domain/entities/MatchEvent';
 import type {
@@ -49,7 +50,10 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
       p_end_date: endDate ?? null,
     });
     if (error)
-      throw new Error('Falha ao ler partidas. Verifique a migração 202609090001: ' + error.message);
+      throw new DatabaseError(
+        'Falha ao ler partidas. Verifique a migração 202609090001: ' + error.message,
+        error.code
+      );
     return data as MatchSummary[];
   }
   async getMatchById(id: string): Promise<MatchSummary | null> {
@@ -58,7 +62,7 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
       .select('session_id')
       .eq('id', id)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throw new DatabaseError(error.message, error.code);
     if (!data) return null;
     return (await this.getMatchesSummary(data.session_id)).find((m) => m.matchId === id) ?? null;
   }
@@ -80,7 +84,7 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
       p_input: command.input,
       p_operation_id: command.operationId,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new DatabaseError(error.message, error.code);
     const result = data as { match_id: string; event_id?: string; deleted_match?: MatchSummary };
     const match = result.deleted_match ?? await this.getMatchById(result.match_id);
     if (!match)
@@ -142,7 +146,7 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
       .select('*')
       .eq('id', id)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throw new DatabaseError(error.message, error.code);
     return data
       ? new MatchEvent({
           id: data.id,

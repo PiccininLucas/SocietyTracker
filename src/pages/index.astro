@@ -21,13 +21,13 @@ import { performanceLeaderboard } from '../core/application/dtos/performanceLead
 export const prerender = false;
 
 let leaderboard: LeaderboardItemDTO[] = [];
-const season = Astro.url.searchParams.get('season') ?? String(new Date().getFullYear());
+const season = Astro.url.searchParams.get('season') ?? localDateISO().slice(0, 4);
 const sort = Astro.url.searchParams.get('sort') ?? 'contributions';
 const direction = Astro.url.searchParams.get('direction') ?? 'desc';
 let totalGoalsAll = 0;
 let errorMessage = '',
   selectedWeek = Astro.url.searchParams.get('week') ?? '';
-let years: string[] = [String(new Date().getFullYear())],
+let years: string[] = [localDateISO().slice(0, 4)],
   weeklyMatches: MatchSummary[] = [],
   performance: PlayerPerformance[] = [];
 let weeklyTeams: { id: string; name: string; colorHex: string }[] = [];

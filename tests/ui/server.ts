@@ -30,6 +30,10 @@ await db.exec(await readFile('supabase/migrations/202609210005_time_limit_reason
 await db.exec(await readFile('supabase/migrations/202609210006_snapshot_date_range.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609210007_session_team_players_captain.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609210008_round_goalkeeper.sql', 'utf8'));
+await db.exec(await readFile('supabase/migrations/202609220001_create_session_rpc.sql', 'utf8'));
+await db.exec(
+  await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
+);
 await db.query("INSERT INTO sessions(id,session_date) VALUES($1,'2026-09-03')", [sid]);
 for (const t of teams) {
   await db.query('INSERT INTO session_teams(id,session_id,name,color_hex) VALUES($1,$2,$3,$4)', [

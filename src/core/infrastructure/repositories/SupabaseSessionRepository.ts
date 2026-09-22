@@ -8,6 +8,7 @@ import type {
 import { Session, type SessionStatus } from '../../domain/entities/Session';
 import { Team, type TeamPlayer } from '../../domain/entities/Team';
 import { executeWithSchemaFallback } from '../database/schemaResilience';
+import { DatabaseError } from '../database/DatabaseError';
 
 interface SessionRow {
   id: string;
@@ -156,141 +157,41 @@ export class SupabaseSessionRepository implements ISessionRepository {
     return this.mapSessionToDomain(data as SessionRow);
   }
 
+  /**
+   * Sessão, times e escalações numa única transação (society_create_session,
+   * migração 202609220001). Com inserts separados, uma falha no meio deixava uma sessão
+   * órfã que bloqueava novas tentativas para a mesma data.
+   */
   public async create(session: Session, teams?: CreateSessionTeamInput[]): Promise<Session> {
-    // 1. Criar sessão
-    const { data: sessionData, error: sessionError } = await executeWithSchemaFallback<SessionRow>(
-      'sessions',
-      {
-        session_date: session.sessionDate,
-        status: session.status,
-        notes: session.notes || null,
-        match_duration_seconds: session.matchDurationSeconds ?? 420,
-      },
-      (cleanPayload) => this.client.from('sessions').insert(cleanPayload).select('*').single()
-    );
-
-    if (sessionError || !sessionData) {
-      throw new Error(`Erro ao criar sessão: ${sessionError?.message}`);
-    }
-
-    const createdSessionId = sessionData.id as string;
-    const createdTeams: Team[] = [];
-
-    // 2. Criar os times e vincular jogadores se fornecidos
-    if (teams && teams.length > 0) {
-      for (const teamInput of teams) {
-        const { data: teamData, error: teamError } = await executeWithSchemaFallback<TeamRow>(
-          'session_teams',
-          {
-            session_id: createdSessionId,
-            name: teamInput.name,
-            color_hex: teamInput.colorHex || '#333333',
-            captain_id: teamInput.captainId || null,
-          },
-          (cleanPayload) =>
-            this.client.from('session_teams').insert(cleanPayload).select('*').single()
-        );
-
-        if (teamError || !teamData) {
-          throw new Error(`Erro ao criar time '${teamInput.name}': ${teamError?.message}`);
-        }
-
-        const teamPlayers: TeamPlayer[] = [];
-
-        if (teamInput.players && teamInput.players.length > 0) {
-          const normalized = teamInput.players.map((p) =>
-            typeof p === 'string'
-              ? { playerId: p, isGoalkeeper: false, isLoaned: false }
-              : {
-                  playerId: p.playerId,
-                  isGoalkeeper: p.isGoalkeeper ?? false,
-                  isLoaned: p.isLoaned ?? false,
-                }
-          );
-
-          const playerRows = normalized.map((p) => ({
-            session_team_id: teamData.id,
-            player_id: p.playerId,
-            is_loaned: p.isLoaned,
-            is_goalkeeper: p.isGoalkeeper,
-            is_captain: teamInput.captainId === p.playerId,
-          }));
-
-          const { error: playersError } = await executeWithSchemaFallback(
-            'session_team_players',
-            playerRows,
-            (cleanPayload) => this.client.from('session_team_players').insert(cleanPayload)
-          );
-
-          if (playersError) {
-            throw new Error(
-              `Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`
-            );
-          }
-
-          teamPlayers.push(
-            ...normalized.map((p) => ({
+    const payload = (teams ?? []).map((team) => ({
+      name: team.name,
+      colorHex: team.colorHex || '#333333',
+      captainId: team.captainId || null,
+      players: (team.players?.length ? team.players : (team.playerIds ?? [])).map((p) =>
+        typeof p === 'string'
+          ? { playerId: p, isGoalkeeper: false, isLoaned: false }
+          : {
               playerId: p.playerId,
-              isLoaned: p.isLoaned,
-              isGoalkeeper: p.isGoalkeeper,
-              isCaptain: teamInput.captainId === p.playerId,
-            }))
-          );
-        } else if (teamInput.playerIds && teamInput.playerIds.length > 0) {
-          const playerRows = teamInput.playerIds.map((playerId) => ({
-            session_team_id: teamData.id,
-            player_id: playerId,
-            is_loaned: false,
-            is_goalkeeper: false,
-            is_captain: teamInput.captainId === playerId,
-          }));
+              isGoalkeeper: p.isGoalkeeper ?? false,
+              isLoaned: p.isLoaned ?? false,
+            }
+      ),
+    }));
 
-          const { error: playersError } = await executeWithSchemaFallback(
-            'session_team_players',
-            playerRows,
-            (cleanPayload) => this.client.from('session_team_players').insert(cleanPayload)
-          );
-
-          if (playersError) {
-            throw new Error(
-              `Erro ao vincular jogadores ao time '${teamInput.name}': ${playersError.message}`
-            );
-          }
-
-          teamPlayers.push(
-            ...teamInput.playerIds.map((pid) => ({
-              playerId: pid,
-              isLoaned: false,
-              isGoalkeeper: false,
-              isCaptain: teamInput.captainId === pid,
-            }))
-          );
-        }
-
-        createdTeams.push(
-          new Team({
-            id: teamData.id,
-            sessionId: createdSessionId,
-            name: teamData.name,
-            colorHex: teamData.color_hex,
-            captainId: teamData.captain_id || teamInput.captainId || null,
-            players: teamPlayers,
-            createdAt: new Date(teamData.created_at),
-          })
-        );
-      }
-    }
-
-    return new Session({
-      id: createdSessionId,
-      sessionDate: sessionData.session_date,
-      status: sessionData.status,
-      notes: sessionData.notes,
-      matchDurationSeconds:
-        sessionData.match_duration_seconds ?? session.matchDurationSeconds ?? 420,
-      teams: createdTeams,
-      createdAt: new Date(sessionData.created_at),
+    const { data, error } = await this.client.rpc('society_create_session', {
+      p_date: session.sessionDate,
+      p_notes: session.notes || null,
+      p_duration: session.matchDurationSeconds ?? 420,
+      p_teams: payload,
     });
+
+    if (error) throw new DatabaseError(error.message, error.code);
+
+    const created = await this.findById(data as string);
+    if (!created) {
+      throw new Error('Rodada criada, mas não foi possível carregá-la. Recarregue a página.');
+    }
+    return created;
   }
 
   public async updateStatus(id: string, status: SessionStatus): Promise<void> {

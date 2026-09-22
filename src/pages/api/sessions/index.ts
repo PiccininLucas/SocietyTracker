@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { SupabaseSessionRepository } from '../../../core/infrastructure/repositories/SupabaseSessionRepository';
 import { CreateSessionUseCase } from '../../../core/application/use-cases/CreateSessionUseCase';
+import { apiError } from '../../../core/infrastructure/http/matchApi';
 
 export const prerender = false;
 
@@ -81,10 +82,12 @@ export const POST: APIRoute = async ({ request }) => {
       status: 201,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao criar sessão.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
+  } catch (error) {
+    // Data repetida -> 409; validação -> 400; banco fora do ar -> 503. Antes tudo saía
+    // como 400 com a mensagem crua do Postgres.
+    return apiError(
+      error,
+      'Servidor indisponível no momento. Os times não foram salvos; tente de novo.'
     );
   }
 };

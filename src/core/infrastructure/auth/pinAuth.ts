@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export const ADMIN_COOKIE_NAME = 'society_admin_session';
 export const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60; // 24 horas (86400s)
@@ -47,20 +47,30 @@ export function getAdminPin(): string {
   return DEV_FALLBACK_PIN;
 }
 
+/**
+ * Em produção, sem `SESSION_SECRET` a sessão não é emitida nem aceita: o segredo padrão
+ * está neste repositório e bastaria para forjar o cookie de administrador.
+ */
 export function getSessionSecret(): string {
   const secret = readSecretEnv('SESSION_SECRET');
   if (secret) return secret;
-  warnOnceInProduction('SESSION_SECRET');
+  if (isProduction()) {
+    throw new Error(
+      'SESSION_SECRET não está definida no ambiente de produção. Defina a variável para liberar o login.'
+    );
+  }
   return DEV_FALLBACK_SECRET;
 }
 
+const pinDigest = (value: string) => createHash('sha256').update(value).digest();
+
 /**
- * Valida se o PIN informado confere com a variável ADMIN_PIN
+ * Valida se o PIN informado confere com a variável ADMIN_PIN.
+ * Compara os digests em tempo constante para não revelar o PIN pelo tempo de resposta.
  */
 export function verifyPin(inputPin: string): boolean {
   if (!inputPin) return false;
-  const currentPin = getAdminPin();
-  return inputPin.trim() === currentPin;
+  return timingSafeEqual(pinDigest(inputPin.trim()), pinDigest(getAdminPin()));
 }
 
 function getDerivedHmacKey(): string {
@@ -123,16 +133,25 @@ export function validateSessionToken(token?: string | null): boolean {
   }
 }
 
+interface CookieReader {
+  get(name: string): { value: string } | undefined;
+}
+
 /**
- * Verifica se a requisição possui autenticação válida por Cookie ou Header
+ * Verifica se a requisição possui um cookie de sessão válido.
+ *
+ * O PIN só é aceito em `/api/auth/login`, que aplica o limite de tentativas. Aceitá-lo
+ * também em headers (`x-admin-pin`, `Authorization: Bearer`) permitia testar todos os
+ * PINs por `/api/auth/status` sem passar por esse limite.
  */
-export function isAuthenticatedFromRequest(cookies: any, request?: Request): boolean {
-  // 1. Verifica via cookie de sessão
+export function isAuthenticatedFromRequest(
+  cookies: CookieReader | null | undefined,
+  request?: Request
+): boolean {
   let cookieToken: string | undefined;
 
   if (cookies && typeof cookies.get === 'function') {
-    const cookieObj = cookies.get(ADMIN_COOKIE_NAME);
-    cookieToken = cookieObj?.value;
+    cookieToken = cookies.get(ADMIN_COOKIE_NAME)?.value;
   } else if (request) {
     const cookieHeader = request.headers.get('cookie') || '';
     const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${ADMIN_COOKIE_NAME}=([^;]+)`));
@@ -141,25 +160,5 @@ export function isAuthenticatedFromRequest(cookies: any, request?: Request): boo
     }
   }
 
-  if (cookieToken && validateSessionToken(cookieToken)) {
-    return true;
-  }
-
-  // 2. Verifica via Header de Autorização ou x-admin-pin
-  if (request) {
-    const pinHeader = request.headers.get('x-admin-pin');
-    if (pinHeader && verifyPin(pinHeader)) {
-      return true;
-    }
-
-    const authHeader = request.headers.get('authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const bearerToken = authHeader.substring(7).trim();
-      if (verifyPin(bearerToken) || validateSessionToken(bearerToken)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return Boolean(cookieToken && validateSessionToken(cookieToken));
 }

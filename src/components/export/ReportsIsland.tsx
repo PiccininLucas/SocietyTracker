@@ -3,6 +3,7 @@ import type { RoundHighlightsOutputDTO } from '../../core/application/dtos/Round
 import type { PeriodLeaderboardOutputDTO } from '../../core/application/dtos/PeriodLeaderboardDTO';
 import { RoundSummaryCard } from './RoundSummaryCard';
 import { PeriodLeaderboardCard } from './PeriodLeaderboardCard';
+import { localDateISO } from '../../core/domain/services/CompetitionService';
 
 export interface SessionOption {
   id: string;
@@ -52,7 +53,7 @@ export const ReportsIsland: React.FC<ReportsIslandProps> = ({
   const [selectedYear, setSelectedYear] = useState(initialYearData?.year ?? 'all');
   const years = [
     ...new Set([
-      String(new Date().getFullYear()),
+      localDateISO().slice(0, 4),
       ...sessions.map((s) => s.sessionDate.slice(0, 4)),
     ]),
   ]

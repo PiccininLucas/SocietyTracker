@@ -84,9 +84,10 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[auth] Falha ao processar login:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao processar login.' }),
+      JSON.stringify({ error: 'Erro ao processar login. Tente novamente em instantes.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

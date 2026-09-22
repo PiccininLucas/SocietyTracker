@@ -357,13 +357,24 @@ export function playerPerformance(
       a.name.localeCompare(b.name, 'pt-BR')
   );
 }
-// Data civil local no formato YYYY-MM-DD. A pelada é jogada à noite: `toISOString()`
-// devolveria o dia seguinte a partir das 21h em UTC-3, gravando a rodada na data errada.
+/** Fuso da pelada. O servidor (Vercel) roda em UTC; o navegador, no fuso do aparelho. */
+export const APP_TIME_ZONE = 'America/Sao_Paulo';
+
+const civilDateParts = new Intl.DateTimeFormat('en-US', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+// Data civil de Brasília no formato YYYY-MM-DD. A pelada é jogada à noite: em UTC (o
+// relógio do servidor, e o de `toISOString()`) já é o dia seguinte a partir das 21h,
+// o que mudava a semana e, em 31/12, o ano padrão das páginas.
 export function localDateISO(reference: Date = new Date()) {
-  const year = reference.getFullYear();
-  const month = String(reference.getMonth() + 1).padStart(2, '0');
-  const day = String(reference.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const parts = Object.fromEntries(
+    civilDateParts.formatToParts(reference).map((p) => [p.type, p.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 export function weekRange(date: string) {
   const d = new Date(date + 'T12:00:00Z');

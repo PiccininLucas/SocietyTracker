@@ -1,5 +1,6 @@
 ---
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
+import { APP_TIME_ZONE } from '../../core/domain/services/CompetitionService';
 
 export interface Props {
   match: MatchSummary;
@@ -43,7 +44,12 @@ const formatTime = (isoString?: string | null) => {
   if (!isoString) return '';
   try {
     const date = new Date(isoString);
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    // Sem timeZone, o servidor (UTC) mostrava o início 3h adiantado.
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: APP_TIME_ZONE,
+    });
   } catch {
     return '';
   }

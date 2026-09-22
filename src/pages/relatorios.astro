@@ -12,6 +12,7 @@ import {
   type MonthOption,
 } from '../components/export/ReportsIsland';
 import type { RoundHighlightsOutputDTO } from '../core/application/dtos/RoundHighlightsDTO';
+import { localDateISO } from '../core/domain/services/CompetitionService';
 import type { PeriodLeaderboardOutputDTO } from '../core/application/dtos/PeriodLeaderboardDTO';
 
 export const prerender = false;
@@ -76,9 +77,7 @@ try {
 
   // Se não houver sessões, adiciona o mês corrente
   if (monthSet.size === 0) {
-    const now = new Date();
-    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    monthSet.add(currentYM);
+    monthSet.add(localDateISO().slice(0, 7));
   }
 
   const sortedMonths = Array.from(monthSet).sort().reverse();
@@ -107,7 +106,7 @@ try {
 
   initialYearData = await periodUseCase.execute({
     type: 'year',
-    year: String(new Date().getFullYear()),
+    year: localDateISO().slice(0, 4),
     preloadedData,
   });
 

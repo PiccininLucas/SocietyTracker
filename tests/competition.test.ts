@@ -7,6 +7,7 @@ import {
   playerPerformance,
   weekRange,
   scoreFromEvents,
+  localDateISO,
 } from '../src/core/domain/services/CompetitionService';
 import { timerNow, projectPending, applyMatchResult, type SessionCache } from '../src/components/live/matchSync';
 import type {
@@ -180,6 +181,13 @@ test('jogos ativos não pontuam; gols contra não contam para o jogador', () => 
     standings([{ ...m, status: 'ongoing' }], teams).reduce((n, t) => n + t.played, 0),
     0
   );
+});
+test('data de hoje segue Brasília mesmo com o servidor em UTC', () => {
+  // 22h de quinta em Brasília = 01h de sexta em UTC: a rodada ainda é de quinta.
+  assert.equal(localDateISO(new Date('2026-09-25T01:00:00Z')), '2026-09-24');
+  // Virada do ano: 31/12 às 21h30 em Brasília já é 2027 em UTC.
+  assert.equal(localDateISO(new Date('2027-01-01T00:30:00Z')), '2026-12-31');
+  assert.equal(localDateISO(new Date('2026-09-24T15:00:00Z')), '2026-09-24');
 });
 test('semana cruza mês/ano sem agrupar nomes; cronômetro continua após zero e respeita pausa', () => {
   assert.deepEqual(weekRange('2026-01-01'), { start: '2025-12-29', end: '2026-01-04' });

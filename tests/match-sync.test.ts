@@ -4,6 +4,7 @@ import {
   projectPending,
   sendCommand,
   CommandRejectedError,
+  AuthRequiredError,
   type PendingCommand,
 } from '../src/components/live/matchSync.ts';
 import type { MatchSummary } from '../src/core/domain/repositories/IMatchRepository.ts';
@@ -149,6 +150,32 @@ describe('sendCommand error classification', () => {
   it('fails clearly when a 200 response has no match payload', async () => {
     respondWith(200, {});
     await assert.rejects(sendCommand(command), /incompleta/i);
+  });
+
+  it('treats 401 as "login again", never as a rejection that drops the goal', async () => {
+    respondWith(401, { error: 'Acesso não autorizado.' });
+    await assert.rejects(sendCommand(command), (e: Error) => {
+      assert.ok(e instanceof AuthRequiredError);
+      assert.ok(!(e instanceof CommandRejectedError));
+      return true;
+    });
+  });
+
+  it('reports network failures in Portuguese and keeps them retryable', async () => {
+    const cases: [unknown, RegExp][] = [
+      [new TypeError('Failed to fetch'), /Sem conexão/],
+      [new DOMException('signal timed out', 'TimeoutError'), /demorou/],
+    ];
+    for (const [failure, expected] of cases) {
+      globalThis.fetch = (async () => {
+        throw failure;
+      }) as unknown as typeof fetch;
+      await assert.rejects(sendCommand(command), (e: Error) => {
+        assert.ok(!(e instanceof CommandRejectedError));
+        assert.match(e.message, expected);
+        return true;
+      });
+    }
   });
 });
 

@@ -1,5 +1,6 @@
 import type { ISessionRepository } from '../../domain/repositories/ISessionRepository';
 import { Session, assertValidRoundFormat } from '../../domain/entities/Session';
+import { DomainError } from '../../domain/errors/DomainError';
 import type {
   CreateSessionInputDTO,
   CreateSessionOutputDTO,
@@ -10,7 +11,7 @@ export class CreateSessionUseCase {
 
   public async execute(input: CreateSessionInputDTO): Promise<CreateSessionOutputDTO> {
     if (!input.sessionDate || input.sessionDate.trim() === '') {
-      throw new Error('Data da rodada é obrigatória.');
+      throw new DomainError('Data da rodada é obrigatória.');
     }
 
     assertValidRoundFormat(input.teams);

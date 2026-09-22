@@ -587,8 +587,9 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Erro ao salvar rodada.');
+        // 502/504 do gateway vêm em HTML; sem o catch aparecia "Unexpected token '<'".
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || 'Erro ao salvar rodada.');
       }
 
       const created = await res.json();
