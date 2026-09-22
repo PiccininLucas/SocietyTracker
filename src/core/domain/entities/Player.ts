@@ -59,13 +59,24 @@ export class Player {
     return this.props.createdAt;
   }
 
-  public updateInfo(name: string, nickname?: string | null, isGoalkeeper?: boolean): void {
-    if (!name || name.trim().length === 0) {
-      throw new Error('Nome do jogador é obrigatório.');
+  /**
+   * Atualização parcial: um campo `undefined` significa "não informado" e é preservado.
+   * Para limpar o apelido é preciso enviar `null` (ou string vazia) explicitamente —
+   * antes, omitir o campo apagava o apelido do atleta sem possibilidade de recuperação.
+   */
+  public updateInfo(name?: string, nickname?: string | null, isGoalkeeper?: boolean): void {
+    if (name !== undefined) {
+      if (name.trim().length === 0) {
+        throw new Error('Nome do jogador é obrigatório.');
+      }
+      this.props.name = name.trim();
     }
 
-    this.props.name = name.trim();
-    this.props.nickname = nickname ? nickname.trim() : null;
+    if (nickname !== undefined) {
+      const trimmed = nickname?.trim();
+      this.props.nickname = trimmed ? trimmed : null;
+    }
+
     if (typeof isGoalkeeper === 'boolean') {
       this.props.isGoalkeeper = isGoalkeeper;
     }

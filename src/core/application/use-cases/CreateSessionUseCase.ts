@@ -1,5 +1,5 @@
 import type { ISessionRepository } from '../../domain/repositories/ISessionRepository';
-import { Session } from '../../domain/entities/Session';
+import { Session, assertValidRoundFormat } from '../../domain/entities/Session';
 import type {
   CreateSessionInputDTO,
   CreateSessionOutputDTO,
@@ -12,6 +12,8 @@ export class CreateSessionUseCase {
     if (!input.sessionDate || input.sessionDate.trim() === '') {
       throw new Error('Data da rodada é obrigatória.');
     }
+
+    assertValidRoundFormat(input.teams);
 
     const session = new Session({
       sessionDate: input.sessionDate.trim(),

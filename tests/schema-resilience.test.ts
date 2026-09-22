@@ -8,12 +8,70 @@ import {
 describe('Schema Resilience & Auto Migration Fallback', () => {
   it('should correctly extract missing column name from PostgREST errors', () => {
     const err1 = "Could not find the 'is_goalkeeper' column of 'players' in the schema cache";
-    assert.equal(extractMissingColumn(err1), 'is_goalkeeper');
+    assert.deepEqual(extractMissingColumn(err1), { column: 'is_goalkeeper', source: 'cache' });
 
     const err2 = 'column "is_loaned" of relation "session_team_players" does not exist';
-    assert.equal(extractMissingColumn(err2), 'is_loaned');
+    assert.deepEqual(extractMissingColumn(err2), { column: 'is_loaned', source: 'ddl' });
 
     assert.equal(extractMissingColumn('Other unrelated database error'), null);
+  });
+
+  it('must NOT treat a NOT NULL violation as a missing column', () => {
+    // O PostgreSQL cita coluna e relação com as mesmas palavras nesta mensagem. Tratá-la
+    // como coluna ausente fazia o campo ser removido do payload e a linha ser gravada sem
+    // ele — com resposta de sucesso.
+    const notNull =
+      'null value in column "match_duration_seconds" of relation "sessions" violates not-null constraint';
+    assert.equal(extractMissingColumn(notNull), null);
+
+    const checkViolation =
+      'new row for relation "matches" violates check constraint "matches_home_score_check"';
+    assert.equal(extractMissingColumn(checkViolation), null);
+  });
+
+  it('should surface a NOT NULL violation as an error instead of silently dropping the column', async () => {
+    let callCount = 0;
+    const mockOperation = async (payload: any) => {
+      callCount++;
+      if (payload.match_duration_seconds === null) {
+        return {
+          data: null,
+          error: {
+            message:
+              'null value in column "match_duration_seconds" of relation "sessions" violates not-null constraint',
+          },
+        };
+      }
+      return { data: { id: 's-1', ...payload }, error: null };
+    };
+
+    const result = await executeWithSchemaFallback(
+      'mock_sessions',
+      { session_date: '2026-09-24', match_duration_seconds: null },
+      mockOperation
+    );
+
+    // Sem retentativa: o erro chega ao chamador em vez de virar um 201 com dado perdido.
+    assert.equal(callCount, 1);
+    assert.ok(result.error);
+    assert.deepEqual(result.droppedColumns, []);
+  });
+
+  it('should report which columns were dropped', async () => {
+    const result = await executeWithSchemaFallback(
+      'mock_reporting',
+      { name: 'Ney', is_goalkeeper: true },
+      async (payload: any) =>
+        payload.is_goalkeeper !== undefined
+          ? {
+              data: null,
+              error: { message: 'column "is_goalkeeper" of relation "mock_reporting" does not exist' },
+            }
+          : { data: payload, error: null }
+    );
+
+    assert.equal(result.error, null);
+    assert.deepEqual(result.droppedColumns, ['is_goalkeeper']);
   });
 
   it('should auto-strip missing columns and retry successfully', async () => {

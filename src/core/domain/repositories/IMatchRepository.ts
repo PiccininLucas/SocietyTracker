@@ -39,7 +39,14 @@ export interface MatchPlayerSummary {
   nickname: string | null;
   avatarUrl?: string | null;
   isCaptain: boolean;
+  /** Congelado quando a partida começou. Use para o histórico. */
   isGoalkeeper: boolean;
+  /**
+   * Goleiro na escalação desta rodada, lido ao vivo. A função de goleiro vale por noite,
+   * então é este campo que decide a imunidade no "Bola Murcha" — `isGoalkeeper` pode
+   * estar desatualizado se a escalação foi ajustada depois da partida.
+   */
+  isRoundGoalkeeper?: boolean;
   isLoaned: boolean;
   goals: number;
   assists: number;
@@ -88,6 +95,15 @@ export interface IMatchRepository {
   getEventsByMatchId(matchId: string): Promise<MatchEvent[]>;
   getLeaderboard(): Promise<LeaderboardItem[]>;
   getLeaderboardByDateRange(startDate?: string, endDate?: string): Promise<LeaderboardItem[]>;
-  getMatchesSummary(sessionId?: string): Promise<MatchSummary[]>;
+  /**
+   * Partidas com eventos e escalações. Sem argumentos devolve o histórico inteiro, então
+   * informe `startDate`/`endDate` (YYYY-MM-DD) sempre que o recorte for conhecido — o
+   * filtro acontece no banco, não em memória.
+   */
+  getMatchesSummary(
+    sessionId?: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<MatchSummary[]>;
   getMatchById(matchId: string): Promise<MatchSummary | null>;
 }

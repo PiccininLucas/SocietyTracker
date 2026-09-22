@@ -12,7 +12,8 @@ export class UpdatePlayerUseCase {
       throw new Error('ID do jogador é obrigatório.');
     }
 
-    if (!input.name || input.name.trim() === '') {
+    // PATCH é atualização parcial: só validamos o nome quando ele foi informado.
+    if (input.name !== undefined && input.name.trim() === '') {
       throw new Error('Nome do jogador é obrigatório.');
     }
 

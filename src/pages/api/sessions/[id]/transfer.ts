@@ -18,6 +18,9 @@ export const POST: APIRoute = async ({ request, params }) => {
       toTeamId: body.toTeamId,
       playerId: body.playerId,
       isLoaned: body.isLoaned,
+      // Sem isto o goleiro chegava ao time de destino como jogador de linha, e o
+      // match_participants da partida seguinte herdava a flag errada.
+      isGoalkeeper: body.isGoalkeeper,
     });
 
     return new Response(JSON.stringify(result), {

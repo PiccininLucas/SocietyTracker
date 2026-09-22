@@ -35,9 +35,18 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
       finishedAt: m.finishedAt ? new Date(m.finishedAt) : null,
     });
   }
-  async getMatchesSummary(sessionId?: string): Promise<MatchSummary[]> {
-    const { data, error } = await this.client.rpc('society_matches_snapshot', {
+  async getMatchesSummary(
+    sessionId?: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<MatchSummary[]> {
+    // `_ranged` e não `society_matches_snapshot`: a função antiga tem assinatura de 1
+    // argumento e continua existindo, porque as migrações deste projeto são reaplicáveis
+    // e recriá-la geraria sobrecarga ambígua. Ver 202609210006.
+    const { data, error } = await this.client.rpc('society_matches_snapshot_ranged', {
       p_session_id: sessionId ?? null,
+      p_start_date: startDate ?? null,
+      p_end_date: endDate ?? null,
     });
     if (error)
       throw new Error('Falha ao ler partidas. Verifique a migração 202609090001: ' + error.message);
@@ -96,11 +105,19 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
     );
   }
   async update(match: Match) {
+    // Uma partida já encerrada em memória precisa do comando 'finish': com 'score' o
+    // status nunca era persistido e o chamador recebia de volta um 'finished' que só
+    // existia no objeto. O placar acompanha os dois comandos.
+    const finishing = match.status === 'finished';
     const result = await this.executeCommand({
-      action: 'score',
+      action: finishing ? 'finish' : 'score',
       matchId: match.id,
       operationId: crypto.randomUUID(),
-      input: { homeScore: match.homeScore, awayScore: match.awayScore },
+      input: {
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        ...(finishing ? { durationSeconds: match.durationSeconds } : {}),
+      },
     });
     return this.domain(result.match);
   }
@@ -171,13 +188,15 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
     return this.getLeaderboardByDateRange();
   }
   async getLeaderboardByDateRange(start?: string, end?: string): Promise<LeaderboardItem[]> {
-    const [all, players, historical] = await Promise.all([
-      this.getMatchesSummary(),
+    // O recorte vai para o SQL. Antes trazíamos o histórico inteiro e filtrávamos aqui,
+    // descartando em memória quase tudo o que o banco acabara de serializar.
+    const [matches, players, historical] = await Promise.all([
+      this.getMatchesSummary(undefined, start, end),
       new SupabasePlayerRepository(this.client).findAll(),
       new SupabaseHistoricalRepository(this.client).findAll(),
     ]);
     return playerPerformance(
-      all.filter((m) => (!start || m.sessionDate >= start) && (!end || m.sessionDate <= end)),
+      matches,
       players.map((p) => ({
         id: p.id!,
         name: p.name,

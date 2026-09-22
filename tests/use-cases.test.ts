@@ -791,7 +791,7 @@ describe('Use Cases Business Logic', () => {
           {
             name: 'Time Preto',
             colorHex: '#1f2937',
-            playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'],
+            playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
           },
           {
             name: 'Time Branco',
@@ -810,7 +810,7 @@ describe('Use Cases Business Logic', () => {
       assert.equal(result.sessionDate, '2026-08-20');
       assert.equal(result.matchDurationSeconds, 480);
       assert.equal(result.teams.length, 3);
-      assert.equal(result.teams[0].playersCount, 7);
+      assert.equal(result.teams[0].playersCount, 6);
       assert.equal(result.teams[1].playersCount, 6);
       assert.equal(result.teams[2].playersCount, 6);
     });
@@ -1225,11 +1225,19 @@ describe('Use Cases Business Logic', () => {
             captainId: 'p-chitao',
             playerIds: ['p-chitao', 'p-pedro'],
           },
+          // A rodada exige no mínimo 3 times; este não participa da troca sob teste.
+          {
+            name: 'Time Ana',
+            colorHex: '#3b82f6',
+            captainId: 'p-ana',
+            playerIds: ['p-ana'],
+          },
         ],
       });
 
       const team1Id = created.teams[0].id;
       const team2Id = created.teams[1].id;
+      const team3Id = created.teams[2].id;
 
       const updateUseCase = new UpdateSessionTeamsUseCase(sessionRepo);
 
@@ -1255,10 +1263,16 @@ describe('Use Cases Business Logic', () => {
             captainId: 'p-chitao',
             players: [{ playerId: 'p-chitao', isGoalkeeper: false, isCaptain: true }],
           },
+          {
+            id: team3Id,
+            name: 'Time Ana',
+            captainId: 'p-ana',
+            players: [{ playerId: 'p-ana', isGoalkeeper: false, isCaptain: true }],
+          },
         ],
       });
 
-      assert.equal(updated.teams.length, 2);
+      assert.equal(updated.teams.length, 3);
       const team1 = updated.teams.find((t) => t.id === team1Id);
       assert.ok(team1);
       assert.equal(team1.name, 'Time Lucas');

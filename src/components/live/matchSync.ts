@@ -37,6 +37,25 @@ export function timerNow(timer: TimerState, now = Date.now()) {
   const delta = timer.running ? Math.max(0, Math.floor((now - timer.anchor) / 1000)) : 0;
   return { remaining: Math.max(0, timer.remaining - delta), elapsed: timer.elapsed + delta };
 }
+/**
+ * O servidor recusou a operação por um motivo que não muda com o tempo (400/404/409...).
+ * Reenviá-la só bloquearia tudo o que vier depois na fila.
+ */
+export class CommandRejectedError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = 'CommandRejectedError';
+  }
+}
+
+/** 4xx é definitivo, exceto os que pedem explicitamente para tentar de novo. */
+function isRetryable(status: number) {
+  return status >= 500 || status === 408 || status === 429;
+}
+
 export async function sendCommand(command: PendingCommand): Promise<MatchSummary> {
   let path = command.action === 'start' ? '/api/matches/start' : '/api/matches/' + command.matchId;
   let method = 'POST';
@@ -54,12 +73,38 @@ export async function sendCommand(command: PendingCommand): Promise<MatchSummary
     headers: { 'Content-Type': 'application/json', 'Idempotency-Key': command.operationId },
     ...(method === 'DELETE' ? {} : { body: JSON.stringify(command.input) }),
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? 'Não foi possível salvar. Tente novamente.');
+
+  // Um 502/504 do gateway responde HTML: `res.json()` lançaria SyntaxError antes de
+  // chegarmos ao tratamento de status, e o mesário veria "Unexpected token '<'".
+  const body = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const message =
+      body?.error ??
+      (isRetryable(res.status)
+        ? 'Servidor indisponível no momento.'
+        : 'Não foi possível salvar. Tente novamente.');
+    if (!isRetryable(res.status)) throw new CommandRejectedError(message, res.status);
+    throw new Error(message);
+  }
+  if (!body?.match) throw new Error('Resposta do servidor incompleta. Tente novamente.');
   return body.match as MatchSummary;
 }
 export function projectPending(matches: MatchSummary[], pending: PendingCommand[]): MatchSummary[] {
-  const byId = new Map(matches.map((m) => [m.matchId, { ...m, events: [...(m.events ?? [])] }]));
+  // A cópia precisa incluir homePlayers/awayPlayers: a projeção empurra o jogador
+  // emprestado nesses arrays e, com cópia rasa, isso mutava o cache original — que é
+  // gravado no localStorage e alimenta ranking e classificação.
+  const byId = new Map(
+    matches.map((m) => [
+      m.matchId,
+      {
+        ...m,
+        events: [...(m.events ?? [])],
+        homePlayers: m.homePlayers ? [...m.homePlayers] : m.homePlayers,
+        awayPlayers: m.awayPlayers ? [...m.awayPlayers] : m.awayPlayers,
+      },
+    ])
+  );
   for (const op of pending) {
     const m = byId.get(op.matchId ?? '');
     if (!m) continue;

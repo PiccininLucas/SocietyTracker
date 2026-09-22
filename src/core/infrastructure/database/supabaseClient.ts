@@ -3,9 +3,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 // Função para buscar e limpar variáveis de ambiente
 function getEnv(key: string): string {
   const g = globalThis as any;
+  // Só `process.env`. Um acesso por índice dinâmico em `import.meta.env` não é
+  // substituído estaticamente pelo Vite: em vez disso ele embute o objeto de ambiente
+  // INTEIRO no artefato de servidor — inclusive ADMIN_PIN e as chaves do Supabase.
   let val = (
     (typeof process !== 'undefined' && process.env?.[key]) ||
-    (import.meta.env as any)?.[key] ||
     (typeof g.process !== 'undefined' && g.process?.env?.[key]) ||
     ''
   ).trim();
@@ -75,11 +77,12 @@ function getServerSecretKey(): string {
     );
   }
 
+  // Nunca `import.meta.env` aqui: é acesso estático, então o Vite grava a chave secreta
+  // em texto claro dentro do bundle de servidor em tempo de build. A chave é lida do
+  // ambiente em tempo de execução.
   const g = globalThis as any;
   const key = (
     (typeof process !== 'undefined' && (process.env?.SUPABASE_SECRET_KEY || process.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
-    (import.meta.env as any)?.SUPABASE_SECRET_KEY ||
-    (import.meta.env as any)?.SUPABASE_SERVICE_ROLE_KEY ||
     (typeof g.process !== 'undefined' && (g.process?.env?.SUPABASE_SECRET_KEY || g.process?.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
     ''
   ).trim();
@@ -103,14 +106,45 @@ export function getSupabaseAdminClient(): SupabaseClient {
   }
 
   const secretKey = getServerSecretKey();
-  const activeKey = secretKey || supabasePublishableKey;
 
-  return createClient(supabaseUrl, activeKey);
+  // Sem degradação silenciosa: todas as RPCs têm GRANT EXECUTE apenas para service_role,
+  // inclusive as de leitura. Caindo para a chave publicável, cada requisição falhava com
+  // "permission denied for function ..." mapeado para 400 — apontando para a causa
+  // errada e tornando o diagnóstico demorado justamente durante o jogo.
+  if (!secretKey) {
+    throw new Error(
+      'Configuração ausente: defina SUPABASE_SECRET_KEY (ou SUPABASE_SERVICE_ROLE_KEY) ' +
+        'no ambiente do servidor. A chave publicável não tem permissão para as operações ' +
+        'de partida.'
+    );
+  }
+
+  return createClient(supabaseUrl, secretKey);
 }
 
 /**
  * Cliente Supabase Admin para uso no servidor (SSR / API / Repositórios do servidor).
- * No navegador, este objeto é nulo/fallback para o cliente público para evitar vazamentos.
+ *
+ * Criado sob demanda, na primeira utilização. Antes era instanciado no load do módulo —
+ * que é importado transitivamente por quase toda página — então um erro de configuração
+ * derrubaria o site inteiro no import, em vez de falhar na operação que precisa da chave.
+ *
+ * No navegador o acesso lança: nenhuma ilha deve importar um repositório, e degradar em
+ * silêncio para o cliente público apenas esconderia esse engano até virar erro de
+ * permissão confuso.
  */
-export const supabaseAdmin: SupabaseClient =
-  typeof window === 'undefined' ? getSupabaseAdminClient() : supabase;
+let adminClient: SupabaseClient | null = null;
+
+export const supabaseAdmin: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    if (typeof window !== 'undefined') {
+      throw new Error(
+        'Security Exception: supabaseAdmin não pode ser usado no navegador. ' +
+          'Use uma rota de API em src/pages/api em vez de importar o repositório na ilha.'
+      );
+    }
+    if (!adminClient) adminClient = getSupabaseAdminClient();
+    const value = (adminClient as any)[prop];
+    return typeof value === 'function' ? value.bind(adminClient) : value;
+  },
+});

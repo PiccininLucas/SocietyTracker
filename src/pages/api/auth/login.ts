@@ -5,28 +5,64 @@ import {
   ADMIN_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
 } from '../../../core/infrastructure/auth/pinAuth';
+import {
+  clientKey,
+  checkThrottle,
+  registerFailure,
+  clearFailures,
+} from '../../../core/infrastructure/auth/loginThrottle';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
+  const key = clientKey(request, clientAddress);
   try {
+    const verdict = checkThrottle(key);
+    if (verdict.blocked) {
+      console.warn(`[auth] Login bloqueado por excesso de tentativas. Origem: ${key}`);
+      return new Response(
+        JSON.stringify({
+          error: 'Muitas tentativas. Aguarde alguns minutos antes de tentar de novo.',
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(verdict.retryAfterSeconds),
+          },
+        }
+      );
+    }
+
     let pin = '';
     const contentType = request.headers.get('content-type') || '';
 
     if (contentType.includes('application/json')) {
-      const body = await request.json();
-      pin = body.pin;
+      // Sem a checagem de tipo, `{"pin": 1234}` fazia verifyPin chamar .trim() num
+      // número e a rota respondia 500 com o erro interno em vez de 401.
+      const body = await request.json().catch(() => null);
+      if (typeof body?.pin === 'string') pin = body.pin;
+      else if (typeof body?.pin === 'number') pin = String(body.pin);
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       const formData = await request.formData();
-      pin = (formData.get('pin') as string) || '';
+      const field = formData.get('pin');
+      pin = typeof field === 'string' ? field : '';
     }
 
     if (!pin || !verifyPin(pin)) {
+      registerFailure(key);
+      const left = checkThrottle(key);
+      console.warn(
+        `[auth] Tentativa de login recusada. Origem: ${key}. ` +
+          (left.blocked ? 'Limite atingido.' : `Restam ${left.remaining} tentativas na janela.`)
+      );
       return new Response(
         JSON.stringify({ error: 'PIN incorreto. Verifique e tente novamente.' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    clearFailures(key);
 
     // Gera token assinado válido por 24 horas
     const token = generateSessionToken(pin.trim());

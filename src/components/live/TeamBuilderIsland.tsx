@@ -17,6 +17,8 @@ import {
   Star,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
+import { localDateISO } from '../../core/domain/services/CompetitionService';
+import { ROUND_RULES } from '../../core/domain/entities/Session';
 import { EditPlayerModal, type EditablePlayerData } from '../ui/EditPlayerModal';
 
 export interface PlayerItem {
@@ -41,6 +43,16 @@ interface TeamBuilderIslandProps {
   initialPlayers: PlayerItem[];
 }
 
+/** Fisher-Yates: cada permutação com a mesma probabilidade. */
+function shuffle<T>(items: readonly T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 const ALL_AVAILABLE_TEAMS: { id: string; name: string; colorHex: string; colorName: string }[] = [
   { id: 'team-1', name: 'Time Preto', colorHex: '#1f2937', colorName: 'Preto' },
   { id: 'team-2', name: 'Time Branco', colorHex: '#e5e7eb', colorName: 'Branco' },
@@ -50,10 +62,7 @@ const ALL_AVAILABLE_TEAMS: { id: string; name: string; colorHex: string; colorNa
 
 export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPlayers }) => {
   const [allPlayers, setAllPlayers] = useState<PlayerItem[]>(initialPlayers);
-  const [sessionDate, setSessionDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [sessionDate, setSessionDate] = useState(() => localDateISO());
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -235,22 +244,36 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     });
   };
 
-  // Adicionar jogador ao time (SEM LIMITE RÍGIDO DE 6 JOGADORES)
+  // Adicionar jogador ao time. Teto de 6 por time e 24 por rodada (ROUND_RULES).
   const handleAssignToTeam = (player: PlayerItem, teamId: string) => {
+    const target = teams.find((t) => t.id === teamId);
+    if (!target || target.players.some((p) => p.id === player.id)) return;
+
+    if (target.players.length >= ROUND_RULES.MAX_PLAYERS_PER_TEAM) {
+      setErrorMessage(
+        `${target.name || target.defaultName} já está completo com ` +
+          `${ROUND_RULES.MAX_PLAYERS_PER_TEAM} jogadores. Tire alguém antes de adicionar outro.`
+      );
+      return;
+    }
+
+    if (totalAssigned >= ROUND_RULES.MAX_PLAYERS_PER_ROUND) {
+      setErrorMessage(
+        `A rodada já tem os ${ROUND_RULES.MAX_PLAYERS_PER_ROUND} jogadores do limite.`
+      );
+      return;
+    }
+
+    setErrorMessage(null);
     setTeams((prev) =>
-      prev.map((t) => {
-        if (t.id === teamId) {
-          if (t.players.some((p) => p.id === player.id)) return t;
-          return {
-            ...t,
-            players: [
-              ...t.players,
-              { ...player, isGoalkeeper: player.isGoalkeeper ?? false },
-            ],
-          };
-        }
-        return t;
-      })
+      prev.map((t) =>
+        t.id === teamId
+          ? {
+              ...t,
+              players: [...t.players, { ...player, isGoalkeeper: player.isGoalkeeper ?? false }],
+            }
+          : t
+      )
     );
   };
 
@@ -323,17 +346,22 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   // Sorteio automático equilibrado entre os times escolhidos (3 ou 4) com os presentes
   const handleAutoDraw = () => {
     if (presentPlayers.length === 0) {
-      alert('Selecione os atletas presentes antes de realizar o sorteio.');
+      setErrorMessage('Selecione os atletas presentes antes de realizar o sorteio.');
       return;
     }
+
+    const MAX_PER_TEAM = ROUND_RULES.MAX_PLAYERS_PER_TEAM;
 
     // 1. Separa goleiros e atletas de linha presentes
     const goalkeepers = presentPlayers.filter((p) => p.isGoalkeeper);
     const outfielders = presentPlayers.filter((p) => !p.isGoalkeeper);
 
-    // 2. Embaralha ambos os grupos (Fisher-Yates)
-    const shuffledGKs = [...goalkeepers].sort(() => Math.random() - 0.5);
-    const shuffledOutfielders = [...outfielders].sort(() => Math.random() - 0.5);
+    // 2. Embaralha ambos os grupos (Fisher-Yates de verdade).
+    //    O `sort(() => Math.random() - 0.5)` que estava aqui não produz permutação
+    //    uniforme — o TimSort do V8 preserva parte da ordem original, e num sorteio
+    //    semanal isso faz os mesmos jogadores caírem sistematicamente nos mesmos times.
+    const shuffledGKs = shuffle(goalkeepers);
+    const shuffledOutfielders = shuffle(outfielders);
 
     // 3. Inicializa os 3 ou 4 times vazios
     const newTeams: TeamDraft[] = ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({
@@ -343,22 +371,34 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       players: [],
     }));
 
+    const capacity = () => newTeams.filter((t) => t.players.length < MAX_PER_TEAM);
+    const sobraram: string[] = [];
+
     // 4. Distribui os goleiros primeiro (1 por time, se possível)
     shuffledGKs.forEach((gk, index) => {
       const targetTeamIndex = index % newTeams.length;
-      newTeams[targetTeamIndex].players.push({
+      const target = newTeams[targetTeamIndex];
+      if (target.players.length >= MAX_PER_TEAM) {
+        sobraram.push(gk.nickname || gk.name);
+        return;
+      }
+      target.players.push({
         ...gk,
         isGoalkeeper: true,
       });
     });
 
-    // 5. Distribui os jogadores de linha equitativamente
+    // 5. Distribui os jogadores de linha equitativamente, respeitando o teto de 6
     shuffledOutfielders.forEach((player) => {
       // Prioriza times com menos jogadores para balancear
-      const sortedTeamsByCount = [...newTeams].sort(
+      const sortedTeamsByCount = capacity().sort(
         (a, b) => a.players.length - b.players.length
       );
       const targetTeam = sortedTeamsByCount[0];
+      if (!targetTeam) {
+        sobraram.push(player.nickname || player.name);
+        return;
+      }
       targetTeam.players.push({
         ...player,
         isGoalkeeper: false,
@@ -366,6 +406,12 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     });
 
     setTeams(newTeams);
+    setErrorMessage(
+      sobraram.length
+        ? `${teamCount} times × ${MAX_PER_TEAM} comportam ${teamCount * MAX_PER_TEAM} jogadores. ` +
+            `Ficaram de fora: ${sobraram.join(', ')}. Ajuste a presença ou o número de times.`
+        : null
+    );
   };
 
   // Limpar todos os times
@@ -468,9 +514,31 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
 
   // Salvar a Sessão e ir para o Mesário
   const handleSaveSession = async () => {
-    if (totalAssigned < teamCount * 2) {
+    // Mesmas regras de ROUND_RULES que a API aplica — aqui só para avisar antes do envio.
+    const vazios = teams.filter((t) => t.players.length === 0);
+    if (vazios.length) {
       setErrorMessage(
-        `Distribua pelo menos ${teamCount * 2} jogadores nos times antes de iniciar.`
+        `Todo time precisa de pelo menos um jogador. Sem ninguém: ` +
+          `${vazios.map((t) => t.name || t.defaultName).join(', ')}.`
+      );
+      return;
+    }
+
+    const cheios = teams.filter((t) => t.players.length > ROUND_RULES.MAX_PLAYERS_PER_TEAM);
+    if (cheios.length) {
+      setErrorMessage(
+        `Cada time pode ter no máximo ${ROUND_RULES.MAX_PLAYERS_PER_TEAM} jogadores. ` +
+          `Acima do limite: ${cheios
+            .map((t) => `${t.name || t.defaultName} (${t.players.length})`)
+            .join(', ')}.`
+      );
+      return;
+    }
+
+    if (totalAssigned > ROUND_RULES.MAX_PLAYERS_PER_ROUND) {
+      setErrorMessage(
+        `A rodada comporta no máximo ${ROUND_RULES.MAX_PLAYERS_PER_ROUND} jogadores ` +
+          `(escalados: ${totalAssigned}).`
       );
       return;
     }

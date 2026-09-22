@@ -27,6 +27,7 @@ type Step = 'select_scorer' | 'select_assist' | 'select_loan_scorer' | 'select_l
 export const GoalDrawer: React.FC<GoalDrawerProps> = ({
   isOpen,
   team,
+  opponentTeam,
   availableLoanPlayers = [],
   onConfirmGoal,
   onClose,
@@ -82,13 +83,21 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({
   };
 
   // Gol Contra
+  //
+  // A gaveta é aberta pelo time que MARCOU — é nele que o mesário toca. Um gol contra é,
+  // então, um jogador do ADVERSÁRIO que mandou na própria meta.
+  //
+  // O contrato de dados é o inverso disso, de propósito: `teamId` é o time que COMETEU o
+  // gol contra, e o ponto vai para o outro (a regra vive em `scoreFromEvents` e no
+  // trigger `society_event_score`). Por isso enviamos aqui o id do adversário. Antes
+  // enviávamos `team.id`, e o ponto acabava indo para o time errado.
   const handleSelectOwnGoal = () => {
-    if (confirming.current) return;
+    if (confirming.current || !opponentTeam) return;
     confirming.current = true;
     hapticFeedback.goal();
     soundFx.playGoalSound();
     onConfirmGoal({
-      teamId: team.id,
+      teamId: opponentTeam.id,
       scorerId: null,
       assistId: null,
       isOwnGoal: true,
@@ -248,14 +257,21 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={handleSelectOwnGoal}
-                    className="min-h-[48px] w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-rose-950/40 hover:bg-rose-900/50 active:scale-[0.98] border border-rose-800/40 text-rose-300 font-bold text-sm transition-all touch-press-scale"
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    <span>Registrar Gol Contra (Adversário)</span>
-                  </button>
+                  {opponentTeam && (
+                    <button
+                      type="button"
+                      onClick={handleSelectOwnGoal}
+                      className="min-h-[48px] w-full flex flex-col items-center justify-center gap-0.5 px-4 py-3 rounded-2xl bg-rose-950/40 hover:bg-rose-900/50 active:scale-[0.98] border border-rose-800/40 text-rose-300 font-bold text-sm transition-all touch-press-scale"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4" />
+                        <span>Gol Contra</span>
+                      </span>
+                      <span className="text-[11px] font-medium text-rose-400/80 normal-case">
+                        Marcado por jogador do {opponentTeam.name} · ponto para {team.name}
+                      </span>
+                    </button>
+                  )}
                 </div>
               </>
             )}

@@ -42,6 +42,15 @@ async function setup(applyMigration = true) {
     await db.exec(migration);
     await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
     await db.exec(await readFile('supabase/migrations/202609210001_loan_in_goal.sql', 'utf8'));
+    await db.exec(
+      await readFile('supabase/migrations/202609210002_finish_applies_score.sql', 'utf8')
+    );
+    await db.exec(await readFile('supabase/migrations/202609210003_revoke_roster_writes.sql', 'utf8'));
+    await db.exec(await readFile('supabase/migrations/202609210004_hot_path_indexes.sql', 'utf8'));
+    await db.exec(await readFile('supabase/migrations/202609210005_time_limit_reason.sql', 'utf8'));
+    await db.exec(await readFile('supabase/migrations/202609210006_snapshot_date_range.sql', 'utf8'));
+    await db.exec(await readFile('supabase/migrations/202609210007_session_team_players_captain.sql', 'utf8'));
+    await db.exec(await readFile('supabase/migrations/202609210008_round_goalkeeper.sql', 'utf8'));
   }
   async function command(
     action: string,
@@ -440,3 +449,181 @@ test('empréstimo de jogador no gol adiciona participante como emprestado na par
   }
 });
 
+
+test('finalizar com placar corrigido no mesmo comando persiste o placar novo', async () => {
+  const { db, sid, teams, players, command, snapshot } = await setup();
+  try {
+    const match = await command('start', null, {
+      sessionId: sid,
+      homeTeamId: teams[0],
+      awayTeamId: teams[1],
+    });
+    await command('goal', match.match_id, { teamId: teams[0], scorerId: players[0] });
+    assert.equal((await snapshot())[0].homeScore, 1);
+
+    // Mesário corrige 1x0 -> 1x1 E finaliza no mesmo PATCH. Antes desta correção o ramo
+    // que aplica o placar era exclusivo de p_action='score', então a partida era
+    // encerrada 1x0 e a API ainda respondia 200.
+    await command('finish', match.match_id, {
+      homeScore: 1,
+      awayScore: 1,
+      durationSeconds: 420,
+      status: 'finished',
+    });
+
+    const [finished] = await snapshot();
+    assert.equal(finished.homeScore, 1);
+    assert.equal(finished.awayScore, 1);
+    assert.equal(finished.status, 'finished');
+  } finally {
+    await db.close();
+  }
+});
+
+test('finalizar sem placar no payload não altera o placar existente', async () => {
+  const { db, sid, teams, players, command, snapshot } = await setup();
+  try {
+    const match = await command('start', null, {
+      sessionId: sid,
+      homeTeamId: teams[0],
+      awayTeamId: teams[1],
+    });
+    await command('goal', match.match_id, { teamId: teams[0], scorerId: players[0] });
+    await command('finish', match.match_id, { durationSeconds: 300 });
+
+    const [finished] = await snapshot();
+    assert.equal(finished.homeScore, 1);
+    assert.equal(finished.awayScore, 0);
+    assert.equal(finished.status, 'finished');
+  } finally {
+    await db.close();
+  }
+});
+
+test('motivo do encerramento distingue 2 gols, fim de tempo e encerramento antecipado', async () => {
+  const { db, sid, teams, players, command } = await setup();
+  const reason = async (id: string) =>
+    (await db.query<{ end_reason: string }>('SELECT end_reason FROM matches WHERE id=$1', [id]))
+      .rows[0].end_reason;
+  try {
+    const start = { sessionId: sid, homeTeamId: teams[0], awayTeamId: teams[1] };
+
+    // 1. Regra dos dois gols: encerra sozinha no servidor.
+    const a = await command('start', null, start);
+    await command('goal', a.match_id, { teamId: teams[0], scorerId: players[0] });
+    await command('goal', a.match_id, { teamId: teams[0], scorerId: players[1] });
+    assert.equal(await reason(a.match_id), 'two_goals');
+
+    // 2. Cronômetro zerado e mesário encerra: o caso normal da pelada.
+    const b = await command('start', null, start);
+    await command('goal', b.match_id, { teamId: teams[0], scorerId: players[0] });
+    await command('finish', b.match_id, { durationSeconds: 420 });
+    assert.equal(await reason(b.match_id), 'time_limit');
+
+    // 3. Encerrada antes do tempo (abandono, lesão): segue sendo 'manual'.
+    const c = await command('start', null, start);
+    await command('finish', c.match_id, { durationSeconds: 90 });
+    assert.equal(await reason(c.match_id), 'manual');
+  } finally {
+    await db.close();
+  }
+});
+
+test('snapshot com recorte de datas filtra no SQL e convive com a função antiga', async () => {
+  const { db, sid, teams, players, command } = await setup();
+  const ranged = async (start?: string, end?: string) =>
+    (
+      await db.query<{ d: { sessionDate: string }[] }>(
+        'SELECT society_matches_snapshot_ranged(NULL,$1,$2) d',
+        [start ?? null, end ?? null]
+      )
+    ).rows[0].d ?? [];
+  try {
+    const m = await command('start', null, {
+      sessionId: sid,
+      homeTeamId: teams[0],
+      awayTeamId: teams[1],
+    });
+    await command('goal', m.match_id, { teamId: teams[0], scorerId: players[0] });
+    // A rodada do setup é 2026-09-03.
+    assert.equal((await ranged()).length, 1);
+    assert.equal((await ranged('2026-09-01', '2026-09-30')).length, 1);
+    assert.equal((await ranged('2026-09-04')).length, 0, 'início depois da rodada exclui');
+    assert.equal((await ranged(undefined, '2026-09-02')).length, 0, 'fim antes da rodada exclui');
+    assert.equal((await ranged('2026-10-01', '2026-10-31')).length, 0, 'outro mês exclui');
+
+    // A função de 1 argumento continua existindo e sem ambiguidade — reaplicar uma
+    // migração antiga a recria, e foi assim que a troca de assinatura quebrou o app.
+    await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
+    const legacy = await db.query<{ d: unknown[] }>('SELECT society_matches_snapshot($1) d', [sid]);
+    assert.equal(legacy.rows[0].d.length, 1);
+    assert.equal((await ranged('2026-09-01', '2026-09-30')).length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test('is_captain existe, é preenchido a partir de captain_id e não diverge dele', async () => {
+  const { db, sid, teams, players } = await setup();
+  try {
+    await db.query('UPDATE session_teams SET captain_id=$1 WHERE id=$2', [players[0], teams[0]]);
+    // Backfill da migração roda uma vez; aqui simulamos uma edição posterior pela RPC.
+    await db.query('SELECT society_update_teams($1,$2)', [
+      sid,
+      JSON.stringify([
+        {
+          id: teams[0],
+          captainId: players[1],
+          players: [
+            { playerId: players[0], isGoalkeeper: false },
+            { playerId: players[1], isGoalkeeper: true },
+          ],
+        },
+      ]),
+    ]);
+
+    const rows = await db.query<{ player_id: string; is_captain: boolean }>(
+      'SELECT player_id, is_captain FROM session_team_players WHERE session_team_id=$1 ORDER BY player_id',
+      [teams[0]]
+    );
+    const marcado = rows.rows.filter((r) => r.is_captain).map((r) => r.player_id);
+    assert.deepEqual(marcado, [players[1]], 'só o capitão de captain_id fica marcado');
+
+    const team = await db.query<{ captain_id: string }>(
+      'SELECT captain_id FROM session_teams WHERE id=$1',
+      [teams[0]]
+    );
+    assert.equal(team.rows[0].captain_id, players[1], 'captain_id segue sendo a fonte');
+  } finally {
+    await db.close();
+  }
+});
+
+test('snapshot expõe isRoundGoalkeeper vindo da escalação, não do retrato da partida', async () => {
+  const { db, sid, teams, players, command, snapshot } = await setup();
+  try {
+    // players[1] é goleiro do time 0 no setup; players[0] não é.
+    const m = await command('start', null, {
+      sessionId: sid,
+      homeTeamId: teams[0],
+      awayTeamId: teams[1],
+    });
+    await command('goal', m.match_id, { teamId: teams[0], scorerId: players[0] });
+    await command('finish', m.match_id, { durationSeconds: 420 });
+
+    // A escalação muda depois da partida ENCERRADA: o retrato congela, a escalação não.
+    // (Com partida em andamento o trigger society_roster_participation propaga a mudança
+    // para o retrato, o que é o comportamento desejado enquanto o jogo corre.)
+    await db.query('UPDATE session_team_players SET is_goalkeeper=TRUE WHERE player_id=$1', [
+      players[0],
+    ]);
+
+    const [match] = await snapshot();
+    const p0 = match.homePlayers?.find((p) => p.id === players[0]);
+    assert.ok(p0);
+    assert.equal(p0.isGoalkeeper, false, 'retrato da partida preserva o que era verdade');
+    assert.equal(p0.isRoundGoalkeeper, true, 'escalação da rodada manda para a regra da noite');
+  } finally {
+    await db.close();
+  }
+});

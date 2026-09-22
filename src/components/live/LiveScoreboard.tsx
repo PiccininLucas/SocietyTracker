@@ -187,6 +187,7 @@ export function LiveScoreboard({
       <GoalDrawer
         isOpen={!!goalTeam}
         team={goalTeam}
+        opponentTeam={goalTeam ? opponentTeam : null}
         availableLoanPlayers={availableLoanPlayers}
         onClose={() => setGoalTeam(null)}
         onConfirmGoal={(data) =>

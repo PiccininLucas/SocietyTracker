@@ -1,7 +1,7 @@
 import React from 'react';
 import type { PlayerPerformance } from '../../core/domain/services/CompetitionService';
 type SortKey =
-  'contributions' | 'goals' | 'assists' | 'played' | 'wins' | 'efficiency' | 'bottomCount' | 'name';
+  'contributions' | 'goals' | 'assists' | 'played' | 'wins' | 'efficiency' | 'bottomCount' | 'captaincies' | 'name';
 export function PlayerPerformanceTable({
   players,
   season,
@@ -23,6 +23,7 @@ export function PlayerPerformanceTable({
     'wins',
     'efficiency',
     'bottomCount',
+    'captaincies',
     'name',
   ];
   const key = keys.includes(sort as SortKey) ? (sort as SortKey) : 'contributions',
@@ -48,6 +49,7 @@ export function PlayerPerformanceTable({
     ['Rank G', 'goalRank'],
     ['Rank A', 'assistRank'],
     ['Bola Murcha', 'bottomCount', 'bottomCount'],
+    ['Capitão', 'captaincies', 'captaincies'],
   ];
   const href = (k: SortKey) =>
     '?' +

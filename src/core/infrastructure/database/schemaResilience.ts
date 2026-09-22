@@ -35,19 +35,36 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS match_duration_seconds INTEGER DEFAULT 420;
 `;
 
+export interface MissingColumn {
+  column: string;
+  /**
+   * `ddl`  — o PostgreSQL afirmou que a coluna não existe (fato de schema, seguro cachear).
+   * `cache` — o PostgREST não a encontrou no *seu* cache de schema, o que também acontece
+   *           nos primeiros segundos após uma migração. Não é seguro cachear.
+   */
+  source: 'ddl' | 'cache';
+}
+
 /**
- * Extrai o nome da coluna ausente da mensagem de erro do PostgREST / Supabase
+ * Extrai o nome da coluna ausente da mensagem de erro do PostgREST / Supabase.
+ *
+ * Só reconhece mensagens que afirmam que a coluna **não existe**. Violações de NOT NULL
+ * ("null value in column \"x\" of relation \"y\" violates not-null constraint") citam
+ * coluna e relação com as mesmas palavras e NÃO podem ser tratadas como coluna ausente —
+ * fazê-lo removia o campo do payload e gravava a linha sem ele.
  */
-export function extractMissingColumn(errorMessage?: string): string | null {
+export function extractMissingColumn(errorMessage?: string): MissingColumn | null {
   if (!errorMessage) return null;
 
-  // Padrão 1: Could not find the 'xyz' column of 'table' in the schema cache
-  const match1 = errorMessage.match(/Could not find the '([^']+)' column/i);
-  if (match1 && match1[1]) return match1[1];
+  // PostgREST PGRST204: Could not find the 'xyz' column of 'table' in the schema cache
+  const fromCache = errorMessage.match(/Could not find the '([^']+)' column/i);
+  if (fromCache?.[1]) return { column: fromCache[1], source: 'cache' };
 
-  // Padrão 2: column "xyz" of relation "table" does not exist
-  const match2 = errorMessage.match(/column ["']?([^"'\s]+)["']? of relation/i);
-  if (match2 && match2[1]) return match2[1];
+  // PostgreSQL 42703: column "xyz" of relation "table" does not exist
+  const fromDdl = errorMessage.match(
+    /column ["']?([^"'\s]+)["']? of relation ["']?[^"'\s]+["']? does not exist/i
+  );
+  if (fromDdl?.[1]) return { column: fromDdl[1], source: 'ddl' };
 
   return null;
 }
@@ -60,49 +77,59 @@ export async function executeWithSchemaFallback<T>(
   tableName: string,
   payload: Record<string, any> | Record<string, any>[],
   operation: (cleanPayload: any) => PromiseLike<{ data: T | null | any; error: any }>
-): Promise<{ data: T | null; error: any }> {
+): Promise<{ data: T | null; error: any; droppedColumns: string[] }> {
   const missingForTable = missingColumnsCache.get(tableName) || new Set<string>();
+  const dropped = new Set<string>(missingForTable);
 
-  const clean = (item: Record<string, any>) => {
+  const withoutColumns = (item: Record<string, any>, columns: Iterable<string>) => {
     const copy = { ...item };
-    for (const col of missingForTable) {
-      delete copy[col];
-    }
+    for (const col of columns) delete copy[col];
     return copy;
   };
+  const strip = (target: typeof payload, columns: Iterable<string>) =>
+    Array.isArray(target)
+      ? target.map((item) => withoutColumns(item, columns))
+      : withoutColumns(target, columns);
 
-  let currentPayload = Array.isArray(payload) ? payload.map(clean) : clean(payload);
-
+  let currentPayload = strip(payload, missingForTable);
   let result = await operation(currentPayload);
 
-  // Tentativas de autorrecuperação (até 5 colunas ausentes consecutivas)
+  // Autorrecuperação: até 5 colunas ausentes consecutivas.
   let attempts = 0;
   while (result.error && attempts < 5) {
-    const missingCol = extractMissingColumn(result.error.message);
-    if (!missingCol) break;
+    const missing = extractMissingColumn(result.error.message);
+    if (!missing) break;
 
-    // Registra a coluna ausente no cache para operações futuras
-    if (!missingColumnsCache.has(tableName)) {
-      missingColumnsCache.set(tableName, new Set<string>());
-    }
-    missingColumnsCache.get(tableName)!.add(missingCol);
-
-    // Remove a coluna ausente e tenta novamente
-    if (Array.isArray(currentPayload)) {
-      currentPayload = currentPayload.map((item) => {
-        const copy = { ...item };
-        delete copy[missingCol];
-        return copy;
-      });
-    } else {
-      delete currentPayload[missingCol];
+    // Só um erro de DDL do PostgreSQL é um fato de schema. O PGRST204 do PostgREST
+    // também aparece quando o cache de schema *dele* está velho — logo após uma
+    // migração — e cachear isso desligaria a coluna para sempre nesta instância.
+    if (missing.source === 'ddl') {
+      if (!missingColumnsCache.has(tableName)) missingColumnsCache.set(tableName, new Set());
+      missingColumnsCache.get(tableName)!.add(missing.column);
     }
 
+    dropped.add(missing.column);
+    currentPayload = strip(currentPayload, [missing.column]);
     result = await operation(currentPayload);
     attempts++;
   }
 
-  return result;
+  const droppedColumns = result.error ? [] : [...dropped];
+  if (droppedColumns.length) {
+    console.warn(
+      `[schemaResilience] Gravação em "${tableName}" concluída SEM as colunas ` +
+        `[${droppedColumns.join(', ')}] — esses dados foram descartados. ` +
+        `Aplique as migrações pendentes (veja RECOMMENDED_MIGRATIONS).`
+    );
+  }
+
+  return { ...result, droppedColumns };
+}
+
+/** Limpa o cache de colunas ausentes. Use após aplicar uma migração. */
+export function resetMissingColumnsCache(tableName?: string) {
+  if (tableName) missingColumnsCache.delete(tableName);
+  else missingColumnsCache.clear();
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   applyMatchResult,
   saveCache,
   sendCommand,
+  CommandRejectedError,
   type PendingCommand,
   type SessionCache,
   type TimerState,
@@ -45,10 +46,25 @@ export function useMatchSession(sessionId: string) {
   const flush = useCallback(async () => {
     if (pumping.current) return;
     pumping.current = true;
+    let rejected = '';
     try {
       while (ref.current.pending.length) {
         const op = ref.current.pending[0];
-        const match = await sendCommand(op);
+        let match: MatchSummary;
+        try {
+          match = await sendCommand(op);
+        } catch (e) {
+          if (!(e instanceof CommandRejectedError)) throw e;
+          // Recusa definitiva do servidor: reenviar não muda nada e a operação
+          // bloquearia todos os lances seguintes da fila. Descarta e segue.
+          rejected = e.message;
+          revision.current++;
+          commit({
+            ...ref.current,
+            pending: ref.current.pending.filter((p) => p.operationId !== op.operationId),
+          });
+          continue;
+        }
         revision.current++;
         commit({
           ...applyMatchResult(ref.current, match),
@@ -58,6 +74,8 @@ export function useMatchSession(sessionId: string) {
         setNotice(match.deletedAt ? 'Partida apagada. Estatísticas atualizadas.' : op.action === 'finish' ? 'Partida finalizada e salva.' : 'Alteração salva.');
       }
       await refresh();
+      if (rejected)
+        setError(rejected + ' O registro foi descartado; confira a súmula antes de seguir.');
     } catch (e) {
       setError(
         (e instanceof Error ? e.message : 'Falha de rede.') +

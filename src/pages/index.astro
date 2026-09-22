@@ -8,6 +8,7 @@ import { SupabasePlayerRepository } from '../core/infrastructure/repositories/Su
 import {
   playerPerformance,
   weekRange,
+  localDateISO,
   type PlayerPerformance,
 } from '../core/domain/services/CompetitionService';
 import type { MatchSummary } from '../core/domain/repositories/IMatchRepository';
@@ -33,8 +34,11 @@ let weeklyTeams: { id: string; name: string; colorHex: string }[] = [];
 let weekLabel = '';
 try {
   const matchRepo = new SupabaseMatchRepository();
-  const [matches, sessions, players, historical] = await Promise.all([
-    matchRepo.getMatchesSummary(),
+
+  // As rodadas vêm primeiro porque a semana padrão é a da rodada mais recente, e é ela
+  // que define o intervalo das partidas. Buscar as partidas depois custa uma ida a mais
+  // ao banco, e evita trazer o histórico inteiro para descartar quase tudo em memória.
+  const [sessions, players, historical] = await Promise.all([
     new SupabaseSessionRepository().findAll(),
     new SupabasePlayerRepository().findAll(),
     new SupabaseHistoricalRepository().findAll(),
@@ -43,8 +47,17 @@ try {
     .sort()
     .reverse();
   if (!selectedWeek)
-    selectedWeek = sessions[0]?.sessionDate ?? new Date().toISOString().slice(0, 10);
+    selectedWeek = sessions[0]?.sessionDate ?? localDateISO();
   const range = weekRange(selectedWeek);
+
+  // A tela mostra duas coisas com recortes diferentes: o ranking da temporada e a tabela
+  // da semana escolhida. Elas podem não se sobrepor (temporada 2025 com a semana atual
+  // selecionada), então buscamos a união — e nada além dela.
+  const seasonStart = season === 'all' ? undefined : `${season}-01-01`;
+  const seasonEnd = season === 'all' ? undefined : `${season}-12-31`;
+  const fetchStart = seasonStart && (range.start < seasonStart ? range.start : seasonStart);
+  const fetchEnd = seasonEnd && (range.end > seasonEnd ? range.end : seasonEnd);
+  const matches = await matchRepo.getMatchesSummary(undefined, fetchStart, fetchEnd);
   weekLabel =
     range.start.split('-').reverse().join('/') + ' a ' + range.end.split('-').reverse().join('/');
   weeklyMatches = matches.filter((m) => m.sessionDate >= range.start && m.sessionDate <= range.end);

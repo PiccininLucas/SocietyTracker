@@ -1,4 +1,5 @@
 import type { ISessionRepository } from '../../domain/repositories/ISessionRepository';
+import { assertValidRoundFormat } from '../../domain/entities/Session';
 import type {
   UpdateSessionTeamsInputDTO,
   UpdateSessionTeamsOutputDTO,
@@ -21,6 +22,10 @@ export class UpdateSessionTeamsUseCase {
         throw new Error('Nome do time não pode ser vazio.');
       }
     }
+
+    // Editar os times da rodada precisa respeitar o mesmo formato da criação — senão o
+    // teto de 6 por time e 24 por rodada seria contornável pela tela de edição.
+    assertValidRoundFormat(input.teams);
 
     const updatedTeams = await this.sessionRepository.updateTeams(
       input.sessionId,

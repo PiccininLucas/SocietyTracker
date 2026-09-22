@@ -3,22 +3,55 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export const ADMIN_COOKIE_NAME = 'society_admin_session';
 export const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60; // 24 horas (86400s)
 
-export function getAdminPin(): string {
+const DEV_FALLBACK_PIN = '1234';
+const DEV_FALLBACK_SECRET = 'society_salt_2026_default_secret_key';
+
+/**
+ * Lê a variável em tempo de execução.
+ *
+ * Lê só de `process.env`, nunca de `import.meta.env`. O Vite resolve `import.meta.env`
+ * **em tempo de build**: no acesso estático ele inlina o valor no artefato, e no acesso
+ * por índice dinâmico ele embute o objeto de ambiente inteiro. Nos dois casos o PIN
+ * acabava em texto claro no bundle de servidor e trocá-lo no painel da Vercel não tinha
+ * efeito sem um novo deploy.
+ */
+function readSecretEnv(key: 'ADMIN_PIN' | 'SESSION_SECRET'): string {
   const g = globalThis as any;
-  const envPin =
-    import.meta.env?.ADMIN_PIN ||
-    (typeof g.process !== 'undefined' && g.process?.env?.ADMIN_PIN) ||
-    '1234';
-  return envPin.toString().trim();
+  const fromProcess = typeof process !== 'undefined' ? process.env?.[key] : undefined;
+  const fromGlobalProcess = typeof g.process !== 'undefined' ? g.process?.env?.[key] : undefined;
+  return String(fromProcess || fromGlobalProcess || '').trim();
+}
+
+function isProduction(): boolean {
+  const g = globalThis as any;
+  const nodeEnv =
+    (typeof process !== 'undefined' ? process.env?.NODE_ENV : undefined) ||
+    (typeof g.process !== 'undefined' ? g.process?.env?.NODE_ENV : undefined);
+  return nodeEnv === 'production';
+}
+
+const warned = new Set<string>();
+function warnOnceInProduction(key: string) {
+  if (!isProduction() || warned.has(key)) return;
+  warned.add(key);
+  console.error(
+    `[pinAuth] ${key} não está definida no ambiente. Usando o valor padrão do código, ` +
+      `que é público neste repositório. Defina ${key} nas variáveis de ambiente.`
+  );
+}
+
+export function getAdminPin(): string {
+  const pin = readSecretEnv('ADMIN_PIN');
+  if (pin) return pin;
+  warnOnceInProduction('ADMIN_PIN');
+  return DEV_FALLBACK_PIN;
 }
 
 export function getSessionSecret(): string {
-  const g = globalThis as any;
-  const secret =
-    import.meta.env?.SESSION_SECRET ||
-    (typeof g.process !== 'undefined' && g.process?.env?.SESSION_SECRET) ||
-    'society_salt_2026_default_secret_key';
-  return secret.toString().trim();
+  const secret = readSecretEnv('SESSION_SECRET');
+  if (secret) return secret;
+  warnOnceInProduction('SESSION_SECRET');
+  return DEV_FALLBACK_SECRET;
 }
 
 /**

@@ -47,6 +47,30 @@ describe('Player Domain Entity Rules', () => {
 
     assert.throws(() => player.updateInfo('  '), /Nome do jogador é obrigatório/);
   });
+
+  it('must preserve the nickname when the field is omitted (partial update)', () => {
+    const player = new Player({ name: 'Francisco Oliveira', nickname: 'Chitão' });
+
+    // PATCH marcando só o goleiro: antes isto apagava o apelido para sempre.
+    player.updateInfo(undefined, undefined, true);
+
+    assert.equal(player.nickname, 'Chitão');
+    assert.equal(player.displayName, 'Chitão');
+    assert.equal(player.name, 'Francisco Oliveira');
+    assert.equal(player.isGoalkeeper, true);
+  });
+
+  it('must clear the nickname only when null or empty is sent explicitly', () => {
+    const player = new Player({ name: 'Francisco Oliveira', nickname: 'Chitão' });
+
+    player.updateInfo(undefined, null);
+    assert.equal(player.nickname, null);
+    assert.equal(player.displayName, 'Francisco Oliveira');
+
+    const other = new Player({ name: 'Ana Souza', nickname: 'Aninha' });
+    other.updateInfo(undefined, '   ');
+    assert.equal(other.nickname, null);
+  });
 });
 
 describe('Match Domain Entity Rules', () => {

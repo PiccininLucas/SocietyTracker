@@ -2,10 +2,11 @@
 import Layout from '../layouts/Layout.astro';
 import { PinLoginPad } from '../components/live/PinLoginPad';
 import { isAuthenticatedFromRequest } from '../core/infrastructure/auth/pinAuth';
+import { safeRedirect } from '../core/infrastructure/auth/safeRedirect';
 
 export const prerender = false;
 
-const redirectParam = Astro.url.searchParams.get('redirect') || '/rodada/mesario';
+const redirectParam = safeRedirect(Astro.url.searchParams.get('redirect'));
 
 // Se o usuário já possui sessão válida, redireciona direto
 const isAuth = isAuthenticatedFromRequest(Astro.cookies, Astro.request);

@@ -1,5 +1,6 @@
 import type { IMatchRepository } from '../../domain/repositories/IMatchRepository';
 import type { LeaderboardItemDTO } from '../dtos/LeaderboardDTO';
+import { resolveMatchesPlayed } from '../dtos/performanceLeaderboard';
 
 export class GetLeaderboardUseCase {
   constructor(private matchRepository: IMatchRepository) {}
@@ -9,8 +10,7 @@ export class GetLeaderboardUseCase {
 
     return rawLeaderboard.map((item) => {
       const totalGoals = Number(item.totalGoals) || 0;
-      const totalMatchesPlayed = item.hasHistoricalTotals || item.totalMatchesPlayed === null
-        ? null : Number(item.totalMatchesPlayed ?? item.totalSessionsPlayed) || 0;
+      const totalMatchesPlayed = resolveMatchesPlayed(item);
       const goalsPerMatch =
         totalMatchesPlayed === null ? null : item.goalsPerMatch !== undefined && item.goalsPerMatch !== null
           ? Number(item.goalsPerMatch)

@@ -82,7 +82,10 @@ export function MatchEditor({
           </p>
           <p className="text-xs text-gray-300 mt-1">
             {event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName}
-            {event.isOwnGoal ? ' · ponto para o adversário' : ''}
+            {event.isOwnGoal
+              ? ' · gol contra · ponto para ' +
+                (event.teamId === match.homeTeamId ? match.awayTeamName : match.homeTeamName)
+              : ''}
           </p>
           {!event.isOwnGoal && (
             <p className="text-xs text-cyan-300 mt-1">
@@ -176,9 +179,9 @@ export function MatchEditor({
               {editing ? (
                 <>
                   <label className="block text-sm">
-                    Time
+                    {own ? 'Time que fez o gol contra' : 'Time do gol'}
                     <select
-                      aria-label="Time do gol"
+                      aria-label={own ? 'Time que fez o gol contra' : 'Time do gol'}
                       className={actionClass + ' w-full mt-1'}
                       value={team}
                       onChange={(e) => {
@@ -200,7 +203,13 @@ export function MatchEditor({
                         setAssist('');
                       }}
                     />
-                    Gol contra (ponto para o adversário)
+                    Gol contra
+                    {own && (
+                      <span className="text-xs text-gray-400">
+                        · ponto para{' '}
+                        {team === match.homeTeamId ? match.awayTeamName : match.homeTeamName}
+                      </span>
+                    )}
                   </label>
                   {!own && (
                     <>

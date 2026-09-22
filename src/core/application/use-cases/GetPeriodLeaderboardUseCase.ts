@@ -1,4 +1,5 @@
 import type { IMatchRepository, LeaderboardItem } from '../../domain/repositories/IMatchRepository';
+import { resolveMatchesPlayed } from '../dtos/performanceLeaderboard';
 import type {
   GetPeriodLeaderboardInputDTO,
   PeriodLeaderboardOutputDTO,
@@ -76,7 +77,7 @@ export class GetPeriodLeaderboardUseCase {
         totalGoals: item.totalGoals,
         totalAssists: item.totalAssists,
         totalContributions: item.totalContributions,
-        totalMatchesPlayed: item.hasHistoricalTotals ? null : item.totalMatchesPlayed ?? item.totalSessionsPlayed,
+        totalMatchesPlayed: resolveMatchesPlayed(item),
         totalSessionsPlayed: item.totalSessionsPlayed,
         goalsPerMatch: item.goalsPerMatch,
       }));
@@ -93,7 +94,7 @@ export class GetPeriodLeaderboardUseCase {
         return a.name.localeCompare(b.name);
       })
       .map((item): LeaderboardRankedItemDTO => {
-        const matchesCount = item.hasHistoricalTotals ? null : item.totalMatchesPlayed ?? item.totalSessionsPlayed;
+        const matchesCount = resolveMatchesPlayed(item);
         const avgGoals =
           matchesCount === null ? null : item.goalsPerMatch != null
             ? item.goalsPerMatch.toFixed(2)
@@ -132,7 +133,7 @@ export class GetPeriodLeaderboardUseCase {
         return a.name.localeCompare(b.name);
       })
       .map((item): LeaderboardRankedItemDTO => {
-        const matchesCount = item.hasHistoricalTotals ? null : item.totalMatchesPlayed ?? item.totalSessionsPlayed;
+        const matchesCount = resolveMatchesPlayed(item);
         return {
           rank: 1 + items.filter((other) => other.totalAssists > item.totalAssists).length,
           playerId: item.playerId,

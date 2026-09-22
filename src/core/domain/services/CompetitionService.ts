@@ -201,6 +201,8 @@ export interface PlayerPerformance {
   assistRank: number;
   bottomCount: number;
   sessions: number;
+  /** Rodadas em que atuou como capitão (uma por noite, não por partida). */
+  captaincies: number;
   inferred: boolean;
 }
 export function playerPerformance(
@@ -242,6 +244,7 @@ export function playerPerformance(
         assistRank: 0,
         bottomCount: 0,
         sessions: 0,
+        captaincies: 0,
         inferred: false,
         recordedGoals: 0,
       });
@@ -258,7 +261,15 @@ export function playerPerformance(
   }
   const round = new Map<
     string,
-    { playerId: string; date: string; g: number; a: number; gk: boolean; matches: Set<string> }
+    {
+      playerId: string;
+      date: string;
+      g: number;
+      a: number;
+      gk: boolean;
+      captain: boolean;
+      matches: Set<string>;
+    }
   >();
   for (const m of matches.filter((m) => m.status === 'finished')) {
     const seen = new Set<string>();
@@ -280,10 +291,23 @@ export function playerPerformance(
         else r.losses++;
         const key = m.sessionId + ':' + p.id;
         if (!round.has(key))
-          round.set(key, { playerId: p.id, date: m.sessionDate, g: 0, a: 0, gk: false, matches: new Set() });
+          round.set(key, {
+            playerId: p.id,
+            date: m.sessionDate,
+            g: 0,
+            a: 0,
+            gk: false,
+            captain: false,
+            matches: new Set(),
+          });
         const rr = round.get(key)!;
-        rr.gk ||= p.isGoalkeeper;
+        // Goleiro vale por noite: a escalação da rodada manda, e o retrato congelado da
+        // partida é só o fallback. Antes olhávamos só o retrato, enquanto o card da
+        // rodada olhava a escalação — o mesmo jogador ficava imune ao "Bola Murcha" numa
+        // tela e não na outra.
+        rr.gk ||= p.isRoundGoalkeeper ?? p.isGoalkeeper;
         rr.matches.add(m.matchId);
+        if (p.isCaptain) rr.captain = true;
       }
     }
     for (const e of m.events ?? []) {
@@ -309,6 +333,8 @@ export function playerPerformance(
   for (const rr of round.values()) {
     const r = rows.get(rr.playerId)!;
     r.sessions++;
+    // Capitania é por rodada: quem capitaneou em qualquer partida da noite conta uma vez.
+    if (rr.captain) r.captaincies++;
     if (rr.matches.size && !rr.gk && !rr.g && !rr.a
       && !isCoveredByHistoricalTotal(historical, rr.playerId, rr.date)) r.bottomCount++;
   }
@@ -330,6 +356,14 @@ export function playerPerformance(
       b.goals - a.goals ||
       a.name.localeCompare(b.name, 'pt-BR')
   );
+}
+// Data civil local no formato YYYY-MM-DD. A pelada é jogada à noite: `toISOString()`
+// devolveria o dia seguinte a partir das 21h em UTC-3, gravando a rodada na data errada.
+export function localDateISO(reference: Date = new Date()) {
+  const year = reference.getFullYear();
+  const month = String(reference.getMonth() + 1).padStart(2, '0');
+  const day = String(reference.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 export function weekRange(date: string) {
   const d = new Date(date + 'T12:00:00Z');

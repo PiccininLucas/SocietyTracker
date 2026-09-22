@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LiveScoreboard } from './LiveScoreboard';
 import { TeamRostersModal } from './TeamRostersModal';
 import { EditNightTeamsModal } from './EditNightTeamsModal';
@@ -8,7 +8,42 @@ import { projectPending, type PendingCommand } from './matchSync';
 import { recentMatches, sequences } from '../../core/domain/services/CompetitionService';
 import { TeamStandings } from '../stats/TeamStandings';
 import { ModalPortal } from '../ui/ModalPortal';
-import type { LiveTeam, LivePlayer } from './types';
+import {
+  MAX_GOALS_FOR_VICTORY,
+  DEFAULT_MATCH_DURATION_SECONDS,
+  type LiveTeam,
+  type LivePlayer,
+} from './types';
+import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
+
+/**
+ * O servidor encerra a partida ao atingir o limite de gols. Isso só pode ser lido do
+ * placar **confirmado**: usar o placar projetado travava a tela offline — com o 2º gol
+ * ainda pendente, os botões de gol sumiam e "Finalizar partida" ficava desabilitado,
+ * sem nenhum caminho para encerrar.
+ */
+function reachedGoalLimit(confirmed: MatchSummary[], matchId: string) {
+  const match = confirmed.find((m) => m.matchId === matchId);
+  if (!match || match.status !== 'ongoing') return false;
+  return match.homeScore >= MAX_GOALS_FOR_VICTORY || match.awayScore >= MAX_GOALS_FOR_VICTORY;
+}
+
+/**
+ * Times em ordem de espera: quem jogou há mais tempo vem primeiro, e quem nunca jogou na
+ * rodada vem antes de todos. O critério é o número da última partida disputada.
+ */
+export function waitingOrder(teams: LiveTeam[], matches: MatchSummary[]): LiveTeam[] {
+  const lastPlayed = new Map<string, number>();
+  for (const m of matches) {
+    if (m.status !== 'finished') continue;
+    const seq = m.sequence ?? 0;
+    for (const id of [m.homeTeamId, m.awayTeamId]) {
+      if (id) lastPlayed.set(id, Math.max(lastPlayed.get(id) ?? -1, seq));
+    }
+  }
+  return [...teams].sort((a, b) => (lastPlayed.get(a.id) ?? -1) - (lastPlayed.get(b.id) ?? -1));
+}
+
 export interface SessionData {
   id: string;
   sessionDate: string;
@@ -27,10 +62,14 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
     [away, setAway] = useState(session.teams[1]?.id ?? '');
   const [selected, setSelected] = useState<string | null>(null),
     [modal, setModal] = useState<'rosters' | 'edit' | null>(null);
-  const [teamError, setTeamError] = useState('');
   const sync = useMatchSession(session.id);
   const pending = sync.cache.pending.length > 0;
-  const projected = projectPending(sync.cache.matches, sync.cache.pending);
+  // O placar re-renderiza a cada 250ms pelo cronômetro; sem memo esta projeção (e o
+  // scoreFromEvents que ela roda por partida) seria recalculada em todo tique.
+  const projected = useMemo(
+    () => projectPending(sync.cache.matches, sync.cache.pending),
+    [sync.cache.matches, sync.cache.pending]
+  );
   const active = projected.find((m) => m.status === 'ongoing');
   const current = projected.find((m) => m.matchId === selected) ?? active;
   const finished = recentMatches(sync.cache.matches),
@@ -54,11 +93,26 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
 
   const next = () => {
     if (pending || !current || current.status !== 'finished') return;
-    if (current.homeScore !== current.awayScore) {
-      const winner =
-        current.homeScore > current.awayScore ? current.homeTeamId! : current.awayTeamId!;
+    const queue = waitingOrder(teams, sync.cache.matches);
+    const winner =
+      current.homeScore === current.awayScore
+        ? null
+        : current.homeScore > current.awayScore
+          ? current.homeTeamId!
+          : current.awayTeamId!;
+
+    if (winner) {
+      // Quem vence fica; entra quem está esperando há mais tempo. Antes entrava o
+      // primeiro time da lista que não tivesse vencido — quase sempre quem acabou de
+      // perder, furando a fila de quem estava de fora.
       setHome(winner);
-      setAway(teams.find((t) => t.id !== winner)?.id ?? '');
+      setAway(queue.find((t) => t.id !== winner)?.id ?? '');
+    } else {
+      // Empate: ninguém ficou por mérito, então entram os dois que esperam há mais tempo.
+      // Os dois que acabaram de jogar ficam no fim da fila por construção.
+      const [first, second] = queue;
+      if (first) setHome(first.id);
+      if (second) setAway(second.id);
     }
     setSelected(null);
   };
@@ -102,12 +156,12 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
           Baixar cópia dos registros anteriores
         </button>
       )}
-      {(sync.error || teamError) && (
+      {sync.error && (
         <div
           role="alert"
           className="rounded-xl p-3 bg-rose-950 border border-rose-400 text-rose-100 space-y-2"
         >
-          <p>{teamError || sync.error}</p>
+          <p>{sync.error}</p>
           <button className={actionClass} onClick={() => void sync.retry()}>
             Tentar novamente
           </button>
@@ -126,14 +180,13 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
             key={current.matchId}
             match={current}
             teams={teams}
-            duration={session.matchDurationSeconds ?? 420}
+            duration={session.matchDurationSeconds ?? DEFAULT_MATCH_DURATION_SECONDS}
             timer={sync.cache.timers[current.matchId]}
             pending={pending}
             finishing={
               sync.cache.pending.some(
                 (p) => p.matchId === current.matchId && p.action === 'finish'
-              ) ||
-              (current.status === 'ongoing' && (current.homeScore >= 2 || current.awayScore >= 2))
+              ) || reachedGoalLimit(sync.cache.matches, current.matchId)
             }
             onTimer={(t) => sync.setTimer(current.matchId, t)}
             onCommand={onCommand}
@@ -191,8 +244,8 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
             </label>
           </div>
           <p className="text-xs text-gray-400">
-            Quem vence fica como sugestão. O mesário define o próximo adversário; não há saída
-            automática na terceira vitória.
+            Quem vence fica, e entra quem está esperando há mais tempo. É só sugestão — o
+            mesário pode trocar. Não há saída automática na terceira vitória.
           </p>
           <button
             className={actionClass + ' w-full bg-emerald-600'}
