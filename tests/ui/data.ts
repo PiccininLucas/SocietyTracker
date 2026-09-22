@@ -11,3 +11,23 @@ export const teams = Array.from({ length: 4 }, (_, t) => ({
     isGoalkeeper: i === 5,
   })),
 }));
+
+/**
+ * Rodadas extras, uma por spec que grava partidas: o banco do harness é um só e o
+ * live.spec depende de começar da "Partida #1". Os jogadores são os mesmos; os times
+ * (session_teams) são próprios de cada rodada.
+ */
+function round(n: number, sessionDate: string) {
+  return {
+    id: id(n),
+    sessionDate,
+    teams: teams.map((t, i) => ({ ...t, id: id(200 + n * 10 + i) })),
+  };
+}
+export const rounds = {
+  offline: round(2, '2026-09-10'),
+  retry: round(3, '2026-09-17'),
+  undo: round(4, '2026-09-24'),
+  tabs: round(5, '2026-10-01'),
+};
+export type RoundName = keyof typeof rounds;

@@ -6,12 +6,20 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   request,
 }) => {
   test.setTimeout(90000);
+  // "Próximo confronto" já libera com lances pendentes (a projeção encerra a partida):
+  // antes de ler o servidor, espera a fila do aparelho esvaziar.
+  const synced = () =>
+    expect(page.getByText(/Salvo no aparelho; será enviado/)).toHaveCount(0, { timeout: 10000 });
   page.on('dialog', (d) => void d.accept());
   await page.goto('/tests/ui/index.html?live');
   await page.getByRole('button', { name: 'Iniciar partida', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Partida #1', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar Cronômetro', exact: true }).click();
-  await expect(page.getByText(/Tempo regulamentar encerrado/)).toBeVisible({ timeout: 7000 });
+  // No zero, o alerta de tela cheia cobre tudo até o mesário confirmar que viu.
+  await expect(page.getByText('TEMPO ESGOTADO', { exact: true })).toBeVisible({ timeout: 7000 });
+  await page.getByRole('button', { name: 'Entendi', exact: true }).click();
+  await expect(page.getByText('TEMPO ESGOTADO', { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Tempo regulamentar encerrado/)).toBeVisible();
   await expect(page.getByRole('button', { name: '+ Gol Time 0', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '+ Gol Time 0', exact: true }).click();
   await page.getByRole('button', { name: 'Jogador 0 GOL' }).click();
@@ -58,6 +66,7 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   await expect(page.getByRole('button', { name: 'Iniciar partida', exact: true })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Próximo confronto', exact: true })).toBeEnabled();
+  await synced();
   let all = await (await request.get('/api/sessions/' + sid + '/matches')).json();
   expect(all).toHaveLength(1);
   expect(all[0].status).toBe('finished');
@@ -86,6 +95,7 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
       page.getByRole('button', { name: 'Próximo confronto', exact: true })
     ).toBeEnabled();
   }
+  await synced();
   all = await (await request.get('/api/sessions/' + sid + '/matches')).json();
   expect(all).toHaveLength(4);
   expect(all.find((m: { matchId: string }) => m.matchId === first.matchId).lockedAt).toBeTruthy();
@@ -96,7 +106,7 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   const third = page
     .getByRole('region', { name: 'Últimas três partidas' })
     .locator('details')
-    .filter({ hasText: '#3 · Time 1 0 × 0 Time 0' });
+    .filter({ hasText: '#3 · Time 1 0 × 0 Time 3' });
   await third.locator('summary').click();
   await third.getByRole('button', { name: 'Corrigir placar' }).click();
   await page.getByLabel('Gols mandante').fill('1');
@@ -104,7 +114,7 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   const corrected = page
     .getByRole('region', { name: 'Últimas três partidas' })
     .locator('details')
-    .filter({ hasText: '#3 · Time 1 1 × 0 Time 0' });
+    .filter({ hasText: '#3 · Time 1 1 × 0 Time 3' });
   await corrected.getByRole('button', { name: 'Editar gol de Autoria não informada' }).click();
   await page.getByLabel('Autor do gol', { exact: true }).selectOption(teams[1].players[1].id);
   await page.getByLabel('Assistência', { exact: true }).selectOption(teams[1].players[5].id);
@@ -115,7 +125,7 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   await expect(standings.getByRole('row').filter({ hasText: 'Time 1' })).toContainText('10');
   await page.getByText('Retrospecto dos confrontos · mesma semana', { exact: true }).click();
   await expect(
-    page.getByText('Time 0 × Time 1: 0 × 3 vitórias, 1 empate(s), 4 jogo(s), 0 × 4 gols.', {
+    page.getByText('Time 0 × Time 1: 0 × 1 vitórias, 0 empate(s), 1 jogo(s), 0 × 1 gols.', {
       exact: true,
     })
   ).toBeVisible();
@@ -124,11 +134,12 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   await expect(
     page.getByRole('region', { name: 'Desempenho individual da temporada' })
   ).toBeVisible();
-  await expect(
-    page
-      .getByRole('row')
-      .filter({ has: page.getByRole('rowheader', { name: 'Jogador 11', exact: true }) })
-  ).toContainText('83.3%');
+  // Jogador 11 é do Time 1, que venceu as três partidas que disputou.
+  const player11 = page
+    .getByRole('row')
+    .filter({ has: page.getByRole('rowheader', { name: 'Jogador 11', exact: true }) });
+  await expect(player11.getByRole('cell').first()).toHaveText('3');
+  await expect(player11).toContainText('100.0%');
   await page.screenshot({ path: 'test-results/estatisticas-mobile.png', fullPage: true });
   await page.getByRole('button', { name: 'Súmula #1', exact: true }).click();
   await expect(page.getByText(/Consolidada · somente leitura/)).toBeVisible();
@@ -149,11 +160,12 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   await expect(page.getByText('Partida apagada. Estatísticas atualizadas.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Súmula #3', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
-  await expect(page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Jogador 11', exact: true }) })).toContainText('77.8%');
+  await expect(player11.getByRole('cell').first()).toHaveText('2');
   await page.reload();
   await expect(page.getByRole('button', { name: 'Súmula #4', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Súmula #3', exact: true })).toHaveCount(0);
   await page.goto('/tests/ui/index.html?live');
+  await page.getByRole('button', { name: 'Próximo confronto', exact: true }).click();
   await page.getByRole('button', { name: 'Iniciar partida', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Partida #5', exact: true })).toBeVisible();
   // Lost acknowledgement: the queued deletion survives reload and retries safely.
@@ -167,6 +179,9 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   await page.unroute('**/api/matches/*');
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Partida #5', exact: true })).toHaveCount(0);
+  // Sem partida em andamento, a tela mostra o último resultado até o mesário seguir.
+  await expect(page.getByRole('heading', { name: 'Partida #4', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Próximo confronto', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Iniciar partida', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Iniciar partida', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Partida #6', exact: true })).toBeVisible();

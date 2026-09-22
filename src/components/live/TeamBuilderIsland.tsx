@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Dices,
   Trash2,
@@ -20,6 +20,7 @@ import { cn } from '../ui/utils';
 import { localDateISO } from '../../core/domain/services/CompetitionService';
 import { ROUND_RULES } from '../../core/domain/entities/Session';
 import { EditPlayerModal, type EditablePlayerData } from '../ui/EditPlayerModal';
+import { loadDraft, saveDraft, clearDraft, serializeDraft, type DraftState } from './teamDraft';
 
 export interface PlayerItem {
   id: string;
@@ -60,41 +61,99 @@ const ALL_AVAILABLE_TEAMS: { id: string; name: string; colorHex: string; colorNa
   { id: 'team-4', name: 'Time Vermelho', colorHex: '#ef4444', colorName: 'Vermelho' },
 ];
 
+/** Montagem limpa: todos presentes, times vazios, formato e tempo sugeridos pelo total. */
+function initialDraftState(players: PlayerItem[]): DraftState {
+  const teamCount: 3 | 4 = players.length <= 19 ? 3 : 4;
+  return {
+    sessionDate: localDateISO(),
+    notes: '',
+    presentPlayerIds: players.map((p) => p.id),
+    teamCount,
+    // Sugerido: 8 min para 3 times, 7 min para 4 times
+    matchDurationMinutes: teamCount === 3 ? 8 : 7,
+    teams: ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({
+      ...t,
+      defaultName: t.name,
+      captainId: null,
+      players: [],
+    })),
+  };
+}
+
 export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPlayers }) => {
+  const [initial] = useState(() => initialDraftState(initialPlayers));
   const [allPlayers, setAllPlayers] = useState<PlayerItem[]>(initialPlayers);
-  const [sessionDate, setSessionDate] = useState(() => localDateISO());
-  const [notes, setNotes] = useState('');
+  const [sessionDate, setSessionDate] = useState(initial.sessionDate);
+  const [notes, setNotes] = useState(initial.notes);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // PIN expirado no "Salvar": o rascunho fica no aparelho e o login volta para cá.
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
 
   // 1. Controle de Presença dos Atletas Cadastrados
   // Inicialmente todos os cadastrados iniciam marcados como presentes
   const [presentPlayerIds, setPresentPlayerIds] = useState<Set<string>>(
-    () => new Set(initialPlayers.map((p) => p.id))
+    () => new Set(initial.presentPlayerIds)
   );
   const [presenceSearch, setPresenceSearch] = useState('');
   const [isPresenceExpanded, setIsPresenceExpanded] = useState(true);
 
   // 2. Formato da Rodada: 3 ou 4 Times
-  const [teamCount, setTeamCount] = useState<3 | 4>(() =>
-    initialPlayers.length <= 19 ? 3 : 4
-  );
+  const [teamCount, setTeamCount] = useState<3 | 4>(initial.teamCount);
 
   // 3. Duração da Partida em minutos (Sugerido: 8 min para 3 times, 7 min para 4 times)
-  const [matchDurationMinutes, setMatchDurationMinutes] = useState<number>(() =>
-    initialPlayers.length <= 19 ? 8 : 7
+  const [matchDurationMinutes, setMatchDurationMinutes] = useState<number>(
+    initial.matchDurationMinutes
   );
 
   // Times da Noite (3 ou 4 times conforme seleção)
-  const [teams, setTeams] = useState<TeamDraft[]>(() => {
-    const initialCount = initialPlayers.length <= 19 ? 3 : 4;
-    return ALL_AVAILABLE_TEAMS.slice(0, initialCount).map((t) => ({
-      ...t,
-      defaultName: t.name,
-      captainId: null,
-      players: [],
-    }));
-  });
+  const [teams, setTeams] = useState<TeamDraft[]>(initial.teams);
+
+  const applyDraft = (draft: DraftState) => {
+    setSessionDate(draft.sessionDate);
+    setNotes(draft.notes);
+    setPresentPlayerIds(new Set(draft.presentPlayerIds));
+    setTeamCount(draft.teamCount);
+    setMatchDurationMinutes(draft.matchDurationMinutes);
+    setTeams(draft.teams);
+  };
+
+  // Restaura no mount, não no useState: a ilha é renderizada no servidor, que não tem o
+  // rascunho, e ler o localStorage no primeiro render quebraria a hidratação.
+  useEffect(() => {
+    const draft = loadDraft(initialPlayers, ALL_AVAILABLE_TEAMS);
+    if (!draft) return;
+    applyDraft(draft);
+    setRestoredAt(draft.savedAt);
+  }, []);
+
+  // Grava a cada mudança. A montagem limpa não vira rascunho (nem aviso de restauração).
+  const pristine = useMemo(() => JSON.stringify(serializeDraft(initial)), [initial]);
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (!hydrated.current) {
+      hydrated.current = true;
+      return;
+    }
+    const state: DraftState = {
+      sessionDate,
+      notes,
+      presentPlayerIds: [...presentPlayerIds],
+      teamCount,
+      matchDurationMinutes,
+      teams,
+    };
+    if (JSON.stringify(serializeDraft(state)) === pristine) clearDraft();
+    else saveDraft(state);
+  }, [sessionDate, notes, presentPlayerIds, teamCount, matchDurationMinutes, teams, pristine]);
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    applyDraft(initial);
+    setRestoredAt(null);
+    setErrorMessage(null);
+  };
 
   // Busca no banco de disponíveis
   const [poolSearchQuery, setPoolSearchQuery] = useState('');
@@ -586,6 +645,12 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 401) {
+        setNeedsLogin(true);
+        throw new Error(
+          'Sessão de mesário expirada. Entre com o PIN de novo; a montagem fica salva neste aparelho.'
+        );
+      }
       if (!res.ok) {
         // 502/504 do gateway vêm em HTML; sem o catch aparecia "Unexpected token '<'".
         const errorData = await res.json().catch(() => null);
@@ -593,6 +658,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       }
 
       const created = await res.json();
+      clearDraft();
       // Redireciona para o Mesário
       window.location.href = `/rodada/mesario?sessionId=${created.id}`;
     } catch (err: any) {
@@ -736,11 +802,40 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
         </div>
       </div>
 
+      {/* Rascunho restaurado */}
+      {restoredAt !== null && (
+        <div
+          role="status"
+          className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-sm flex flex-wrap items-center justify-between gap-3"
+        >
+          <span>
+            Montagem restaurada deste aparelho (salva às{' '}
+            {new Date(restoredAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            ).
+          </span>
+          <button
+            type="button"
+            onClick={handleDiscardDraft}
+            className="min-h-[44px] px-4 rounded-xl bg-surface-50 border border-white/10 text-white font-bold text-sm touch-press-scale"
+          >
+            Descartar e começar do zero
+          </button>
+        </div>
+      )}
+
       {/* Alerta de Erro */}
       {errorMessage && (
-        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2 animate-fade-in">
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex flex-wrap items-center gap-2 animate-fade-in">
           <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
-          <span>{errorMessage}</span>
+          <span className="flex-1">{errorMessage}</span>
+          {needsLogin && (
+            <a
+              href={'/login?redirect=' + encodeURIComponent('/rodada/nova')}
+              className="min-h-[44px] inline-flex items-center px-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-100 font-bold text-sm"
+            >
+              Entrar com o PIN
+            </a>
+          )}
         </div>
       )}
 

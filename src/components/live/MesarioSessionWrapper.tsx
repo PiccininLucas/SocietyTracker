@@ -3,29 +3,27 @@ import { LiveScoreboard } from './LiveScoreboard';
 import { TeamRostersModal } from './TeamRostersModal';
 import { EditNightTeamsModal } from './EditNightTeamsModal';
 import { MatchEditor, actionClass } from './MatchEditor';
+import { UndoToast } from './UndoToast';
 import { useMatchSession } from './useMatchSession';
-import { projectPending, type PendingCommand } from './matchSync';
+import { useTabLock } from './useTabLock';
+import { useWakeLock } from './useWakeLock';
+import { projectPending, type PendingCommand, type TimerState } from './matchSync';
 import { recentMatches, sequences } from '../../core/domain/services/CompetitionService';
 import { TeamStandings } from '../stats/TeamStandings';
 import { ModalPortal } from '../ui/ModalPortal';
-import {
-  MAX_GOALS_FOR_VICTORY,
-  DEFAULT_MATCH_DURATION_SECONDS,
-  type LiveTeam,
-  type LivePlayer,
-} from './types';
+import { DEFAULT_MATCH_DURATION_SECONDS, type LiveTeam, type LivePlayer } from './types';
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
 
-/**
- * O servidor encerra a partida ao atingir o limite de gols. Isso só pode ser lido do
- * placar **confirmado**: usar o placar projetado travava a tela offline — com o 2º gol
- * ainda pendente, os botões de gol sumiam e "Finalizar partida" ficava desabilitado,
- * sem nenhum caminho para encerrar.
- */
-function reachedGoalLimit(confirmed: MatchSummary[], matchId: string) {
-  const match = confirmed.find((m) => m.matchId === matchId);
-  if (!match || match.status !== 'ongoing') return false;
-  return match.homeScore >= MAX_GOALS_FOR_VICTORY || match.awayScore >= MAX_GOALS_FOR_VICTORY;
+/** Quanto tempo um gol fica no aparelho, podendo ser desfeito, antes de ir ao servidor. */
+export const UNDO_WINDOW_MS = 5000;
+
+interface LastGoal {
+  operationId: string;
+  matchId: string;
+  label: string;
+  sendAfter: number;
+  /** Cronômetro antes do gol: o gol da vitória projetado para o relógio. */
+  timer?: TimerState;
 }
 
 /**
@@ -55,45 +53,108 @@ export interface SessionData {
 interface Props {
   session: SessionData;
   allRegisteredPlayers?: LivePlayer[];
+  /** Janela do "Desfazer" gol; 0 envia na hora, sem opção de desfazer. */
+  undoWindowMs?: number;
 }
-export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Props) {
+export function MesarioSessionWrapper({
+  session,
+  allRegisteredPlayers = [],
+  undoWindowMs = UNDO_WINDOW_MS,
+}: Props) {
   const [teams, setTeams] = useState(session.teams),
     [home, setHome] = useState(session.teams[0]?.id ?? ''),
     [away, setAway] = useState(session.teams[1]?.id ?? '');
   const [selected, setSelected] = useState<string | null>(null),
-    [modal, setModal] = useState<'rosters' | 'edit' | null>(null);
-  const sync = useMatchSession(session.id);
+    [modal, setModal] = useState<'rosters' | 'edit' | null>(null),
+    [lastGoal, setLastGoal] = useState<LastGoal | null>(null);
+  const lock = useTabLock('society_mesario:' + session.id);
+  const owner = lock.role === 'owner';
+  const sync = useMatchSession(session.id, { active: owner });
   const pending = sync.cache.pending.length > 0;
+  const duration = session.matchDurationSeconds ?? DEFAULT_MATCH_DURATION_SECONDS;
   // O placar re-renderiza a cada 250ms pelo cronômetro; sem memo esta projeção (e o
   // scoreFromEvents que ela roda por partida) seria recalculada em todo tique.
   const projected = useMemo(
-    () => projectPending(sync.cache.matches, sync.cache.pending),
-    [sync.cache.matches, sync.cache.pending]
+    () =>
+      projectPending(sync.cache.matches, sync.cache.pending, {
+        sessionId: session.id,
+        sessionDate: session.sessionDate,
+        teams,
+        durationSeconds: duration,
+      }),
+    [sync.cache.matches, sync.cache.pending, session.id, session.sessionDate, teams, duration]
   );
   const active = projected.find((m) => m.status === 'ongoing');
-  const current = projected.find((m) => m.matchId === selected) ?? active;
+  // Sem partida em andamento, o último resultado continua na tela (com a sugestão de quem
+  // entra) até o mesário tocar em "Próximo confronto" — inclusive depois de uma recarga.
+  const [choosingNext, setChoosingNext] = useState(false);
+  const latest = projected.reduce<MatchSummary | undefined>(
+    (a, m) => (!a || (m.sequence ?? 0) > (a.sequence ?? 0) ? m : a),
+    undefined
+  );
+  const current =
+    projected.find((m) => m.matchId === selected) ?? active ?? (choosingNext ? undefined : latest);
   const finished = recentMatches(sync.cache.matches),
     streaks = sequences(sync.cache.matches);
   const actionRef = useRef(false);
+  useWakeLock(owner && !!active);
   useEffect(() => {
-    if (active && !selected) setSelected(active.matchId);
+    if (active && !selected) {
+      setSelected(active.matchId);
+      setChoosingNext(false);
+    }
   }, [active?.matchId, selected]);
   useEffect(() => {
     actionRef.current = false;
   }, [sync.cache.pending.length, current?.status]);
   const onCommand = (command: Omit<PendingCommand, 'operationId'>) => {
+    // O servidor recusa um segundo início com partida em andamento; a projeção já mostra o
+    // início pendente como partida em andamento, então basta olhar para ela.
+    if (command.action === 'start' && (actionRef.current || active)) return;
     if (
-      (command.action === 'start' || command.action === 'finish') &&
-      (actionRef.current || sync.cache.pending.some((p) => p.action === command.action))
+      command.action === 'finish' &&
+      (actionRef.current ||
+        sync.cache.pending.some((p) => p.action === 'finish' && p.matchId === command.matchId))
     )
       return;
     if (command.action === 'start' || command.action === 'finish') actionRef.current = true;
-    if (!sync.enqueue(command)) actionRef.current = false;
+    const hold = command.action === 'goal' && undoWindowMs > 0;
+    const op = sync.enqueue(hold ? { ...command, sendAfter: Date.now() + undoWindowMs } : command);
+    if (!op) {
+      actionRef.current = false;
+      return;
+    }
+    // Só o último lance da fila pode ser desfeito: qualquer comando novo encerra a janela.
+    setLastGoal(
+      hold && op.matchId
+        ? {
+            operationId: op.operationId,
+            matchId: op.matchId,
+            label: op.input.isOwnGoal
+              ? 'Gol contra registrado'
+              : 'Gol de ' + (op.input.scorerName || 'atleta') + ' registrado',
+            sendAfter: op.sendAfter!,
+            timer: sync.cache.timers[op.matchId],
+          }
+        : null
+    );
+  };
+  const undo = () => {
+    if (!lastGoal) return;
+    const goal = lastGoal;
+    setLastGoal(null);
+    if (!sync.cancel(goal.operationId)) return;
+    // Se era o gol da vitória, a projeção tinha encerrado a partida e parado o relógio.
+    // O timer é ancorado no instante de início, então restaurar o estado anterior devolve
+    // também os segundos que correram durante a janela.
+    const now = sync.cache.timers[goal.matchId];
+    if (goal.timer?.running && !now?.running) sync.setTimer(goal.matchId, goal.timer);
+    setSelected(goal.matchId);
   };
 
   const next = () => {
-    if (pending || !current || current.status !== 'finished') return;
-    const queue = waitingOrder(teams, sync.cache.matches);
+    if (!current || current.status !== 'finished') return;
+    const queue = waitingOrder(teams, projected);
     const winner =
       current.homeScore === current.awayScore
         ? null
@@ -115,6 +176,7 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
       if (second) setAway(second.id);
     }
     setSelected(null);
+    setChoosingNext(true);
   };
 
   return (
@@ -129,11 +191,29 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
           <button className={actionClass} onClick={() => setModal('rosters')}>
             Ver times
           </button>
-          <button className={actionClass} disabled={pending} onClick={() => setModal('edit')}>
+          <button
+            className={actionClass}
+            disabled={pending || !owner}
+            onClick={() => setModal('edit')}
+          >
             Editar times
           </button>
         </div>
       </header>
+      {lock.role === 'follower' && (
+        <div
+          role="alert"
+          className="rounded-xl p-3 bg-amber-950 border border-amber-400 text-amber-100 space-y-2"
+        >
+          <p>
+            O mesário desta rodada está aberto em outra aba ou janela. Esta fica só para
+            consulta, para os lances não se sobrescreverem.
+          </p>
+          <button className={actionClass} onClick={lock.takeOver}>
+            Usar nesta aba
+          </button>
+        </div>
+      )}
       {sync.notice && (
         <p role="status" className="text-emerald-300 text-sm">
           {sync.notice}
@@ -186,22 +266,17 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
           )}
         </div>
       )}
-      {!sync.ready ? (
+      {!sync.ready || lock.role === 'checking' ? (
         <p role="status">Carregando partidas…</p>
-      ) : current ? (
+      ) : !owner ? null : current ? (
         <>
           <LiveScoreboard
             key={current.matchId}
             match={current}
             teams={teams}
-            duration={session.matchDurationSeconds ?? DEFAULT_MATCH_DURATION_SECONDS}
+            duration={duration}
             timer={sync.cache.timers[current.matchId]}
             pending={pending}
-            finishing={
-              sync.cache.pending.some(
-                (p) => p.matchId === current.matchId && p.action === 'finish'
-              ) || reachedGoalLimit(sync.cache.matches, current.matchId)
-            }
             onTimer={(t) => sync.setTimer(current.matchId, t)}
             onCommand={onCommand}
             onNext={next}
@@ -263,7 +338,7 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
           </p>
           <button
             className={actionClass + ' w-full bg-emerald-600'}
-            disabled={pending || home === away}
+            disabled={!!active || home === away}
             onClick={() =>
               onCommand({
                 action: 'start',
@@ -271,7 +346,7 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
               })
             }
           >
-            {pending ? 'Iniciando…' : 'Iniciar partida'}
+            Iniciar partida
           </button>
         </section>
       )}
@@ -318,9 +393,11 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
                     .join(' · ') || 'Sem gols'}
                 </span>
               </summary>
-              <div className="mt-3">
-                <MatchEditor match={display} busy={pending} onCommand={onCommand} />
-              </div>
+              {owner && (
+                <div className="mt-3">
+                  <MatchEditor match={display} busy={pending} onCommand={onCommand} />
+                </div>
+              )}
             </details>
           );
         })}
@@ -357,6 +434,18 @@ export function MesarioSessionWrapper({ session, allRegisteredPlayers = [] }: Pr
             }}
           />
         </ModalPortal>
+      )}
+      {owner && lastGoal && (
+        <UndoToast
+          key={lastGoal.operationId}
+          label={lastGoal.label}
+          sendAfter={lastGoal.sendAfter}
+          windowMs={undoWindowMs}
+          onUndo={undo}
+          onExpire={() =>
+            setLastGoal((g) => (g?.operationId === lastGoal.operationId ? null : g))
+          }
+        />
       )}
     </div>
   );

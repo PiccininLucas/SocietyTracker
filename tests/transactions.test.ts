@@ -55,6 +55,7 @@ async function setup(applyMigration = true) {
     await db.exec(
       await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
     );
+    await db.exec(await readFile('supabase/migrations/202609220003_client_match_id.sql', 'utf8'));
   }
   async function command(
     action: string,
@@ -164,6 +165,9 @@ test('transações: zero não encerra, dois gols encerram, retries e bloqueio s�
     const startOp = uuid();
     const start = { sessionId: sid, homeTeamId: teams[0], awayTeamId: teams[1] };
     const first = await command('start', null, start, startOp);
+    // O id da partida é a chave do start: o mesário offline já conhece o id antes da
+    // resposta e enfileira gols e finalização para ele.
+    assert.equal(first.match_id, startOp);
     assert.equal((await command('start', null, start, startOp)).match_id, first.match_id);
     await assert.rejects(command('start', null, start), /CONFLICT/);
     const goal = {

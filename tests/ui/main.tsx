@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoalDrawer } from '../../src/components/live/GoalDrawer';
 import { MesarioSessionWrapper } from '../../src/components/live/MesarioSessionWrapper';
+import { TeamBuilderIsland } from '../../src/components/live/TeamBuilderIsland';
 import { TeamStandings } from '../../src/components/stats/TeamStandings';
 import { PlayerPerformanceTable } from '../../src/components/stats/PlayerPerformanceTable';
 import { MatchDetailsModal } from '../../src/components/ui/MatchDetailsModal';
 import { playerPerformance } from '../../src/core/domain/services/CompetitionService';
 import type { MatchSummary } from '../../src/core/domain/repositories/IMatchRepository';
-import { sid, teams } from './data';
+import { sid, teams, rounds, type RoundName } from './data';
 import '../../src/styles/globals.css';
 import { ReportsIsland } from '../../src/components/export/ReportsIsland';
 import type { PeriodLeaderboardOutputDTO } from '../../src/core/application/dtos/PeriodLeaderboardDTO';
@@ -59,18 +60,35 @@ function Fixture() {
     ) : (
       <p>Carregando relatórios…</p>
     );
-  if (query.has('live'))
+  if (query.has('builder'))
+    return (
+      <div className="p-3">
+        <TeamBuilderIsland initialPlayers={teams.flatMap((t) => t.players)} />
+      </div>
+    );
+  if (query.has('live')) {
+    // ?session=<nome> usa uma rodada própria (data.ts), para a spec não depender do estado
+    // que as outras deixam no banco compartilhado.
+    const round = rounds[query.get('session') as RoundName] ?? {
+      id: sid,
+      sessionDate: '2026-09-03',
+      teams,
+    };
     return (
       <MesarioSessionWrapper
         session={{
-          id: sid,
-          sessionDate: '2026-09-03',
+          id: round.id,
+          sessionDate: round.sessionDate,
           status: 'ongoing',
-          teams,
+          teams: round.teams,
           matchDurationSeconds: 2,
         }}
+        // Curto por padrão para os fluxos longos passarem pela retenção sem ficarem lentos;
+        // undo.spec usa uma janela maior para ter tempo de tocar em "Desfazer".
+        undoWindowMs={Number(query.get('undo') ?? 300)}
       />
     );
+  }
   if (query.has('stats'))
     return (
       <div className="p-3 space-y-4">

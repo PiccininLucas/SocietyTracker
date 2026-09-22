@@ -2,27 +2,31 @@ import React, { useEffect, useState } from 'react';
 import { GoalDrawer } from './GoalDrawer';
 import { MatchTimer } from './MatchTimer';
 import { MatchEditor, actionClass } from './MatchEditor';
+import { TimeUpOverlay } from './TimeUpOverlay';
 import { timerNow, type TimerState, type PendingCommand } from './matchSync';
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
 import type { LiveTeam, LivePlayer } from './types';
 export interface LiveScoreboardProps {
+  /** Partida projetada: já inclui os lances pendentes, e o encerramento que eles causam. */
   match: MatchSummary;
   teams: LiveTeam[];
   duration: number;
   timer?: TimerState;
   pending: boolean;
-  finishing: boolean;
   onTimer: (timer: TimerState) => void;
   onCommand: (command: Omit<PendingCommand, 'operationId'>) => void;
   onNext: () => void;
 }
+const END_REASON: Record<string, string> = {
+  two_goals: 'Regra dos dois gols',
+  time_limit: 'Tempo regulamentar',
+};
 export function LiveScoreboard({
   match,
   teams,
   duration,
   timer,
   pending,
-  finishing,
   onTimer,
   onCommand,
   onNext,
@@ -35,7 +39,8 @@ export function LiveScoreboard({
   };
   const clock = timer ?? initial;
   const [, tick] = useState(0),
-    [goalTeam, setGoalTeam] = useState<LiveTeam | null>(null);
+    [goalTeam, setGoalTeam] = useState<LiveTeam | null>(null),
+    [timeUp, setTimeUp] = useState(false);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 250);
     return () => clearInterval(t);
@@ -102,8 +107,10 @@ export function LiveScoreboard({
           if (window.confirm('Reiniciar somente o cronômetro? Os gols serão preservados.'))
             changeTimer({ remaining: duration, elapsed: 0, running: false });
         }}
-        disabled={ended || finishing}
+        onTimeExpired={() => setTimeUp(true)}
+        disabled={ended}
       />
+      {timeUp && !ended && <TimeUpOverlay onDismiss={() => setTimeUp(false)} />}
       {!ended && now.remaining === 0 && (
         <p
           role="status"
@@ -126,7 +133,7 @@ export function LiveScoreboard({
             >
               {home ? match.homeScore : match.awayScore}
             </p>
-            {!ended && !finishing && (
+            {!ended && (
               <button
                 className="w-full min-h-[52px] rounded-xl bg-emerald-500 text-gray-950 font-black"
                 onClick={() => setGoalTeam(team(home))}
@@ -139,7 +146,7 @@ export function LiveScoreboard({
       </div>
       {pending && (
         <p role="status" className="text-amber-200 text-sm">
-          Alterações pendentes de sincronização. O próximo jogo aguarda a confirmação do servidor.
+          Salvo no aparelho; será enviado ao servidor assim que possível.
         </p>
       )}
       {ended ? (
@@ -149,19 +156,14 @@ export function LiveScoreboard({
               ? 'Empate'
               : (match.homeScore > match.awayScore ? match.homeTeamName : match.awayTeamName) +
                 ' venceu'}{' '}
-            · {match.endReason === 'two_goals' ? 'Regra dos dois gols' : 'Finalização manual'}
+            · {END_REASON[match.endReason ?? ''] ?? 'Finalização manual'}
           </p>
-          <button
-            className={actionClass + ' w-full bg-emerald-600'}
-            onClick={onNext}
-            disabled={pending}
-          >
+          <button className={actionClass + ' w-full bg-emerald-600'} onClick={onNext}>
             Próximo confronto
           </button>
         </div>
       ) : (
         <button
-          disabled={finishing}
           className={actionClass + ' w-full bg-rose-700'}
           onClick={() => {
             if (
@@ -180,7 +182,7 @@ export function LiveScoreboard({
               });
           }}
         >
-          {finishing ? 'Finalizando…' : 'Finalizar partida'}
+          Finalizar partida
         </button>
       )}
       <MatchEditor match={match} busy={pending} onCommand={onCommand} />

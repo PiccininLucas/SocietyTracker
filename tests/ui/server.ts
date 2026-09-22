@@ -6,7 +6,7 @@ import type { APIContext } from 'astro';
 import { matchCommand, json, apiError } from '../../src/core/infrastructure/http/matchApi';
 import type { MatchCommand } from '../../src/core/domain/repositories/IMatchCommands';
 import type { MatchSummary } from '../../src/core/domain/repositories/IMatchRepository';
-import { sid, teams } from './data';
+import { sid, teams, rounds } from './data';
 import { GetPeriodLeaderboardUseCase } from '../../src/core/application/use-cases/GetPeriodLeaderboardUseCase';
 import type { IMatchRepository } from '../../src/core/domain/repositories/IMatchRepository';
 import { playerPerformance } from '../../src/core/domain/services/CompetitionService';
@@ -34,25 +34,32 @@ await db.exec(await readFile('supabase/migrations/202609220001_create_session_rp
 await db.exec(
   await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
 );
-await db.query("INSERT INTO sessions(id,session_date) VALUES($1,'2026-09-03')", [sid]);
-for (const t of teams) {
-  await db.query('INSERT INTO session_teams(id,session_id,name,color_hex) VALUES($1,$2,$3,$4)', [
-    t.id,
-    sid,
-    t.name,
-    t.colorHex,
-  ]);
-  for (const p of t.players) {
-    await db.query('INSERT INTO players(id,name) VALUES($1,$2)', [p.id, p.name]);
-    await db.query(
-      'INSERT INTO session_team_players(session_team_id,player_id,is_goalkeeper) VALUES($1,$2,$3)',
-      [t.id, p.id, p.isGoalkeeper]
-    );
+await db.exec(await readFile('supabase/migrations/202609220003_client_match_id.sql', 'utf8'));
+for (const round of [{ id: sid, sessionDate: '2026-09-03', teams }, ...Object.values(rounds)]) {
+  await db.query('INSERT INTO sessions(id,session_date) VALUES($1,$2)', [round.id, round.sessionDate]);
+  for (const t of round.teams) {
+    await db.query('INSERT INTO session_teams(id,session_id,name,color_hex) VALUES($1,$2,$3,$4)', [
+      t.id,
+      round.id,
+      t.name,
+      t.colorHex,
+    ]);
+    for (const p of t.players) {
+      await db.query('INSERT INTO players(id,name) VALUES($1,$2) ON CONFLICT DO NOTHING', [
+        p.id,
+        p.name,
+      ]);
+      await db.query(
+        'INSERT INTO session_team_players(session_team_id,player_id,is_goalkeeper) VALUES($1,$2,$3)',
+        [t.id, p.id, p.isGoalkeeper]
+      );
+    }
   }
 }
-async function snapshot() {
+/** Partidas de uma rodada; `null` devolve todas as rodadas. */
+async function snapshot(sessionId: string | null = sid) {
   const r = await db.query<{ data: MatchSummary[] }>('SELECT society_matches_snapshot($1) data', [
-    sid,
+    sessionId,
   ]);
   return r.rows[0].data;
 }
@@ -83,7 +90,7 @@ const repository = {
       [command.action, command.matchId ?? null, JSON.stringify(command.input), command.operationId]
     );
     return {
-      match: r.rows[0].data.deleted_match ?? (await snapshot()).find((m) => m.matchId === r.rows[0].data.match_id)!,
+      match: r.rows[0].data.deleted_match ?? (await snapshot(null)).find((m) => m.matchId === r.rows[0].data.match_id)!,
       eventId: r.rows[0].data.event_id,
     };
   },
@@ -111,9 +118,9 @@ const server = await createServer({
                 })
               );
             } else if (path === '/api/sessions') response = json({ id: sid, teams });
-            else if (path.includes('/sessions/')) response = json(await snapshot());
+            else if (path.includes('/sessions/')) response = json(await snapshot(parts[3]));
             else if (req.method === 'GET')
-              response = json((await snapshot()).find((m) => m.matchId === parts[3]));
+              response = json((await snapshot(null)).find((m) => m.matchId === parts[3]));
             else {
               const chunks: Buffer[] = [];
               for await (const chunk of req) chunks.push(Buffer.from(chunk));

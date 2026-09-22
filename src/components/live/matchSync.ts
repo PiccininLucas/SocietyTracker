@@ -1,11 +1,23 @@
 import { scoreFromEvents } from '../../core/domain/services/CompetitionService';
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
 import type { MatchAction } from '../../core/domain/repositories/IMatchCommands';
+import {
+  MAX_GOALS_FOR_VICTORY,
+  DEFAULT_MATCH_DURATION_SECONDS,
+  type LiveTeam,
+  type LivePlayer,
+} from './types';
 export interface PendingCommand {
   operationId: string;
   action: MatchAction;
   matchId?: string;
   input: Record<string, unknown>;
+  /**
+   * Só do aparelho, nunca vai ao servidor: antes deste instante (epoch ms) a operação fica
+   * retida na fila. É a janela do "Desfazer" gol — tirar da fila um lance que o servidor
+   * ainda não viu desfaz tudo, inclusive o encerramento pela regra dos dois gols.
+   */
+  sendAfter?: number;
 }
 export interface TimerState {
   remaining: number;
@@ -62,6 +74,15 @@ export class AuthRequiredError extends Error {
   }
 }
 
+/**
+ * Espera até a próxima tentativa automática depois de uma falha transitória: 2s, 4s, 8s…
+ * até 30s, com ±20% de variação para vários aparelhos não baterem juntos no servidor.
+ */
+export function retryDelay(attempt: number, random = Math.random): number {
+  const base = 2000 * 2 ** Math.min(Math.max(0, attempt), 10);
+  return Math.min(30000, Math.round(base * (0.8 + 0.4 * random())));
+}
+
 /** 4xx é definitivo, exceto os que pedem explicitamente para tentar de novo. */
 function isRetryable(status: number) {
   return status >= 500 || status === 408 || status === 429;
@@ -115,7 +136,59 @@ export async function sendCommand(command: PendingCommand): Promise<MatchSummary
   if (!body?.match) throw new Error('Resposta do servidor incompleta. Tente novamente.');
   return body.match as MatchSummary;
 }
-export function projectPending(matches: MatchSummary[], pending: PendingCommand[]): MatchSummary[] {
+/** O que a projeção precisa saber da rodada para montar uma partida que o servidor ainda não viu. */
+export interface ProjectionContext {
+  sessionId: string;
+  sessionDate: string;
+  teams: LiveTeam[];
+  durationSeconds: number;
+  now?: number;
+}
+
+function participant(p: LivePlayer, captainId?: string | null) {
+  return {
+    id: p.id,
+    name: p.name,
+    nickname: p.nickname ?? null,
+    avatarUrl: p.avatarUrl,
+    isCaptain: p.id === captainId || !!p.isCaptain,
+    isGoalkeeper: !!p.isGoalkeeper,
+    isLoaned: !!p.isLoaned,
+    goals: 0,
+    assists: 0,
+  };
+}
+
+/** Espelha o encerramento de `society_match_command`: mesmo motivo, mesma duração. */
+function closeMatch(m: MatchSummary, input: Record<string, unknown>, ctx?: ProjectionContext) {
+  const duration = Math.max(
+    m.durationSeconds ?? 0,
+    Number(input.durationSeconds ?? input.eventTimeSeconds ?? 0) || 0
+  );
+  m.status = 'finished';
+  m.durationSeconds = duration;
+  m.finishedAt = new Date(ctx?.now ?? Date.now()).toISOString();
+  m.endReason =
+    m.homeScore >= MAX_GOALS_FOR_VICTORY || m.awayScore >= MAX_GOALS_FOR_VICTORY
+      ? 'two_goals'
+      : duration >= (ctx?.durationSeconds ?? DEFAULT_MATCH_DURATION_SECONDS)
+        ? 'time_limit'
+        : 'manual';
+}
+
+/**
+ * Estado que o mesário vê: o confirmado pelo servidor mais a fila ainda não enviada.
+ *
+ * Com `ctx`, um `start` pendente vira uma partida com `matchId = operationId` — o mesmo id
+ * que o servidor grava (202609220003) —, então gols e finalização podem ser enfileirados
+ * para ela offline. O encerramento pelos dois gols e pela finalização também é projetado,
+ * para o mesário seguir para o próximo confronto sem esperar a rede.
+ */
+export function projectPending(
+  matches: MatchSummary[],
+  pending: PendingCommand[],
+  ctx?: ProjectionContext
+): MatchSummary[] {
   // A cópia precisa incluir homePlayers/awayPlayers: a projeção empurra o jogador
   // emprestado nesses arrays e, com cópia rasa, isso mutava o cache original — que é
   // gravado no localStorage e alimenta ranking e classificação.
@@ -131,6 +204,39 @@ export function projectPending(matches: MatchSummary[], pending: PendingCommand[
     ])
   );
   for (const op of pending) {
+    if (op.action === 'start') {
+      // Uma recarga pode trazer a partida confirmada antes do ack perdido ser reenviado.
+      if (!ctx || byId.has(op.operationId)) continue;
+      const home = ctx.teams.find((t) => t.id === op.input.homeTeamId);
+      const away = ctx.teams.find((t) => t.id === op.input.awayTeamId);
+      if (!home || !away) continue;
+      const sequence = Math.max(0, ...[...byId.values()].map((x) => x.sequence ?? 0)) + 1;
+      byId.set(op.operationId, {
+        matchId: op.operationId,
+        sessionId: ctx.sessionId,
+        sessionDate: ctx.sessionDate,
+        sequence,
+        lockedAt: null,
+        editable: true,
+        homeTeamId: home.id,
+        homeTeamName: home.name,
+        homeTeamColor: home.colorHex,
+        homeScore: 0,
+        awayTeamId: away.id,
+        awayTeamName: away.name,
+        awayTeamColor: away.colorHex,
+        awayScore: 0,
+        durationSeconds: 0,
+        endReason: null,
+        status: 'ongoing',
+        startedAt: new Date(ctx.now ?? Date.now()).toISOString(),
+        finishedAt: null,
+        events: [],
+        homePlayers: home.players.map((p) => participant(p, home.captainId)),
+        awayPlayers: away.players.map((p) => participant(p, away.captainId)),
+      });
+      continue;
+    }
     const m = byId.get(op.matchId ?? '');
     if (!m) continue;
     if (op.action === 'goal') {
@@ -198,8 +304,36 @@ export function projectPending(matches: MatchSummary[], pending: PendingCommand[
     const scores = scoreFromEvents(m.homeTeamId!, m.awayTeamId!, m.events);
     m.homeScore = scores.homeScore;
     m.awayScore = scores.awayScore;
+    if (m.status !== 'ongoing') continue;
+    if (op.action === 'goal' && op.input.eventTimeSeconds !== undefined)
+      m.durationSeconds = Math.max(m.durationSeconds ?? 0, Number(op.input.eventTimeSeconds) || 0);
+    if (
+      op.action === 'finish' ||
+      m.homeScore >= MAX_GOALS_FOR_VICTORY ||
+      m.awayScore >= MAX_GOALS_FOR_VICTORY
+    )
+      closeMatch(m, op.input, ctx);
   }
   return [...byId.values()];
+}
+
+/**
+ * O servidor devolveu o `start` com outro id (ainda sem a 202609220003, ou partida
+ * iniciada antes dela): aponta para o id real os lances que foram enfileirados para o
+ * id provisório, em vez de deixá-los morrer num 404.
+ */
+export function remapMatchId(cache: SessionCache, from: string, to: string): SessionCache {
+  if (from === to) return cache;
+  const timers = { ...cache.timers };
+  if (timers[from]) {
+    timers[to] ??= timers[from];
+    delete timers[from];
+  }
+  return {
+    ...cache,
+    timers,
+    pending: cache.pending.map((p) => (p.matchId === from ? { ...p, matchId: to } : p)),
+  };
 }
 
 // Apply the server acknowledgement before removing the durable pending command.

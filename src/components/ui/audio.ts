@@ -132,6 +132,32 @@ class SoundEffects {
   }
 
   /**
+   * Aviso de "falta 1 minuto": dois bipes agudos, distintos do apito final
+   */
+  public playWarningBeep(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      [0, 0.22].forEach((offset) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1320, now + offset);
+        gain.gain.setValueAtTime(0.12, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.15);
+      });
+    } catch {
+      // Ignora erro
+    }
+  }
+
+  /**
    * Alerta de fim de jogo / vitória imediata
    */
   public playVictoryFanfare(): void {

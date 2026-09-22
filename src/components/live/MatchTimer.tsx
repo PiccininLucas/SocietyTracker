@@ -28,7 +28,10 @@ export const MatchTimer: React.FC<MatchTimerProps> = ({
   disabled = false,
   className,
 }) => {
-  const hasExpiredFiredRef = useRef(false);
+  // Último valor visto. Os alertas só disparam quando o relógio CRUZA a marca nesta tela:
+  // uma recarga com o tempo já zerado não apita de novo, e voltar de segundo plano depois
+  // do zero apita (o valor anterior ainda era positivo).
+  const prevRemainingRef = useRef(secondsRemaining);
 
   // Formata os segundos restantes para MM:SS
   const formattedTime = useMemo(() => {
@@ -45,17 +48,20 @@ export const MatchTimer: React.FC<MatchTimerProps> = ({
     return Math.min(100, Math.max(0, pct));
   }, [secondsRemaining, totalDuration]);
 
-  // Alerta quando o tempo atinge 00:00
+  // Aviso de 1 minuto e alerta de 00:00
   useEffect(() => {
-    if (secondsRemaining <= 0 && isRunning && !hasExpiredFiredRef.current) {
-      hasExpiredFiredRef.current = true;
+    const previous = prevRemainingRef.current;
+    prevRemainingRef.current = secondsRemaining;
+    if (!isRunning) return;
+    if (previous > 0 && secondsRemaining <= 0) {
       soundFx.playWhistle();
       hapticFeedback.timeExpired();
       onTimeExpired?.();
-    } else if (secondsRemaining > 0) {
-      hasExpiredFiredRef.current = false;
+    } else if (totalDuration > 60 && previous > 60 && secondsRemaining <= 60) {
+      soundFx.playWarningBeep();
+      hapticFeedback.timerWarning();
     }
-  }, [secondsRemaining, isRunning, onTimeExpired]);
+  }, [secondsRemaining, isRunning, totalDuration, onTimeExpired]);
 
   // Handler para Iniciar / Pausar
   const handleToggle = () => {
