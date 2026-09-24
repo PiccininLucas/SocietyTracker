@@ -11,7 +11,9 @@ test('totais acumulados no celular preservam zero sem expor detalhes da migraç�
   const zero = page.getByRole('row').filter({ hasText: 'Caio' });
   await expect(zero.getByRole('cell').nth(0)).toHaveText('—');
   await expect(zero.getByRole('cell').nth(6)).toHaveText('0');
-  await expect(zero.getByRole('cell').last()).toHaveText('1');
+  // Colunas depois do nome: J V E D % G+A Gols Assist. RankG+A RankG RankA BolaMurcha Capitão.
+  await expect(zero.getByRole('cell').nth(11)).toHaveText('1');
+  await expect(zero.getByRole('cell').last()).toHaveText('0');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/historical-mobile.png' });
 });

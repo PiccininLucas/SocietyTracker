@@ -154,6 +154,8 @@ function Fixture() {
       <GoalDrawer
         isOpen={open}
         team={team}
+        // Como o LiveScoreboard: a gaveta sempre sabe quem é o adversário da partida.
+        opponentTeam={teams[1]}
         onClose={() => setOpen(false)}
         onConfirmGoal={(data) => setResult(JSON.stringify(data))}
       />

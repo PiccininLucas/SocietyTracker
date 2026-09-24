@@ -40,6 +40,9 @@ test('sem assistência, lista unitária, lista vazia e exclusão do próprio aut
   await expect(page.locator('output')).toContainText('"assistId":null');
   await page.goto('/tests/ui/index.html?players=0');
   await expect(page.getByText('Nenhum jogador escalado neste time.')).toBeVisible();
-  await page.getByRole('button', { name: 'Registrar Gol Contra (Adversário)' }).click();
+  // Com o time vazio, o gol contra (de um jogador do adversário) continua possível. O
+  // teamId é o time que cometeu, o adversário; o ponto vai para o time da gaveta.
+  await page.getByRole('button', { name: /^Gol Contra/ }).click();
   await expect(page.locator('output')).toContainText('"isOwnGoal":true');
+  await expect(page.locator('output')).toContainText('"teamId":"' + teams[1].id + '"');
 });

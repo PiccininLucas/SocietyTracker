@@ -15,8 +15,14 @@ import { matchCommand } from '../src/core/infrastructure/http/matchApi.ts';
 import type { MatchCommand } from '../src/core/domain/repositories/IMatchCommands.ts';
 import type { MatchSummary } from '../src/core/domain/repositories/IMatchRepository.ts';
 
-// As rotas criam os repositórios reais. Nos testes não há SUPABASE_SECRET_KEY, então
-// qualquer ida ao banco falharia com 503: um 400 prova que a entrada foi recusada antes.
+// As rotas criam os repositórios reais. Sem SUPABASE_SECRET_KEY, qualquer ida ao banco
+// falha com 503: um 400 prova que a entrada foi recusada antes. A chave é apagada aqui
+// porque o build da Vercel roda `npm test` com ela no ambiente, e o teste não pode chegar
+// ao banco de produção (o cliente lê a chave só no primeiro uso, e cada arquivo de teste
+// roda no próprio processo).
+delete process.env.SUPABASE_SECRET_KEY;
+delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 const ID = '6f1d2c9e-8a47-4b3e-9c1a-2f5b7d8e9a01';
 const KEY = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 
