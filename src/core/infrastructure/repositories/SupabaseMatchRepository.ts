@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../database/supabaseClient';
 import { DatabaseError } from '../database/DatabaseError';
-import { Match, type MatchEndReason } from '../../domain/entities/Match';
-import { MatchEvent, type MatchEventProps } from '../../domain/entities/MatchEvent';
 import type {
   IMatchRepository,
   MatchSummary,
@@ -21,21 +19,6 @@ import { performanceLeaderboard } from '../../application/dtos/performanceLeader
 
 export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands {
   constructor(private readonly client: SupabaseClient = supabaseAdmin) {}
-  private domain(m: MatchSummary): Match {
-    return new Match({
-      id: m.matchId,
-      sessionId: m.sessionId,
-      homeTeamId: m.homeTeamId!,
-      awayTeamId: m.awayTeamId!,
-      homeScore: m.homeScore,
-      awayScore: m.awayScore,
-      durationSeconds: m.durationSeconds,
-      status: m.status,
-      endReason: m.endReason as MatchEndReason | null,
-      startedAt: new Date(m.startedAt),
-      finishedAt: m.finishedAt ? new Date(m.finishedAt) : null,
-    });
-  }
   async getMatchesSummary(
     sessionId?: string,
     startDate?: string,
@@ -66,17 +49,6 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
     if (!data) return null;
     return (await this.getMatchesSummary(data.session_id)).find((m) => m.matchId === id) ?? null;
   }
-  async findById(id: string) {
-    const m = await this.getMatchById(id);
-    return m ? this.domain(m) : null;
-  }
-  async findBySessionId(id: string) {
-    return (await this.getMatchesSummary(id)).map((m) => this.domain(m));
-  }
-  async findActiveMatch(id: string) {
-    const m = (await this.getMatchesSummary(id)).find((m) => m.status === 'ongoing');
-    return m ? this.domain(m) : null;
-  }
   async executeCommand(command: MatchCommand): Promise<MatchCommandResult> {
     const { data, error } = await this.client.rpc('society_match_command', {
       p_action: command.action,
@@ -92,101 +64,6 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
         'Partida salva, mas não foi possível carregar a confirmação. Tente novamente.'
       );
     return { match, eventId: result.event_id };
-  }
-  async create(match: Match) {
-    return this.domain(
-      (
-        await this.executeCommand({
-          action: 'start',
-          operationId: crypto.randomUUID(),
-          input: {
-            sessionId: match.sessionId,
-            homeTeamId: match.homeTeamId,
-            awayTeamId: match.awayTeamId,
-          },
-        })
-      ).match
-    );
-  }
-  async update(match: Match) {
-    // Uma partida já encerrada em memória precisa do comando 'finish': com 'score' o
-    // status nunca era persistido e o chamador recebia de volta um 'finished' que só
-    // existia no objeto. O placar acompanha os dois comandos.
-    const finishing = match.status === 'finished';
-    const result = await this.executeCommand({
-      action: finishing ? 'finish' : 'score',
-      matchId: match.id,
-      operationId: crypto.randomUUID(),
-      input: {
-        homeScore: match.homeScore,
-        awayScore: match.awayScore,
-        ...(finishing ? { durationSeconds: match.durationSeconds } : {}),
-      },
-    });
-    return this.domain(result.match);
-  }
-  async addEvent(event: MatchEvent) {
-    const result = await this.executeCommand({
-      action: 'goal',
-      matchId: event.matchId,
-      operationId: crypto.randomUUID(),
-      input: {
-        teamId: event.teamId,
-        scorerId: event.scorerId,
-        assistId: event.assistId,
-        isOwnGoal: event.isOwnGoal,
-        eventTimeSeconds: event.eventTimeSeconds,
-      },
-    });
-    return new MatchEvent({ ...event.state, id: result.eventId });
-  }
-  async findEventById(id: string): Promise<MatchEvent | null> {
-    const { data, error } = await this.client
-      .from('match_events')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw new DatabaseError(error.message, error.code);
-    return data
-      ? new MatchEvent({
-          id: data.id,
-          matchId: data.match_id,
-          teamId: data.team_id,
-          scorerId: data.scorer_id,
-          assistId: data.assist_id,
-          isOwnGoal: data.is_own_goal,
-          isUnattributed: data.is_unattributed,
-          eventTimeSeconds: data.event_time_seconds,
-        })
-      : null;
-  }
-  async updateEvent(id: string, data: Partial<MatchEventProps>) {
-    const event = await this.findEventById(id);
-    if (!event) throw new Error('Evento não encontrado.');
-    await this.executeCommand({
-      action: 'edit',
-      matchId: event.matchId,
-      operationId: crypto.randomUUID(),
-      input: { eventId: id, ...data },
-    });
-  }
-  async deleteEvent(id: string) {
-    const event = await this.findEventById(id);
-    if (!event) throw new Error('Evento não encontrado.');
-    await this.executeCommand({
-      action: 'delete',
-      matchId: event.matchId,
-      operationId: crypto.randomUUID(),
-      input: { eventId: id },
-    });
-  }
-  async recalculateMatchScore(id: string) {
-    const m = await this.getMatchById(id);
-    if (!m) throw new Error('Partida não encontrada.');
-    return { homeScore: m.homeScore, awayScore: m.awayScore };
-  }
-  async getEventsByMatchId(id: string) {
-    return ((await this.getMatchById(id))?.events ?? []).map((e) => new MatchEvent(e));
   }
   async getLeaderboard() {
     return this.getLeaderboardByDateRange();

@@ -39,35 +39,14 @@ const rawUrl =
   getEnv('SUPABASE_URL') ||
   'https://society-tracker-placeholder.supabase.co';
 
-export const supabaseUrl = sanitizeSupabaseUrl(rawUrl);
+const supabaseUrl = sanitizeSupabaseUrl(rawUrl);
+
+// Não há cliente com a chave publicável: todas as leituras e gravações passam pelas rotas
+// do servidor, com a chave secreta abaixo. A chave publicável só serve para testar à mão,
+// pela API REST do Supabase, o que a chave pública consegue fazer (`npm run db:grants`).
 
 /**
- * 1. Chave Pública / Publicável (PUBLIC_SUPABASE_PUBLISHABLE_KEY)
- * SEGURA PARA O CLIENTE / NAVEGADOR.
- * Inclui retrocompatibilidade com PUBLIC_SUPABASE_ANON_KEY e SUPABASE_ANON_KEY.
- * NUNCA utiliza ou faz fallback para SUPABASE_SECRET_KEY / SERVICE_ROLE_KEY.
- */
-export const supabasePublishableKey =
-  getEnv('PUBLIC_SUPABASE_PUBLISHABLE_KEY') ||
-  getEnv('PUBLIC_SUPABASE_ANON_KEY') ||
-  getEnv('SUPABASE_ANON_KEY') ||
-  'supabase-placeholder-key';
-
-// Alias para retrocompatibilidade
-export const supabaseAnonKey = supabasePublishableKey;
-
-export const isSupabaseConfigured =
-  !supabaseUrl.includes('society-tracker-placeholder') &&
-  !supabasePublishableKey.includes('placeholder');
-
-/**
- * Cliente Supabase Público (Frontend / Islands / Leituras Públicas)
- * Instanciado utilizando exclusivamente PUBLIC_SUPABASE_URL e PUBLIC_SUPABASE_PUBLISHABLE_KEY.
- */
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabasePublishableKey);
-
-/**
- * 2. Chave Secreta / Secret Key (SUPABASE_SECRET_KEY)
+ * Chave Secreta / Secret Key (SUPABASE_SECRET_KEY)
  * USO EXCLUSIVO NO SERVIDOR (API Astro, SSR, Scripts Node/tsx).
  * PROIBIDO NO NAVEGADOR / CLIENTE.
  * Inclui retrocompatibilidade com SUPABASE_SERVICE_ROLE_KEY.

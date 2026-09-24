@@ -9,6 +9,7 @@ import {
   sequences,
 } from '../src/core/domain/services/CompetitionService';
 import type { MatchSummary } from '../src/core/domain/repositories/IMatchRepository';
+import { MATCH_RULES } from '../src/core/domain/entities/Match';
 const uuid = () => crypto.randomUUID();
 async function setup(applyMigration = true) {
   const db = await createDatabase();
@@ -193,7 +194,9 @@ test('transações: zero não encerra, dois gols encerram, retries e bloqueio s�
     let m = (await snapshot())[0];
     assert.equal(m.status, 'finished');
     assert.equal(m.endReason, 'two_goals');
-    assert.equal(m.homeScore, 2);
+    // O cliente projeta o fim da partida com a mesma constante; se o SQL mudar o limite,
+    // este teste acusa a divergência.
+    assert.equal(m.homeScore, MATCH_RULES.MAX_GOALS_FOR_VICTORY);
     const finishedAt = m.finishedAt;
     await command('finish', m.matchId, { homeScore: 99 });
     m = (await snapshot())[0];

@@ -1,7 +1,3 @@
-import type { Match } from '../entities/Match';
-import type { MatchEvent, MatchEventProps } from '../entities/MatchEvent';
-import type { IMatchCommands } from './IMatchCommands';
-
 export interface LeaderboardItem {
   playerId: string;
   name: string;
@@ -79,20 +75,11 @@ export interface MatchSummary {
   awayPlayers?: MatchPlayerSummary[];
 }
 
+/**
+ * Leitura das partidas. As escritas passam por `IMatchCommands`, que o banco aplica numa
+ * transação (docs/adr/0001-transacao-sql-e-a-autoridade-das-partidas.md).
+ */
 export interface IMatchRepository {
-  /** Atomic persistence when the backing store supports transactions. */
-  executeCommand?: IMatchCommands['executeCommand'];
-  findById(id: string): Promise<Match | null>;
-  findBySessionId(sessionId: string): Promise<Match[]>;
-  findActiveMatch(sessionId: string): Promise<Match | null>;
-  create(match: Match): Promise<Match>;
-  update(match: Match): Promise<Match>;
-  addEvent(event: MatchEvent): Promise<MatchEvent>;
-  findEventById(eventId: string): Promise<MatchEvent | null>;
-  updateEvent(eventId: string, data: Partial<MatchEventProps>): Promise<void>;
-  deleteEvent(eventId: string): Promise<void>;
-  recalculateMatchScore(matchId: string): Promise<{ homeScore: number; awayScore: number }>;
-  getEventsByMatchId(matchId: string): Promise<MatchEvent[]>;
   getLeaderboard(): Promise<LeaderboardItem[]>;
   getLeaderboardByDateRange(startDate?: string, endDate?: string): Promise<LeaderboardItem[]>;
   /**

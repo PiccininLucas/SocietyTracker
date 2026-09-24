@@ -44,6 +44,7 @@ Você deve manter a independência rigorosa entre as camadas:
    - Deve ser TypeScript PURO.
    - **PROIBIDO** importar frameworks (Astro, React, Supabase, Next, etc.) ou bibliotecas de terceiros no Domínio.
    - Toda lógica crítica (ex: regra dos 2 gols que encerra a partida, tempo limite de 420 segundos) deve viver dentro das entidades ou Domain Services.
+   - **Exceção — escrita de partida:** as regras de escrita da partida vivem na transação SQL `society_match_command`, e o domínio TS guarda as regras de leitura e as constantes (`MATCH_RULES`). Ver `docs/adr/0001-transacao-sql-e-a-autoridade-das-partidas.md`.
 
 2. **Camada de Aplicação (`src/core/application/`):**
    - Contém os Use Cases (Casos de Uso) e DTOs.

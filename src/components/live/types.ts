@@ -20,53 +20,6 @@ export interface LiveTeam {
   players: LivePlayer[];
 }
 
-export interface LiveMatchEvent {
-  id?: string;
-  clientEventId: string;
-  matchId: string;
-  teamId: string;
-  scorerId?: string | null;
-  assistId?: string | null;
-  eventTimeSeconds: number;
-  isOwnGoal: boolean;
-  scorerName?: string;
-  assistName?: string;
-  teamName?: string;
-  createdAt: string;
-}
-
-export type MatchEndReason = 'two_goals' | 'time_limit' | 'manual';
-export type MatchStatus = 'ongoing' | 'finished';
-
-export interface LiveMatchState {
-  id: string;
-  sessionId: string;
-  homeTeam: LiveTeam;
-  awayTeam: LiveTeam;
-  allSessionTeams?: LiveTeam[];
-  homeScore: number;
-  awayScore: number;
-  matchDurationSeconds?: number;
-  secondsRemaining: number; // countdown from total duration to 0
-  durationSeconds: number; // elapsed time
-  status: MatchStatus;
-  endReason?: MatchEndReason | null;
-  events: LiveMatchEvent[];
-  isTimerRunning: boolean;
-  startedAt: string;
-  finishedAt?: string | null;
-  lastSavedAt?: string;
-}
-
-export interface ActiveMatchStorageSchema {
-  version: number;
-  match: LiveMatchState;
-  pendingSyncEvents: LiveMatchEvent[];
-  savedAt: string;
-}
-
-export const ACTIVE_MATCH_STORAGE_KEY = 'society_active_match_state';
-
 // Fonte única: a regra vive no domínio. Antes havia uma cópia literal aqui, que podia
 // divergir de MATCH_RULES sem que nada acusasse.
 export const DEFAULT_MATCH_DURATION_SECONDS = MATCH_RULES.MAX_DURATION_SECONDS;

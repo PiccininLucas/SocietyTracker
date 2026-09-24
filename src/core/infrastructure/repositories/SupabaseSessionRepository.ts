@@ -7,7 +7,6 @@ import type {
 } from '../../domain/repositories/ISessionRepository';
 import { Session, type SessionStatus } from '../../domain/entities/Session';
 import { Team, type TeamPlayer } from '../../domain/entities/Team';
-import { executeWithSchemaFallback } from '../database/schemaResilience';
 import { DatabaseError } from '../database/DatabaseError';
 
 interface SessionRow {
@@ -222,45 +221,6 @@ export class SupabaseSessionRepository implements ISessionRepository {
     });
     if (error) throw new Error(error.message);
     return this.getTeamsBySessionId(sessionId);
-  }
-
-  public async addPlayerToTeam(
-    teamId: string,
-    playerId: string,
-    isLoaned = false,
-    isGoalkeeper = false
-  ): Promise<void> {
-    const payload = {
-      session_team_id: teamId,
-      player_id: playerId,
-      is_loaned: isLoaned,
-      is_goalkeeper: isGoalkeeper,
-    };
-
-    const { error } = await executeWithSchemaFallback(
-      'session_team_players',
-      payload,
-      (cleanPayload) =>
-        this.client
-          .from('session_team_players')
-          .upsert(cleanPayload, { onConflict: 'session_team_id,player_id' })
-    );
-
-    if (error) {
-      throw new Error(`Erro ao adicionar jogador ao time: ${error.message}`);
-    }
-  }
-
-  public async removePlayerFromTeam(teamId: string, playerId: string): Promise<void> {
-    const { error } = await this.client
-      .from('session_team_players')
-      .delete()
-      .eq('session_team_id', teamId)
-      .eq('player_id', playerId);
-
-    if (error) {
-      throw new Error(`Erro ao remover jogador do time: ${error.message}`);
-    }
   }
 
   public async transferPlayer(

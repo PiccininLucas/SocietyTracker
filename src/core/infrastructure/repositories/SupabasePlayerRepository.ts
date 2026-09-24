@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin as defaultClient } from '../database/supabaseClient';
 import type { IPlayerRepository } from '../../domain/repositories/IPlayerRepository';
 import { Player } from '../../domain/entities/Player';
-import { executeWithSchemaFallback } from '../database/schemaResilience';
+import { DatabaseError } from '../database/DatabaseError';
 
 interface PlayerRow {
   id: string;
@@ -74,14 +74,12 @@ export class SupabasePlayerRepository implements IPlayerRepository {
       is_active: player.isActive,
     };
 
-    const { data, error } = await executeWithSchemaFallback<PlayerRow>(
-      'players',
-      payload,
-      (cleanPayload) => this.client.from('players').insert(cleanPayload).select('*').single()
-    );
+    // Grava direto: coluna ausente ou cache velho do PostgREST vira erro (503, nova
+    // tentativa), nunca um cadastro salvo sem o campo e respondido como sucesso.
+    const { data, error } = await this.client.from('players').insert(payload).select('*').single();
 
     if (error) {
-      throw new Error(`Erro ao criar jogador: ${error.message}`);
+      throw new DatabaseError(`Erro ao criar jogador: ${error.message}`, error.code);
     }
 
     return this.toDomain(data as PlayerRow);
@@ -100,15 +98,18 @@ export class SupabasePlayerRepository implements IPlayerRepository {
       is_active: player.isActive,
     };
 
-    const { data, error } = await executeWithSchemaFallback<PlayerRow>(
-      'players',
-      payload,
-      (cleanPayload) =>
-        this.client.from('players').update(cleanPayload).eq('id', player.id).select('*').single()
-    );
+    const { data, error } = await this.client
+      .from('players')
+      .update(payload)
+      .eq('id', player.id)
+      .select('*')
+      .single();
 
     if (error) {
-      throw new Error(`Erro ao atualizar jogador (${player.id}): ${error.message}`);
+      throw new DatabaseError(
+        `Erro ao atualizar jogador (${player.id}): ${error.message}`,
+        error.code
+      );
     }
 
     return this.toDomain(data as PlayerRow);
