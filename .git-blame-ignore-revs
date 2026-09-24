@@ -1,0 +1,5 @@
+# Commits só de formatação, ignorados pelo git blame (o GitHub lê este arquivo sozinho).
+# Local: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: format TypeScript sources with Prettier
+4a6d6b9a0b536371d37a0092b27b5b2133e61ced
