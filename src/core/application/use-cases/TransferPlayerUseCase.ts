@@ -1,8 +1,5 @@
 import type { ISessionRepository } from '../../domain/repositories/ISessionRepository';
-import type {
-  TransferPlayerInputDTO,
-  TransferPlayerOutputDTO,
-} from '../dtos/TransferPlayerDTO';
+import type { TransferPlayerInputDTO, TransferPlayerOutputDTO } from '../dtos/TransferPlayerDTO';
 
 export class TransferPlayerUseCase {
   constructor(private sessionRepository: ISessionRepository) {}

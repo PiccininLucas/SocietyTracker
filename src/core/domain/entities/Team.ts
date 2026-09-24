@@ -72,7 +72,12 @@ export class Team {
     }
   }
 
-  public addPlayer(playerId: string, isLoaned = false, isGoalkeeper = false, isCaptain = false): void {
+  public addPlayer(
+    playerId: string,
+    isLoaned = false,
+    isGoalkeeper = false,
+    isCaptain = false
+  ): void {
     if (!this.props.players) {
       this.props.players = [];
     }

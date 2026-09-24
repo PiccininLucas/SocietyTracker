@@ -254,7 +254,10 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
                 Bola Murcha (Linha 0G + 0A)
               </span>
             </div>
-            <div className="font-display font-bold text-xs sm:text-sm text-gray-300 truncate" title={bolaMurchaNames}>
+            <div
+              className="font-display font-bold text-xs sm:text-sm text-gray-300 truncate"
+              title={bolaMurchaNames}
+            >
               {bolaMurchaNames}
             </div>
           </div>
@@ -358,14 +361,18 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
                     <div className="flex items-center gap-5 sm:gap-7 text-right shrink-0">
                       <span
                         className={`w-7 text-center font-mono font-bold ${
-                          isTopScorer && player.goals > 0 ? 'text-emerald-400 font-black' : 'text-gray-300'
+                          isTopScorer && player.goals > 0
+                            ? 'text-emerald-400 font-black'
+                            : 'text-gray-300'
                         }`}
                       >
                         {player.goals}
                       </span>
                       <span
                         className={`w-7 text-center font-mono font-bold ${
-                          isTopAssister && player.assists > 0 ? 'text-blue-400 font-black' : 'text-gray-300'
+                          isTopAssister && player.assists > 0
+                            ? 'text-blue-400 font-black'
+                            : 'text-gray-300'
                         }`}
                       >
                         {player.assists}

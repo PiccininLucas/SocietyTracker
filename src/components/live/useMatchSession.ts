@@ -130,7 +130,13 @@ export function useMatchSession(sessionId: string, { active = true }: Options = 
         if (op.action === 'start') next = remapMatchId(next, op.operationId, match.matchId);
         commit(next);
         setError('');
-        setNotice(match.deletedAt ? 'Partida apagada. Estatísticas atualizadas.' : op.action === 'finish' ? 'Partida finalizada e salva.' : 'Alteração salva.');
+        setNotice(
+          match.deletedAt
+            ? 'Partida apagada. Estatísticas atualizadas.'
+            : op.action === 'finish'
+              ? 'Partida finalizada e salva.'
+              : 'Alteração salva.'
+        );
       }
       if (!held) await refresh();
       if (rejected)

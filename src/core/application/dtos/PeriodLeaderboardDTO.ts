@@ -19,7 +19,13 @@ export interface LeaderboardRankedItemDTO {
 
 export interface PreloadedLeaderboardData {
   matches: MatchSummary[];
-  players: { id: string; name: string; nickname?: string | null; avatarUrl?: string | null; isActive?: boolean }[];
+  players: {
+    id: string;
+    name: string;
+    nickname?: string | null;
+    avatarUrl?: string | null;
+    isActive?: boolean;
+  }[];
   historical: HistoricalPlayerTotal[];
 }
 

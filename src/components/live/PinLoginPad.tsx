@@ -16,9 +16,7 @@ interface PinLoginPadProps {
   redirectUrl?: string;
 }
 
-export const PinLoginPad: React.FC<PinLoginPadProps> = ({
-  redirectUrl = '/rodada/mesario',
-}) => {
+export const PinLoginPad: React.FC<PinLoginPadProps> = ({ redirectUrl = '/rodada/mesario' }) => {
   const [pin, setPin] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -131,8 +129,8 @@ export const PinLoginPad: React.FC<PinLoginPadProps> = ({
             isSuccess
               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 scale-110'
               : errorMessage
-              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
           )}
         >
           {isSuccess ? (
@@ -142,9 +140,7 @@ export const PinLoginPad: React.FC<PinLoginPadProps> = ({
           )}
         </div>
 
-        <h2 className="font-display font-black text-2xl text-white">
-          Acesso do Mesário
-        </h2>
+        <h2 className="font-display font-black text-2xl text-white">Acesso do Mesário</h2>
         <p className="text-xs text-gray-400 max-w-xs mx-auto">
           Digite o PIN de 4 dígitos para gerenciar a rodada e lançar gols
         </p>
@@ -167,8 +163,8 @@ export const PinLoginPad: React.FC<PinLoginPadProps> = ({
                 isSuccess
                   ? 'bg-emerald-400 border-emerald-400 shadow-lg shadow-emerald-500/50 scale-110'
                   : isFilled
-                  ? 'bg-emerald-500 border-emerald-400 shadow-md shadow-emerald-500/40 scale-125'
-                  : 'bg-surface-50 border-white/20'
+                    ? 'bg-emerald-500 border-emerald-400 shadow-md shadow-emerald-500/40 scale-125'
+                    : 'bg-surface-50 border-white/20'
               )}
             />
           );

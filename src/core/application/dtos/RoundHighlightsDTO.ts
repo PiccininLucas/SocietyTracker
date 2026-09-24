@@ -1,4 +1,7 @@
-import type { PlayerRoundStats, RoundHighlights } from '../../domain/services/RoundHighlightsService';
+import type {
+  PlayerRoundStats,
+  RoundHighlights,
+} from '../../domain/services/RoundHighlightsService';
 
 export interface GetRoundHighlightsInputDTO {
   sessionId?: string;

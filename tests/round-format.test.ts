@@ -1,9 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  assertValidRoundFormat,
-  ROUND_RULES,
-} from '../src/core/domain/entities/Session.ts';
+import { assertValidRoundFormat, ROUND_RULES } from '../src/core/domain/entities/Session.ts';
 
 const team = (name: string, n: number, offset = 0) => ({
   name,
@@ -13,12 +10,7 @@ const team = (name: string, n: number, offset = 0) => ({
 describe('Formato da rodada', () => {
   it('aceita a rodada cheia: 4 times de 6 = 24 jogadores', () => {
     assert.doesNotThrow(() =>
-      assertValidRoundFormat([
-        team('A', 6, 0),
-        team('B', 6, 6),
-        team('C', 6, 12),
-        team('D', 6, 18),
-      ])
+      assertValidRoundFormat([team('A', 6, 0), team('B', 6, 6), team('C', 6, 12), team('D', 6, 18)])
     );
   });
 
@@ -44,7 +36,14 @@ describe('Formato da rodada', () => {
   it('recusa mais de 24 jogadores na rodada', () => {
     // 4 times de 6 já é o teto; um 5º time estouraria tanto o número de times quanto o total.
     assert.throws(
-      () => assertValidRoundFormat([team('A', 6, 0), team('B', 6, 6), team('C', 6, 12), team('D', 6, 18), team('E', 6, 24)]),
+      () =>
+        assertValidRoundFormat([
+          team('A', 6, 0),
+          team('B', 6, 6),
+          team('C', 6, 12),
+          team('D', 6, 18),
+          team('E', 6, 24),
+        ]),
       /3 ou 4 times/
     );
   });
@@ -57,7 +56,8 @@ describe('Formato da rodada', () => {
 
   it('recusa time vazio — era o buraco que deixava salvar 8/0/0/0', () => {
     assert.throws(
-      () => assertValidRoundFormat([team('A', 6, 0), team('B', 2, 6), { name: 'C', playerIds: [] }]),
+      () =>
+        assertValidRoundFormat([team('A', 6, 0), team('B', 2, 6), { name: 'C', playerIds: [] }]),
       /pelo menos um jogador.*C/s
     );
   });

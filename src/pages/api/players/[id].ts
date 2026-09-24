@@ -8,10 +8,10 @@ export const PATCH: APIRoute = async ({ request, params }) => {
   try {
     const id = params.id;
     if (!id) {
-      return new Response(
-        JSON.stringify({ error: 'ID do jogador é obrigatório.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'ID do jogador é obrigatório.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const body = await request.json().catch(() => null);
@@ -64,9 +64,9 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     });
   } catch (error: any) {
     const isNotFound = error.message?.includes('não encontrado');
-    return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao atualizar jogador.' }),
-      { status: isNotFound ? 404 : 400, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message || 'Erro ao atualizar jogador.' }), {
+      status: isNotFound ? 404 : 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };

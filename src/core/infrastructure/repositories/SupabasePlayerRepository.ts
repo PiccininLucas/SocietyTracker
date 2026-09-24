@@ -46,7 +46,7 @@ export class SupabasePlayerRepository implements IPlayerRepository {
       throw new Error(`Erro ao buscar jogadores: ${error.message}`);
     }
 
-    return (data as PlayerRow[] || []).map((row) => this.toDomain(row));
+    return ((data as PlayerRow[]) || []).map((row) => this.toDomain(row));
   }
 
   public async findById(id: string): Promise<Player | null> {
@@ -77,8 +77,7 @@ export class SupabasePlayerRepository implements IPlayerRepository {
     const { data, error } = await executeWithSchemaFallback<PlayerRow>(
       'players',
       payload,
-      (cleanPayload) =>
-        this.client.from('players').insert(cleanPayload).select('*').single()
+      (cleanPayload) => this.client.from('players').insert(cleanPayload).select('*').single()
     );
 
     if (error) {

@@ -29,8 +29,7 @@ function recentFailures(key: string, now: number): number[] {
 }
 
 export type ThrottleVerdict =
-  | { blocked: false; remaining: number }
-  | { blocked: true; retryAfterSeconds: number };
+  { blocked: false; remaining: number } | { blocked: true; retryAfterSeconds: number };
 
 export function checkThrottle(key: string, now = Date.now()): ThrottleVerdict {
   const recent = recentFailures(key, now);

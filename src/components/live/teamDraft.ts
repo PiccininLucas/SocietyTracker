@@ -75,7 +75,9 @@ export function sanitizeDraft(
   if (!Array.isArray(raw.teams) || !Array.isArray(raw.presentPlayerIds)) return null;
 
   const byId = new Map(players.map((p) => [p.id, p]));
-  const present = new Set(raw.presentPlayerIds.filter((id): id is string => byId.has(id as string)));
+  const present = new Set(
+    raw.presentPlayerIds.filter((id): id is string => byId.has(id as string))
+  );
   const placed = new Set<string>();
   const teams: TeamDraft[] = [];
   for (const template of templates.slice(0, teamCount)) {
@@ -96,7 +98,10 @@ export function sanitizeDraft(
     teams.push({
       ...template,
       defaultName: template.name,
-      name: captainId && isRecord(stored) && typeof stored.name === 'string' ? stored.name : template.name,
+      name:
+        captainId && isRecord(stored) && typeof stored.name === 'string'
+          ? stored.name
+          : template.name,
       captainId,
       players: teamPlayers,
     });
@@ -118,7 +123,12 @@ export function loadDraft(
   now = Date.now()
 ) {
   try {
-    return sanitizeDraft(JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null'), players, templates, now);
+    return sanitizeDraft(
+      JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null'),
+      players,
+      templates,
+      now
+    );
   } catch {
     return null;
   }

@@ -206,8 +206,8 @@ export function MesarioSessionWrapper({
           className="rounded-xl p-3 bg-amber-950 border border-amber-400 text-amber-100 space-y-2"
         >
           <p>
-            O mesário desta rodada está aberto em outra aba ou janela. Esta fica só para
-            consulta, para os lances não se sobrescreverem.
+            O mesário desta rodada está aberto em outra aba ou janela. Esta fica só para consulta,
+            para os lances não se sobrescreverem.
           </p>
           <button className={actionClass} onClick={lock.takeOver}>
             Usar nesta aba
@@ -333,8 +333,8 @@ export function MesarioSessionWrapper({
             </label>
           </div>
           <p className="text-xs text-gray-400">
-            Quem vence fica, e entra quem está esperando há mais tempo. É só sugestão — o
-            mesário pode trocar. Não há saída automática na terceira vitória.
+            Quem vence fica, e entra quem está esperando há mais tempo. É só sugestão — o mesário
+            pode trocar. Não há saída automática na terceira vitória.
           </p>
           <button
             className={actionClass + ' w-full bg-emerald-600'}
@@ -442,9 +442,7 @@ export function MesarioSessionWrapper({
           sendAfter={lastGoal.sendAfter}
           windowMs={undoWindowMs}
           onUndo={undo}
-          onExpire={() =>
-            setLastGoal((g) => (g?.operationId === lastGoal.operationId ? null : g))
-          }
+          onExpire={() => setLastGoal((g) => (g?.operationId === lastGoal.operationId ? null : g))}
         />
       )}
     </div>

@@ -96,9 +96,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
             <UserCheck className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-display font-black text-lg text-white">
-              Editar Atleta
-            </h3>
+            <h3 className="font-display font-black text-lg text-white">Editar Atleta</h3>
             <p className="text-xs text-gray-400">Atualize os dados e a posição padrão</p>
           </div>
         </div>
@@ -114,9 +112,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
         {/* Formulário */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-300 mb-1">
-              Nome Completo *
-            </label>
+            <label className="block text-xs font-bold text-gray-300 mb-1">Nome Completo *</label>
             <input
               type="text"
               required
@@ -141,9 +137,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-300 mb-1.5">
-              Posição Padrão
-            </label>
+            <label className="block text-xs font-bold text-gray-300 mb-1.5">Posição Padrão</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"

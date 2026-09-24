@@ -59,7 +59,9 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({
 
   // Lista de jogadores emprestados disponíveis dos outros times (ordem alfabética)
   const filteredLoanPlayers = availableLoanPlayers
-    .filter((p) => (step === 'select_loan_scorer' ? true : !selectedScorer || p.id !== selectedScorer.id))
+    .filter((p) =>
+      step === 'select_loan_scorer' ? true : !selectedScorer || p.id !== selectedScorer.id
+    )
     .filter((p) => {
       if (!filterQuery.trim()) return true;
       const term = filterQuery.toLowerCase();
@@ -181,8 +183,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({
                     {step === 'select_loan_assist' && '🔄 Quem assistiu? (Emprestado)'}
                   </h3>
                   <p className="text-xs text-gray-400">
-                    {team.name} •{' '}
-                    {step === 'select_scorer' && 'Passo 1 de 2'}
+                    {team.name} • {step === 'select_scorer' && 'Passo 1 de 2'}
                     {step === 'select_assist' && 'Passo 2 de 2'}
                     {step === 'select_loan_scorer' && 'Passo 1 de 2 · Outros times'}
                     {step === 'select_loan_assist' && 'Passo 2 de 2 · Outros times'}

@@ -43,9 +43,10 @@ export class GetRoundHighlightsUseCase {
       ] as const) {
         for (const p of players) {
           if (!rows.has(p.id)) {
-            const isGk = officialGoalkeepers.size > 0
-              ? officialGoalkeepers.has(p.id)
-              : (p.isGoalkeeper ?? false);
+            const isGk =
+              officialGoalkeepers.size > 0
+                ? officialGoalkeepers.has(p.id)
+                : (p.isGoalkeeper ?? false);
             rows.set(p.id, {
               playerId: p.id,
               name: p.name,

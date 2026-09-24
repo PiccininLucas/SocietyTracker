@@ -1,9 +1,6 @@
 import type { IPlayerRepository } from '../../domain/repositories/IPlayerRepository';
 import { Player } from '../../domain/entities/Player';
-import type {
-  CreatePlayerInputDTO,
-  CreatePlayerOutputDTO,
-} from '../dtos/CreatePlayerDTO';
+import type { CreatePlayerInputDTO, CreatePlayerOutputDTO } from '../dtos/CreatePlayerDTO';
 
 export class CreatePlayerUseCase {
   constructor(private playerRepository: IPlayerRepository) {}

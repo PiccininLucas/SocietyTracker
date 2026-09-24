@@ -1,7 +1,15 @@
 import React from 'react';
 import type { PlayerPerformance } from '../../core/domain/services/CompetitionService';
 type SortKey =
-  'contributions' | 'goals' | 'assists' | 'played' | 'wins' | 'efficiency' | 'bottomCount' | 'captaincies' | 'name';
+  | 'contributions'
+  | 'goals'
+  | 'assists'
+  | 'played'
+  | 'wins'
+  | 'efficiency'
+  | 'bottomCount'
+  | 'captaincies'
+  | 'name';
 export function PlayerPerformanceTable({
   players,
   season,
@@ -126,8 +134,13 @@ export function PlayerPerformanceTable({
                     </th>
                   ) : (
                     <td key={field} className="p-2">
-                      {p.hasHistoricalTotals && !p.played && ['played', 'wins', 'draws', 'losses', 'efficiency'].includes(field)
-                        ? '—' : field === 'efficiency' ? p.efficiency.toFixed(1) + '%' : String(p[field])}
+                      {p.hasHistoricalTotals &&
+                      !p.played &&
+                      ['played', 'wins', 'draws', 'losses', 'efficiency'].includes(field)
+                        ? '—'
+                        : field === 'efficiency'
+                          ? p.efficiency.toFixed(1) + '%'
+                          : String(p[field])}
                     </td>
                   )
                 )}

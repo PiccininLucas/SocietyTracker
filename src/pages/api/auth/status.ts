@@ -6,8 +6,8 @@ export const prerender = false;
 export const GET: APIRoute = async ({ cookies, request }) => {
   const authenticated = isAuthenticatedFromRequest(cookies, request);
 
-  return new Response(
-    JSON.stringify({ isAuthenticated: authenticated }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
-  );
+  return new Response(JSON.stringify({ isAuthenticated: authenticated }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 };

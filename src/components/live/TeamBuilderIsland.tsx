@@ -450,9 +450,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     // 5. Distribui os jogadores de linha equitativamente, respeitando o teto de 6
     shuffledOutfielders.forEach((player) => {
       // Prioriza times com menos jogadores para balancear
-      const sortedTeamsByCount = capacity().sort(
-        (a, b) => a.players.length - b.players.length
-      );
+      const sortedTeamsByCount = capacity().sort((a, b) => a.players.length - b.players.length);
       const targetTeam = sortedTeamsByCount[0];
       if (!targetTeam) {
         sobraram.push(player.nickname || player.name);
@@ -688,7 +686,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
               </div>
             </div>
             <p className="text-xs sm:text-sm text-gray-400 mt-1">
-              Selecione os atletas presentes, escolha entre 3 ou 4 times e ajuste o tempo de partida.
+              Selecione os atletas presentes, escolha entre 3 ou 4 times e ajuste o tempo de
+              partida.
             </p>
           </div>
 
@@ -810,7 +809,10 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
         >
           <span>
             Montagem restaurada deste aparelho (salva às{' '}
-            {new Date(restoredAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {new Date(restoredAt).toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
             ).
           </span>
           <button
@@ -858,9 +860,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                     {totalPresent}/{allPlayers.length}
                   </span>
                 </h3>
-                <p className="text-[11px] text-gray-400">
-                  Marque quem veio para a pelada hoje
-                </p>
+                <p className="text-[11px] text-gray-400">Marque quem veio para a pelada hoje</p>
               </div>
             </button>
           </div>
@@ -982,7 +982,10 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-display font-black text-base text-white truncate" title={team.name}>
+                      <h3
+                        className="font-display font-black text-base text-white truncate"
+                        title={team.name}
+                      >
                         {team.name}
                       </h3>
                       <span
@@ -1030,15 +1033,20 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                           isCaptain
                             ? 'bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-400/30'
                             : p.isGoalkeeper
-                            ? 'bg-amber-500/10 border-amber-500/30'
-                            : 'bg-surface-200/60 border-white/5 hover:border-white/20'
+                              ? 'bg-amber-500/10 border-amber-500/30'
+                              : 'bg-surface-200/60 border-white/5 hover:border-white/20'
                         )}
                       >
                         <div className="flex items-center gap-2 min-w-0 pr-1">
                           <span className="w-5 h-5 rounded-lg bg-surface-50 text-gray-400 font-bold text-[10px] flex items-center justify-center shrink-0">
                             {idx + 1}
                           </span>
-                          <span className={cn('font-semibold truncate', isCaptain ? 'text-amber-200' : 'text-white')}>
+                          <span
+                            className={cn(
+                              'font-semibold truncate',
+                              isCaptain ? 'text-amber-200' : 'text-white'
+                            )}
+                          >
                             {p.nickname || p.name}
                           </span>
                         </div>
@@ -1060,7 +1068,12 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                                 : 'Definir como Capitão da equipe'
                             }
                           >
-                            <Star className={cn('w-2.5 h-2.5', isCaptain ? 'fill-current text-amber-300' : 'text-gray-400')} />
+                            <Star
+                              className={cn(
+                                'w-2.5 h-2.5',
+                                isCaptain ? 'fill-current text-amber-300' : 'text-gray-400'
+                              )}
+                            />
                             <span>{isCaptain ? 'Capitão' : 'Capitão'}</span>
                           </button>
 
@@ -1143,8 +1156,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
               {totalPresent === 0
                 ? 'Nenhum atleta marcado na lista de presença acima.'
                 : poolSearchQuery
-                ? 'Nenhum atleta livre encontrado com esse termo.'
-                : 'Todos os atletas presentes já foram escalados nos times!'}
+                  ? 'Nenhum atleta livre encontrado com esse termo.'
+                  : 'Todos os atletas presentes já foram escalados nos times!'}
             </div>
           ) : (
             filteredAvailablePool.map((player) => (
@@ -1269,9 +1282,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                 <UserPlus className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-display font-black text-lg text-white">
-                  Novo Jogador
-                </h3>
+                <h3 className="font-display font-black text-lg text-white">Novo Jogador</h3>
                 <p className="text-xs text-gray-400">Cadastre um atleta avulso na hora</p>
               </div>
             </div>

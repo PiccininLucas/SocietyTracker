@@ -21,14 +21,14 @@ await db.exec(
 await db.exec(await readFile('supabase/migrations/202609090001_match_integrity.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609210001_loan_in_goal.sql', 'utf8'));
-await db.exec(
-  await readFile('supabase/migrations/202609210002_finish_applies_score.sql', 'utf8')
-);
+await db.exec(await readFile('supabase/migrations/202609210002_finish_applies_score.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609210003_revoke_roster_writes.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609210004_hot_path_indexes.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609210005_time_limit_reason.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609210006_snapshot_date_range.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609210007_session_team_players_captain.sql', 'utf8'));
+await db.exec(
+  await readFile('supabase/migrations/202609210007_session_team_players_captain.sql', 'utf8')
+);
 await db.exec(await readFile('supabase/migrations/202609210008_round_goalkeeper.sql', 'utf8'));
 await db.exec(await readFile('supabase/migrations/202609220001_create_session_rpc.sql', 'utf8'));
 await db.exec(
@@ -36,7 +36,10 @@ await db.exec(
 );
 await db.exec(await readFile('supabase/migrations/202609220003_client_match_id.sql', 'utf8'));
 for (const round of [{ id: sid, sessionDate: '2026-09-03', teams }, ...Object.values(rounds)]) {
-  await db.query('INSERT INTO sessions(id,session_date) VALUES($1,$2)', [round.id, round.sessionDate]);
+  await db.query('INSERT INTO sessions(id,session_date) VALUES($1,$2)', [
+    round.id,
+    round.sessionDate,
+  ]);
   for (const t of round.teams) {
     await db.query('INSERT INTO session_teams(id,session_id,name,color_hex) VALUES($1,$2,$3,$4)', [
       t.id,
@@ -85,12 +88,18 @@ const reportRepository = {
 } as IMatchRepository;
 const repository = {
   async executeCommand(command: MatchCommand) {
-    const r = await db.query<{ data: { match_id: string; event_id: string; deleted_match?: MatchSummary } }>(
-      'SELECT society_match_command($1,$2,$3,$4) data',
-      [command.action, command.matchId ?? null, JSON.stringify(command.input), command.operationId]
-    );
+    const r = await db.query<{
+      data: { match_id: string; event_id: string; deleted_match?: MatchSummary };
+    }>('SELECT society_match_command($1,$2,$3,$4) data', [
+      command.action,
+      command.matchId ?? null,
+      JSON.stringify(command.input),
+      command.operationId,
+    ]);
     return {
-      match: r.rows[0].data.deleted_match ?? (await snapshot(null)).find((m) => m.matchId === r.rows[0].data.match_id)!,
+      match:
+        r.rows[0].data.deleted_match ??
+        (await snapshot(null)).find((m) => m.matchId === r.rows[0].data.match_id)!,
       eventId: r.rows[0].data.event_id,
     };
   },
@@ -143,7 +152,9 @@ const server = await createServer({
                         ? req.method === 'DELETE'
                           ? 'delete'
                           : 'edit'
-                        : req.method === 'DELETE' ? 'remove_match' : 'score';
+                        : req.method === 'DELETE'
+                          ? 'remove_match'
+                          : 'score';
               response = await matchCommand(
                 { request, params: { id: parts[3], eventId: parts[5] } } as unknown as APIContext,
                 action,

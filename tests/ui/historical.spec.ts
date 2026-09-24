@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-test('totais acumulados no celular preservam zero sem expor detalhes da migração', async ({ page }) => {
+test('totais acumulados no celular preservam zero sem expor detalhes da migração', async ({
+  page,
+}) => {
   await page.goto('/tests/ui/index.html?historical');
   await expect(page.getByText(/totais antigos|jogos antigos|inclui totais/i)).toHaveCount(0);
   const scorer = page.getByRole('row').filter({ hasText: 'Barbaroto' });

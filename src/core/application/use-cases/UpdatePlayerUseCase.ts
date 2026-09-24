@@ -1,8 +1,5 @@
 import type { IPlayerRepository } from '../../domain/repositories/IPlayerRepository';
-import type {
-  UpdatePlayerInputDTO,
-  UpdatePlayerOutputDTO,
-} from '../dtos/UpdatePlayerDTO';
+import type { UpdatePlayerInputDTO, UpdatePlayerOutputDTO } from '../dtos/UpdatePlayerDTO';
 
 export class UpdatePlayerUseCase {
   constructor(private playerRepository: IPlayerRepository) {}

@@ -29,8 +29,21 @@ function stored(overrides: Record<string, unknown> = {}) {
     teamCount: 3,
     matchDurationMinutes: 8,
     teams: [
-      { id: 'team-1', name: 'Time Aninha', captainId: 'a', players: [{ id: 'a', isGoalkeeper: false }, { id: 'b', isGoalkeeper: true }] },
-      { id: 'team-2', name: 'Time Branco', captainId: null, players: [{ id: 'c', isGoalkeeper: false }] },
+      {
+        id: 'team-1',
+        name: 'Time Aninha',
+        captainId: 'a',
+        players: [
+          { id: 'a', isGoalkeeper: false },
+          { id: 'b', isGoalkeeper: true },
+        ],
+      },
+      {
+        id: 'team-2',
+        name: 'Time Branco',
+        captainId: null,
+        players: [{ id: 'c', isGoalkeeper: false }],
+      },
       { id: 'team-3', name: 'Time Azul', captainId: null, players: [] },
     ],
     ...overrides,
@@ -44,7 +57,10 @@ describe('sanitizeDraft', () => {
     assert.ok(draft);
     assert.equal(draft.teamCount, 3);
     assert.equal(draft.notes, 'Quadra 2');
-    assert.deepEqual(draft.teams.map((t) => t.players.map((p) => p.id)), [['a', 'b'], ['c'], []]);
+    assert.deepEqual(
+      draft.teams.map((t) => t.players.map((p) => p.id)),
+      [['a', 'b'], ['c'], []]
+    );
     assert.equal(draft.teams[0].players[0].nickname, 'Ana Paula', 'nomes vêm do cadastro atual');
     assert.equal(draft.teams[0].players[1].isGoalkeeper, true);
     assert.equal(draft.teams[0].captainId, 'a');
@@ -53,12 +69,24 @@ describe('sanitizeDraft', () => {
   });
 
   it('rejects drafts from another night, another version or with a broken shape', () => {
-    assert.equal(sanitizeDraft(stored({ savedAt: now - DRAFT_MAX_AGE_MS - 1 }), players, templates, now), null);
-    assert.equal(sanitizeDraft(stored({ savedAt: now + 5 * 60_000 }), players, templates, now), null);
+    assert.equal(
+      sanitizeDraft(stored({ savedAt: now - DRAFT_MAX_AGE_MS - 1 }), players, templates, now),
+      null
+    );
+    assert.equal(
+      sanitizeDraft(stored({ savedAt: now + 5 * 60_000 }), players, templates, now),
+      null
+    );
     assert.equal(sanitizeDraft(stored({ version: 2 }), players, templates, now), null);
     assert.equal(sanitizeDraft(stored({ teamCount: 5 }), players, templates, now), null);
-    assert.equal(sanitizeDraft(stored({ sessionDate: '24/09/2026' }), players, templates, now), null);
-    assert.equal(sanitizeDraft(stored({ matchDurationMinutes: 'x' }), players, templates, now), null);
+    assert.equal(
+      sanitizeDraft(stored({ sessionDate: '24/09/2026' }), players, templates, now),
+      null
+    );
+    assert.equal(
+      sanitizeDraft(stored({ matchDurationMinutes: 'x' }), players, templates, now),
+      null
+    );
     assert.equal(sanitizeDraft(stored({ teams: 'x' }), players, templates, now), null);
     assert.equal(sanitizeDraft(null, players, templates, now), null);
   });
@@ -67,14 +95,22 @@ describe('sanitizeDraft', () => {
     const raw = stored({
       presentPlayerIds: ['a', 'b', 'c', 'sumiu'],
       teams: [
-        { id: 'team-1', name: 'Time Sumiu', captainId: 'sumiu', players: [{ id: 'sumiu' }, { id: 'a' }] },
+        {
+          id: 'team-1',
+          name: 'Time Sumiu',
+          captainId: 'sumiu',
+          players: [{ id: 'sumiu' }, { id: 'a' }],
+        },
         { id: 'team-2', name: 'Time Branco', captainId: null, players: [{ id: 'a' }, { id: 'c' }] },
         { id: 'team-3', name: 'Time Azul', captainId: null, players: [] },
       ],
     });
     const draft = sanitizeDraft(raw, players, templates, now)!;
     assert.deepEqual(draft.presentPlayerIds.sort(), ['a', 'b', 'c']);
-    assert.deepEqual(draft.teams.map((t) => t.players.map((p) => p.id)), [['a'], ['c'], []]);
+    assert.deepEqual(
+      draft.teams.map((t) => t.players.map((p) => p.id)),
+      [['a'], ['c'], []]
+    );
     // O capitão sumiu: o time volta ao nome padrão em vez de "Time <capitão ausente>".
     assert.equal(draft.teams[0].captainId, null);
     assert.equal(draft.teams[0].name, 'Time Preto');

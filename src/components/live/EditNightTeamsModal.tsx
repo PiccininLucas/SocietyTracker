@@ -92,8 +92,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
     const q = playerSearchQuery.toLowerCase().trim();
     return unassignedPlayers.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.nickname && p.nickname.toLowerCase().includes(q))
+        p.name.toLowerCase().includes(q) || (p.nickname && p.nickname.toLowerCase().includes(q))
     );
   }, [unassignedPlayers, playerSearchQuery]);
 
@@ -113,16 +112,12 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
           return {
             ...t,
             captainId: null,
-            players: t.players.map((p) =>
-              p.id === playerId ? { ...p, isCaptain: false } : p
-            ),
+            players: t.players.map((p) => (p.id === playerId ? { ...p, isCaptain: false } : p)),
           };
         }
 
         const captainPlayer = t.players.find((p) => p.id === playerId);
-        const captainName = captainPlayer
-          ? captainPlayer.nickname || captainPlayer.name
-          : '';
+        const captainName = captainPlayer ? captainPlayer.nickname || captainPlayer.name : '';
 
         return {
           ...t,
@@ -239,9 +234,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
 
   // 6. Editar Nome do Time Manualmente
   const handleTeamNameChange = (teamId: string, newName: string) => {
-    setEditableTeams((prev) =>
-      prev.map((t) => (t.id === teamId ? { ...t, name: newName } : t))
-    );
+    setEditableTeams((prev) => prev.map((t) => (t.id === teamId ? { ...t, name: newName } : t)));
   };
 
   // 7. Salvar Alterações na API
@@ -436,8 +429,8 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                             isCaptain
                               ? 'bg-amber-500/10 border-amber-500/30'
                               : player.isGoalkeeper
-                              ? 'bg-emerald-500/10 border-emerald-500/30'
-                              : 'bg-surface-100/60 border-white/5'
+                                ? 'bg-emerald-500/10 border-emerald-500/30'
+                                : 'bg-surface-100/60 border-white/5'
                           )}
                         >
                           <div className="flex items-center justify-between gap-1">
@@ -620,9 +613,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
         <div className="p-4 sm:p-5 border-t border-white/10 bg-surface-200/70 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>
-              {unassignedPlayers.length} atletas disponíveis no banco para escalação
-            </span>
+            <span>{unassignedPlayers.length} atletas disponíveis no banco para escalação</span>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">

@@ -24,10 +24,10 @@ export const GET: APIRoute = async () => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao listar jogadores.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message || 'Erro ao listar jogadores.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
 
@@ -50,9 +50,9 @@ export const POST: APIRoute = async ({ request }) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao cadastrar jogador.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message || 'Erro ao cadastrar jogador.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };

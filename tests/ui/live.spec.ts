@@ -152,12 +152,14 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   await expect(page.getByRole('button', { name: 'Apagar partida', exact: true })).toBeVisible();
   await page.screenshot({ path: 'test-results/apagar-partida-mobile.png', fullPage: false });
   page.removeAllListeners('dialog');
-  page.once('dialog', d => void d.dismiss());
+  page.once('dialog', (d) => void d.dismiss());
   await page.getByRole('button', { name: 'Apagar partida', exact: true }).click();
   await expect(page.getByText('Assistência: Jogador 11', { exact: true })).toBeVisible();
-  page.on('dialog', d => void d.accept());
+  page.on('dialog', (d) => void d.accept());
   await page.getByRole('button', { name: 'Apagar partida', exact: true }).click();
-  await expect(page.getByText('Partida apagada. Estatísticas atualizadas.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Partida apagada. Estatísticas atualizadas.', { exact: true })
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Súmula #3', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect(player11.getByRole('cell').first()).toHaveText('2');
@@ -169,7 +171,7 @@ test('fluxo completo com banco: zero, gol, recarga, edição, finalização, his
   await page.getByRole('button', { name: 'Iniciar partida', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Partida #5', exact: true })).toBeVisible();
   // Lost acknowledgement: the queued deletion survives reload and retries safely.
-  await page.route('**/api/matches/*', async route => {
+  await page.route('**/api/matches/*', async (route) => {
     if (route.request().method() !== 'DELETE') return route.continue();
     await route.fetch();
     await route.abort();

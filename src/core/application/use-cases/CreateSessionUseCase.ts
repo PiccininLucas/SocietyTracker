@@ -1,10 +1,7 @@
 import type { ISessionRepository } from '../../domain/repositories/ISessionRepository';
 import { Session, assertValidRoundFormat } from '../../domain/entities/Session';
 import { DomainError } from '../../domain/errors/DomainError';
-import type {
-  CreateSessionInputDTO,
-  CreateSessionOutputDTO,
-} from '../dtos/CreateSessionDTO';
+import type { CreateSessionInputDTO, CreateSessionOutputDTO } from '../dtos/CreateSessionDTO';
 
 export class CreateSessionUseCase {
   constructor(private sessionRepository: ISessionRepository) {}

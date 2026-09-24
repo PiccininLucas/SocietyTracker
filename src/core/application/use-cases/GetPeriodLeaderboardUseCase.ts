@@ -44,7 +44,8 @@ export class GetPeriodLeaderboardUseCase {
     const items: LeaderboardItem[] = input.preloadedData
       ? playerPerformance(
           input.preloadedData.matches.filter(
-            (m) => (!startDate || m.sessionDate >= startDate) && (!endDate || m.sessionDate <= endDate)
+            (m) =>
+              (!startDate || m.sessionDate >= startDate) && (!endDate || m.sessionDate <= endDate)
           ),
           input.preloadedData.players,
           historicalTotalsForPeriod(input.preloadedData.historical, startDate, endDate)
@@ -96,11 +97,13 @@ export class GetPeriodLeaderboardUseCase {
       .map((item): LeaderboardRankedItemDTO => {
         const matchesCount = resolveMatchesPlayed(item);
         const avgGoals =
-          matchesCount === null ? null : item.goalsPerMatch != null
-            ? item.goalsPerMatch.toFixed(2)
-            : matchesCount > 0
-              ? (item.totalGoals / matchesCount).toFixed(2)
-              : '0.00';
+          matchesCount === null
+            ? null
+            : item.goalsPerMatch != null
+              ? item.goalsPerMatch.toFixed(2)
+              : matchesCount > 0
+                ? (item.totalGoals / matchesCount).toFixed(2)
+                : '0.00';
 
         return {
           rank: 1 + items.filter((other) => other.totalGoals > item.totalGoals).length,
@@ -109,9 +112,10 @@ export class GetPeriodLeaderboardUseCase {
           nickname: item.nickname,
           avatarUrl: item.avatarUrl,
           value: item.totalGoals,
-          secondaryInfo: matchesCount === null
-            ? undefined
-            : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''} • ${avgGoals} G/J`,
+          secondaryInfo:
+            matchesCount === null
+              ? undefined
+              : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''} • ${avgGoals} G/J`,
           totalGoals: item.totalGoals,
           totalAssists: item.totalAssists,
           totalContributions: item.totalContributions,
@@ -141,7 +145,10 @@ export class GetPeriodLeaderboardUseCase {
           nickname: item.nickname,
           avatarUrl: item.avatarUrl,
           value: item.totalAssists,
-          secondaryInfo: matchesCount === null ? undefined : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''}`,
+          secondaryInfo:
+            matchesCount === null
+              ? undefined
+              : `${matchesCount} jogo${matchesCount !== 1 ? 's' : ''}`,
           totalGoals: item.totalGoals,
           totalAssists: item.totalAssists,
           totalContributions: item.totalContributions,

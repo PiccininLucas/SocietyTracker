@@ -12,11 +12,13 @@ export class GetLeaderboardUseCase {
       const totalGoals = Number(item.totalGoals) || 0;
       const totalMatchesPlayed = resolveMatchesPlayed(item);
       const goalsPerMatch =
-        totalMatchesPlayed === null ? null : item.goalsPerMatch !== undefined && item.goalsPerMatch !== null
-          ? Number(item.goalsPerMatch)
-          : totalMatchesPlayed > 0
-          ? Number((totalGoals / totalMatchesPlayed).toFixed(2))
-          : 0;
+        totalMatchesPlayed === null
+          ? null
+          : item.goalsPerMatch !== undefined && item.goalsPerMatch !== null
+            ? Number(item.goalsPerMatch)
+            : totalMatchesPlayed > 0
+              ? Number((totalGoals / totalMatchesPlayed).toFixed(2))
+              : 0;
 
       return {
         playerId: item.playerId,
@@ -28,8 +30,10 @@ export class GetLeaderboardUseCase {
         totalAssists: Number(item.totalAssists) || 0,
         totalContributions: Number(item.totalContributions) || 0,
         totalMatchesPlayed,
-        totalSessionsPlayed: item.hasHistoricalTotals || item.totalSessionsPlayed === null
-          ? null : Number(item.totalSessionsPlayed) || 0,
+        totalSessionsPlayed:
+          item.hasHistoricalTotals || item.totalSessionsPlayed === null
+            ? null
+            : Number(item.totalSessionsPlayed) || 0,
         goalsPerMatch,
         hasHistoricalTotals: item.hasHistoricalTotals,
         totalBottomCount: item.totalBottomCount,

@@ -37,12 +37,16 @@ export const QuickPlayerTransferModal: React.FC<QuickPlayerTransferModalProps> =
   // Inicializa os times padrão quando o modal abre
   useEffect(() => {
     if (isOpen && teams.length >= 2) {
-      const defaultFrom = (currentHomeTeamId && teams.some(t => t.id === currentHomeTeamId))
-        ? currentHomeTeamId
-        : teams[0].id;
-      const defaultTo = (currentAwayTeamId && currentAwayTeamId !== defaultFrom && teams.some(t => t.id === currentAwayTeamId))
-        ? currentAwayTeamId
-        : teams.find((t) => t.id !== defaultFrom)?.id || teams[1].id;
+      const defaultFrom =
+        currentHomeTeamId && teams.some((t) => t.id === currentHomeTeamId)
+          ? currentHomeTeamId
+          : teams[0].id;
+      const defaultTo =
+        currentAwayTeamId &&
+        currentAwayTeamId !== defaultFrom &&
+        teams.some((t) => t.id === currentAwayTeamId)
+          ? currentAwayTeamId
+          : teams.find((t) => t.id !== defaultFrom)?.id || teams[1].id;
       setFromTeamId(defaultFrom);
       setToTeamId(defaultTo);
       setSelectedPlayerId('');
@@ -110,9 +114,7 @@ export const QuickPlayerTransferModal: React.FC<QuickPlayerTransferModalProps> =
               <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
                 Emprestar / Transferir Atleta
               </h3>
-              <p className="text-xs text-gray-400">
-                Ajuste rápido de escalação para o jogo
-              </p>
+              <p className="text-xs text-gray-400">Ajuste rápido de escalação para o jogo</p>
             </div>
           </div>
 
@@ -212,9 +214,7 @@ export const QuickPlayerTransferModal: React.FC<QuickPlayerTransferModalProps> =
                         : 'bg-gray-800/80 border-gray-700/60 text-gray-300 hover:bg-gray-700/80'
                     )}
                   >
-                    <span className="truncate">
-                      {player.nickname || player.name}
-                    </span>
+                    <span className="truncate">{player.nickname || player.name}</span>
                     {isSelected && <Check className="w-4 h-4 text-blue-400 shrink-0 ml-1" />}
                   </button>
                 );

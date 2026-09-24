@@ -22,10 +22,10 @@ export const GET: APIRoute = async ({ url }) => {
     }
 
     if (!session) {
-      return new Response(
-        JSON.stringify({ error: 'Nenhuma sessão encontrada.' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Nenhuma sessão encontrada.' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const payload = {
@@ -58,10 +58,10 @@ export const GET: APIRoute = async ({ url }) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao consultar sessão.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message || 'Erro ao consultar sessão.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
 
@@ -74,7 +74,9 @@ export const POST: APIRoute = async ({ request }) => {
     const result = await useCase.execute({
       sessionDate: body.sessionDate,
       notes: body.notes,
-      matchDurationSeconds: body.matchDurationSeconds ? Number(body.matchDurationSeconds) : undefined,
+      matchDurationSeconds: body.matchDurationSeconds
+        ? Number(body.matchDurationSeconds)
+        : undefined,
       teams: body.teams,
     });
 

@@ -42,7 +42,8 @@ export function classifyError(
 ): { status: number; message: string } {
   const message = error instanceof Error ? error.message : '';
   if (error instanceof DomainError) return businessRefusal(message);
-  if (error instanceof SyntaxError) return { status: 400, message: 'Corpo da requisição inválido.' };
+  if (error instanceof SyntaxError)
+    return { status: 400, message: 'Corpo da requisição inválido.' };
   const code = sqlState(error);
   if (code === 'P0001') return businessRefusal(message);
   if (code === '23505') return { status: 409, message: 'Já existe um registro com esses dados.' };

@@ -3,7 +3,10 @@ import type {
   MatchSummaryEvent,
   MatchPlayerSummary,
 } from '../repositories/IMatchRepository';
-import { isCoveredByHistoricalTotal, type HistoricalPlayerTotal } from '../entities/HistoricalPlayerTotal';
+import {
+  isCoveredByHistoricalTotal,
+  type HistoricalPlayerTotal,
+} from '../entities/HistoricalPlayerTotal';
 
 export const normalizeId = (id?: string | null): string => (id ?? '').trim().toLowerCase();
 export function scoreFromEvents(home: string, away: string, events: readonly MatchSummaryEvent[]) {
@@ -252,8 +255,13 @@ export function playerPerformance(
   };
   registered.filter((p) => p.isActive !== false).forEach(ensure);
   for (const t of historical) {
-    const r = ensure(registered.find((p) => p.id === t.playerId)
-      ?? { id: t.playerId, name: t.sourceName, isActive: false });
+    const r = ensure(
+      registered.find((p) => p.id === t.playerId) ?? {
+        id: t.playerId,
+        name: t.sourceName,
+        isActive: false,
+      }
+    );
     r.hasHistoricalTotals = true;
     r.goals += t.goals;
     r.assists += t.assists;
@@ -335,8 +343,14 @@ export function playerPerformance(
     r.sessions++;
     // Capitania é por rodada: quem capitaneou em qualquer partida da noite conta uma vez.
     if (rr.captain) r.captaincies++;
-    if (rr.matches.size && !rr.gk && !rr.g && !rr.a
-      && !isCoveredByHistoricalTotal(historical, rr.playerId, rr.date)) r.bottomCount++;
+    if (
+      rr.matches.size &&
+      !rr.gk &&
+      !rr.g &&
+      !rr.a &&
+      !isCoveredByHistoricalTotal(historical, rr.playerId, rr.date)
+    )
+      r.bottomCount++;
   }
   const list = [...rows.values()];
   for (const r of list) {

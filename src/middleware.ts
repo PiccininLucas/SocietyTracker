@@ -7,8 +7,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // 1. Páginas Administrativas protegidas (SSR)
   const isProtectedPage =
-    pathname.startsWith('/rodada/nova') ||
-    pathname.startsWith('/rodada/mesario');
+    pathname.startsWith('/rodada/nova') || pathname.startsWith('/rodada/mesario');
 
   if (isProtectedPage) {
     const isAuth = isAuthenticatedFromRequest(context.cookies, context.request);

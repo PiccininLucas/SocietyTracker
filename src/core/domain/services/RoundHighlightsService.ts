@@ -12,10 +12,10 @@ export interface PlayerRoundStats {
 }
 
 export interface RoundHighlights {
-  topScorers: string[];     // Nomes com empate permitido
-  topAssisters: string[];   // Nomes com empate permitido
-  mvps: string[];           // Nomes com maior G+A
-  bottomPlayers: string[];  // Apenas jogadores de LINHA com 0 G e 0 A ("Bola Murcha")
+  topScorers: string[]; // Nomes com empate permitido
+  topAssisters: string[]; // Nomes com empate permitido
+  mvps: string[]; // Nomes com maior G+A
+  bottomPlayers: string[]; // Apenas jogadores de LINHA com 0 G e 0 A ("Bola Murcha")
 }
 
 export class RoundHighlightsService {
@@ -28,12 +28,17 @@ export class RoundHighlightsService {
     const maxAssists = Math.max(...stats.map((s) => s.assists));
     const maxContributions = Math.max(...stats.map((s) => s.contributions));
 
-    const getDisplayName = (s: PlayerRoundStats) => (s.nickname ? s.nickname.trim() : s.name.trim());
+    const getDisplayName = (s: PlayerRoundStats) =>
+      s.nickname ? s.nickname.trim() : s.name.trim();
 
     return {
       topScorers: maxGoals > 0 ? stats.filter((s) => s.goals === maxGoals).map(getDisplayName) : [],
-      topAssisters: maxAssists > 0 ? stats.filter((s) => s.assists === maxAssists).map(getDisplayName) : [],
-      mvps: maxContributions > 0 ? stats.filter((s) => s.contributions === maxContributions).map(getDisplayName) : [],
+      topAssisters:
+        maxAssists > 0 ? stats.filter((s) => s.assists === maxAssists).map(getDisplayName) : [],
+      mvps:
+        maxContributions > 0
+          ? stats.filter((s) => s.contributions === maxContributions).map(getDisplayName)
+          : [],
       // REGRA: Apenas jogadores de LINHA (não goleiros de ofício) entram no Bola Murcha
       bottomPlayers: stats
         .filter((s) => !s.isGoalkeeper && s.goals === 0 && s.assists === 0)

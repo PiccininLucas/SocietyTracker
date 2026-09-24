@@ -98,7 +98,16 @@ describe('projectPending offline (início, dois gols e finalização)', () => {
     durationSeconds: 420,
     now: Date.parse('2026-09-24T23:00:00Z'),
     teams: [
-      { id: HOME, name: 'Time Casa', colorHex: '#111111', captainId: 'c-1', players: [{ id: 'c-1', name: 'Capitão' }, { id: 'g-1', name: 'Goleiro', isGoalkeeper: true }] },
+      {
+        id: HOME,
+        name: 'Time Casa',
+        colorHex: '#111111',
+        captainId: 'c-1',
+        players: [
+          { id: 'c-1', name: 'Capitão' },
+          { id: 'g-1', name: 'Goleiro', isGoalkeeper: true },
+        ],
+      },
       { id: AWAY, name: 'Time Fora', colorHex: '#222222', players: [{ id: 'f-1', name: 'Fora' }] },
     ],
   };
@@ -107,7 +116,11 @@ describe('projectPending offline (início, dois gols e finalização)', () => {
     action: 'start',
     input: { sessionId: 'session-1', homeTeamId: HOME, awayTeamId: AWAY },
   };
-  const goal = (id: string, teamId = HOME, extra: Record<string, unknown> = {}): PendingCommand => ({
+  const goal = (
+    id: string,
+    teamId = HOME,
+    extra: Record<string, unknown> = {}
+  ): PendingCommand => ({
     operationId: id,
     action: 'goal',
     matchId: 'start-op',
@@ -122,10 +135,13 @@ describe('projectPending offline (início, dois gols e finalização)', () => {
     assert.equal(projected.sequence, 4);
     assert.equal(projected.homeTeamName, 'Time Casa');
     assert.equal(projected.homeScore, 0);
-    assert.deepEqual(projected.homePlayers?.map((p) => [p.id, p.isCaptain, p.isGoalkeeper]), [
-      ['c-1', true, false],
-      ['g-1', false, true],
-    ]);
+    assert.deepEqual(
+      projected.homePlayers?.map((p) => [p.id, p.isCaptain, p.isGoalkeeper]),
+      [
+        ['c-1', true, false],
+        ['g-1', false, true],
+      ]
+    );
   });
 
   it('does not project a start without the round context', () => {
@@ -136,7 +152,10 @@ describe('projectPending offline (início, dois gols e finalização)', () => {
     // Recarga depois do commit, com o ack ainda perdido: a partida não pode aparecer duas vezes.
     const confirmed = { ...matchFixture(), matchId: 'start-op' };
     const projected = projectPending([confirmed], [start], ctx);
-    assert.deepEqual(projected.map((m) => m.matchId), ['start-op']);
+    assert.deepEqual(
+      projected.map((m) => m.matchId),
+      ['start-op']
+    );
     assert.equal(projected[0].homeTeamName, 'Time Casa');
   });
 
@@ -188,7 +207,10 @@ describe('remapMatchId', () => {
       ],
     };
     const next = remapMatchId(cache, 'temp-id', 'real-id');
-    assert.deepEqual(next.pending.map((p) => p.matchId), ['real-id', 'other']);
+    assert.deepEqual(
+      next.pending.map((p) => p.matchId),
+      ['real-id', 'other']
+    );
     assert.deepEqual(Object.keys(next.timers), ['real-id']);
     assert.equal(cache.pending[0].matchId, 'temp-id');
     assert.equal(remapMatchId(cache, 'same', 'same'), cache);
@@ -197,16 +219,31 @@ describe('remapMatchId', () => {
 
 describe('retryDelay', () => {
   it('grows from about 2s and never waits more than 30s', () => {
-    assert.equal(retryDelay(0, () => 0.5), 2000);
-    assert.equal(retryDelay(1, () => 0.5), 4000);
-    assert.equal(retryDelay(2, () => 0.5), 8000);
+    assert.equal(
+      retryDelay(0, () => 0.5),
+      2000
+    );
+    assert.equal(
+      retryDelay(1, () => 0.5),
+      4000
+    );
+    assert.equal(
+      retryDelay(2, () => 0.5),
+      8000
+    );
     for (const attempt of [5, 10, 50])
       for (const r of [0, 0.5, 0.999]) assert.ok(retryDelay(attempt, () => r) <= 30000);
   });
 
   it('spreads retries within ±20%', () => {
-    assert.equal(retryDelay(0, () => 0), 1600);
-    assert.equal(retryDelay(0, () => 1), 2400);
+    assert.equal(
+      retryDelay(0, () => 0),
+      1600
+    );
+    assert.equal(
+      retryDelay(0, () => 1),
+      2400
+    );
   });
 });
 
@@ -311,11 +348,17 @@ describe('resolveMatchesPlayed', () => {
     // diferentes. O fallback antigo testava só `=== null`, então `undefined` escorregava
     // para totalSessionsPlayed e inflava o G/J em ~5x.
     assert.equal(
-      resolveMatchesPlayed({ totalMatchesPlayed: undefined, totalSessionsPlayed: 3 } as MatchesPlayedInput),
+      resolveMatchesPlayed({
+        totalMatchesPlayed: undefined,
+        totalSessionsPlayed: 3,
+      } as MatchesPlayedInput),
       null
     );
     assert.equal(
-      resolveMatchesPlayed({ totalMatchesPlayed: null, totalSessionsPlayed: 3 } as MatchesPlayedInput),
+      resolveMatchesPlayed({
+        totalMatchesPlayed: null,
+        totalSessionsPlayed: 3,
+      } as MatchesPlayedInput),
       null
     );
   });
@@ -327,9 +370,6 @@ describe('resolveMatchesPlayed', () => {
   });
 
   it('returns null for players carrying historical totals', () => {
-    assert.equal(
-      resolveMatchesPlayed({ hasHistoricalTotals: true, totalMatchesPlayed: 15 }),
-      null
-    );
+    assert.equal(resolveMatchesPlayed({ hasHistoricalTotals: true, totalMatchesPlayed: 15 }), null);
   });
 });

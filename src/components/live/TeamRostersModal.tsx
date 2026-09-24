@@ -34,9 +34,7 @@ export const TeamRostersModal: React.FC<TeamRostersModalProps> = ({
                   {teams.length} equipes
                 </span>
               </h2>
-              <p className="text-xs text-gray-400">
-                Composição completa dos elencos da rodada
-              </p>
+              <p className="text-xs text-gray-400">Composição completa dos elencos da rodada</p>
             </div>
           </div>
 
@@ -127,10 +125,10 @@ export const TeamRostersModal: React.FC<TeamRostersModalProps> = ({
                             isCaptain
                               ? 'bg-amber-500/10 border-amber-500/30'
                               : player.isGoalkeeper
-                              ? 'bg-emerald-500/10 border-emerald-500/30'
-                              : player.isLoaned
-                              ? 'bg-cyan-500/10 border-cyan-500/30'
-                              : 'bg-surface-100/60 border-white/5'
+                                ? 'bg-emerald-500/10 border-emerald-500/30'
+                                : player.isLoaned
+                                  ? 'bg-cyan-500/10 border-cyan-500/30'
+                                  : 'bg-surface-100/60 border-white/5'
                           )}
                         >
                           <div className="flex items-center gap-1.5 min-w-0 pr-1">

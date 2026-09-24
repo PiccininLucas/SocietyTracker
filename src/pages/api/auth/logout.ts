@@ -8,8 +8,8 @@ export const POST: APIRoute = async ({ cookies }) => {
     path: '/',
   });
 
-  return new Response(
-    JSON.stringify({ success: true, message: 'Sessão encerrada com sucesso.' }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
-  );
+  return new Response(JSON.stringify({ success: true, message: 'Sessão encerrada com sucesso.' }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 };

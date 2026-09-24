@@ -1,7 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
 import { MatchEditor, actionClass } from '../live/MatchEditor';
-import { sendCommand, readCache, saveCache, applyMatchResult, type PendingCommand } from '../live/matchSync';
+import {
+  sendCommand,
+  readCache,
+  saveCache,
+  applyMatchResult,
+  type PendingCommand,
+} from '../live/matchSync';
 import { ModalPortal } from './ModalPortal';
 interface Props {
   matches?: MatchSummary[];
@@ -72,8 +78,14 @@ export function MatchDetailsModal({ initialMatchId = null }: Props) {
       setMatch(updated.deletedAt ? null : updated);
       pending.current = null;
       localStorage.removeItem(storageKey);
-      window.dispatchEvent(new CustomEvent(updated.deletedAt ? 'match-deleted' : 'match-updated', { detail: updated }));
-      setNotice(updated.deletedAt ? 'Partida apagada. Estatísticas atualizadas.' : 'Correção salva. Placar e estatísticas atualizados.');
+      window.dispatchEvent(
+        new CustomEvent(updated.deletedAt ? 'match-deleted' : 'match-updated', { detail: updated })
+      );
+      setNotice(
+        updated.deletedAt
+          ? 'Partida apagada. Estatísticas atualizadas.'
+          : 'Correção salva. Placar e estatísticas atualizados.'
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao salvar.');
     } finally {

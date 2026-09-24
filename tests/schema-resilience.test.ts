@@ -65,7 +65,9 @@ describe('Schema Resilience & Auto Migration Fallback', () => {
         payload.is_goalkeeper !== undefined
           ? {
               data: null,
-              error: { message: 'column "is_goalkeeper" of relation "mock_reporting" does not exist' },
+              error: {
+                message: 'column "is_goalkeeper" of relation "mock_reporting" does not exist',
+              },
             }
           : { data: payload, error: null }
     );
@@ -86,7 +88,8 @@ describe('Schema Resilience & Auto Migration Fallback', () => {
         return {
           data: null,
           error: {
-            message: "Could not find the 'is_goalkeeper' column of 'mock_players' in the schema cache",
+            message:
+              "Could not find the 'is_goalkeeper' column of 'mock_players' in the schema cache",
           },
         };
       }
@@ -120,7 +123,8 @@ describe('Schema Resilience & Auto Migration Fallback', () => {
         return {
           data: null,
           error: {
-            message: "Could not find the 'is_goalkeeper' column of 'mock_team_players' in the schema cache",
+            message:
+              "Could not find the 'is_goalkeeper' column of 'mock_team_players' in the schema cache",
           },
         };
       }

@@ -71,13 +71,13 @@ export async function copyElementToClipboard(
     }
 
     if (!navigator.clipboard || !window.ClipboardItem) {
-      console.warn('[exportPng] Clipboard API com suporte a imagens não está disponível neste navegador.');
+      console.warn(
+        '[exportPng] Clipboard API com suporte a imagens não está disponível neste navegador.'
+      );
       return false;
     }
 
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'image/png': blob }),
-    ]);
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
 
     return true;
   } catch (error) {

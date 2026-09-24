@@ -11,16 +11,21 @@ export interface HistoricalPlayerTotal {
 
 /** A cumulative snapshot cannot be split across months or weeks. */
 export function historicalTotalsForPeriod(
-  totals: readonly HistoricalPlayerTotal[], start?: string, end?: string
+  totals: readonly HistoricalPlayerTotal[],
+  start?: string,
+  end?: string
 ): HistoricalPlayerTotal[] {
-  return totals.filter((t) =>
-    (!start || start <= `${t.season}-01-01`) && (!end || end >= t.throughDate)
+  return totals.filter(
+    (t) => (!start || start <= `${t.season}-01-01`) && (!end || end >= t.throughDate)
   );
 }
 
 export function isCoveredByHistoricalTotal(
-  totals: readonly HistoricalPlayerTotal[], playerId: string, date: string
+  totals: readonly HistoricalPlayerTotal[],
+  playerId: string,
+  date: string
 ): boolean {
-  return totals.some((t) => t.playerId === playerId
-    && date >= `${t.season}-01-01` && date <= t.throughDate);
+  return totals.some(
+    (t) => t.playerId === playerId && date >= `${t.season}-01-01` && date <= t.throughDate
+  );
 }

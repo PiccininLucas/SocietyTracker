@@ -52,10 +52,7 @@ export const ReportsIsland: React.FC<ReportsIslandProps> = ({
   );
   const [selectedYear, setSelectedYear] = useState(initialYearData?.year ?? 'all');
   const years = [
-    ...new Set([
-      localDateISO().slice(0, 4),
-      ...sessions.map((s) => s.sessionDate.slice(0, 4)),
-    ]),
+    ...new Set([localDateISO().slice(0, 4), ...sessions.map((s) => s.sessionDate.slice(0, 4))]),
   ]
     .sort()
     .reverse();

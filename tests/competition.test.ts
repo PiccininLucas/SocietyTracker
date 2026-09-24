@@ -9,7 +9,12 @@ import {
   scoreFromEvents,
   localDateISO,
 } from '../src/core/domain/services/CompetitionService';
-import { timerNow, projectPending, applyMatchResult, type SessionCache } from '../src/components/live/matchSync';
+import {
+  timerNow,
+  projectPending,
+  applyMatchResult,
+  type SessionCache,
+} from '../src/components/live/matchSync';
 import type {
   MatchSummary,
   MatchSummaryEvent,
@@ -204,7 +209,9 @@ test('exclusão confirmada remove jogo e cronômetro do cache sem perder outras 
   const m = match(1, 'a', 'b', 1, 0);
   const other = match(2, 'a', 'b', 0, 0);
   const cache: SessionCache = {
-    version: 2, sessionId: m.sessionId, matches: [m, other],
+    version: 2,
+    sessionId: m.sessionId,
+    matches: [m, other],
     timers: { [m.matchId]: { remaining: 10, elapsed: 2, running: false, anchor: 0 } },
     pending: [{ action: 'remove_match', matchId: m.matchId, operationId: 'delete-op', input: {} }],
   };

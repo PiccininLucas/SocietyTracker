@@ -85,8 +85,10 @@ function getServerSecretKey(): string {
   // ambiente em tempo de execução.
   const g = globalThis as GlobalWithProcess;
   const key = (
-    (typeof process !== 'undefined' && (process.env?.SUPABASE_SECRET_KEY || process.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
-    (typeof g.process !== 'undefined' && (g.process?.env?.SUPABASE_SECRET_KEY || g.process?.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
+    (typeof process !== 'undefined' &&
+      (process.env?.SUPABASE_SECRET_KEY || process.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
+    (typeof g.process !== 'undefined' &&
+      (g.process?.env?.SUPABASE_SECRET_KEY || g.process?.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
     ''
   ).trim();
 

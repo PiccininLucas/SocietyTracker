@@ -28,9 +28,9 @@ export const POST: APIRoute = async ({ request, params }) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao transferir jogador.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message || 'Erro ao transferir jogador.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };

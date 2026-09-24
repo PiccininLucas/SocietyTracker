@@ -40,7 +40,18 @@ export interface ISessionRepository {
   updateStatus(id: string, status: SessionStatus): Promise<void>;
   getTeamsBySessionId(sessionId: string): Promise<Team[]>;
   updateTeams(sessionId: string, teams: UpdateSessionTeamInput[]): Promise<Team[]>;
-  addPlayerToTeam(teamId: string, playerId: string, isLoaned?: boolean, isGoalkeeper?: boolean): Promise<void>;
+  addPlayerToTeam(
+    teamId: string,
+    playerId: string,
+    isLoaned?: boolean,
+    isGoalkeeper?: boolean
+  ): Promise<void>;
   removePlayerFromTeam(teamId: string, playerId: string): Promise<void>;
-  transferPlayer(fromTeamId: string, toTeamId: string, playerId: string, isLoaned?: boolean, isGoalkeeper?: boolean): Promise<void>;
+  transferPlayer(
+    fromTeamId: string,
+    toTeamId: string,
+    playerId: string,
+    isLoaned?: boolean,
+    isGoalkeeper?: boolean
+  ): Promise<void>;
 }
