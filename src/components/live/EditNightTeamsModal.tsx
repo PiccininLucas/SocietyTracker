@@ -15,6 +15,7 @@ import type { LiveTeam, LivePlayer } from './types';
 import { cn } from '../ui/utils';
 import { hapticFeedback } from '../ui/vibration';
 import { soundFx } from '../ui/audio';
+import { matchesPlayerSearch } from '../../lib/search';
 
 /** Resposta de PUT /api/sessions/[id]/teams. */
 interface SavedPlayer {
@@ -87,14 +88,10 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
   }, [allRegisteredPlayers, assignedPlayerIds]);
 
   // Filtragem na busca de atletas
-  const filteredUnassignedPlayers = useMemo(() => {
-    if (!playerSearchQuery.trim()) return unassignedPlayers;
-    const q = playerSearchQuery.toLowerCase().trim();
-    return unassignedPlayers.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) || (p.nickname && p.nickname.toLowerCase().includes(q))
-    );
-  }, [unassignedPlayers, playerSearchQuery]);
+  const filteredUnassignedPlayers = useMemo(
+    () => unassignedPlayers.filter((p) => matchesPlayerSearch(p, playerSearchQuery)),
+    [unassignedPlayers, playerSearchQuery]
+  );
 
   if (!isOpen) return null;
 

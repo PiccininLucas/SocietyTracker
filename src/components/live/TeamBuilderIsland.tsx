@@ -21,6 +21,7 @@ import { localDateISO } from '../../core/domain/services/CompetitionService';
 import { ROUND_RULES } from '../../core/domain/entities/Session';
 import { EditPlayerModal, type EditablePlayerData } from '../ui/EditPlayerModal';
 import { loadDraft, saveDraft, clearDraft, serializeDraft, type DraftState } from './teamDraft';
+import { matchesPlayerSearch } from '../../lib/search';
 
 export interface PlayerItem {
   id: string;
@@ -187,26 +188,16 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   );
 
   // Filtro de busca para a lista de presença
-  const filteredPresenceList = useMemo(() => {
-    if (!presenceSearch.trim()) return allPlayers;
-    const term = presenceSearch.toLowerCase();
-    return allPlayers.filter(
-      (p) =>
-        p.name.toLowerCase().includes(term) ||
-        (p.nickname && p.nickname.toLowerCase().includes(term))
-    );
-  }, [allPlayers, presenceSearch]);
+  const filteredPresenceList = useMemo(
+    () => allPlayers.filter((p) => matchesPlayerSearch(p, presenceSearch)),
+    [allPlayers, presenceSearch]
+  );
 
   // Filtro de busca para o banco de disponíveis
-  const filteredAvailablePool = useMemo(() => {
-    if (!poolSearchQuery.trim()) return availablePresentPlayers;
-    const term = poolSearchQuery.toLowerCase();
-    return availablePresentPlayers.filter(
-      (p) =>
-        p.name.toLowerCase().includes(term) ||
-        (p.nickname && p.nickname.toLowerCase().includes(term))
-    );
-  }, [availablePresentPlayers, poolSearchQuery]);
+  const filteredAvailablePool = useMemo(
+    () => availablePresentPlayers.filter((p) => matchesPlayerSearch(p, poolSearchQuery)),
+    [availablePresentPlayers, poolSearchQuery]
+  );
 
   const totalAssigned = assignedPlayerIds.size;
   const totalPresent = presentPlayerIds.size;

@@ -4,6 +4,7 @@ import { X, ArrowLeft, User, Sparkles, ShieldAlert, ArrowRightLeft, Search } fro
 import { soundFx } from '../ui/audio';
 import { hapticFeedback } from '../ui/vibration';
 import type { LivePlayer, LiveTeam } from './types';
+import { matchesPlayerSearch } from '../../lib/search';
 
 export interface GoalDrawerProps {
   isOpen: boolean;
@@ -62,14 +63,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({
     .filter((p) =>
       step === 'select_loan_scorer' ? true : !selectedScorer || p.id !== selectedScorer.id
     )
-    .filter((p) => {
-      if (!filterQuery.trim()) return true;
-      const term = filterQuery.toLowerCase();
-      return (
-        (p.name && p.name.toLowerCase().includes(term)) ||
-        (p.nickname && p.nickname.toLowerCase().includes(term))
-      );
-    })
+    .filter((p) => matchesPlayerSearch(p, filterQuery))
     .sort((a, b) =>
       (a.nickname || a.name).localeCompare(b.nickname || b.name, 'pt-BR', { sensitivity: 'base' })
     );
