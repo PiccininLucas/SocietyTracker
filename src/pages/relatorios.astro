@@ -14,6 +14,7 @@ import {
 import type { RoundHighlightsOutputDTO } from '../core/application/dtos/RoundHighlightsDTO';
 import { localDateISO } from '../core/domain/services/CompetitionService';
 import type { PeriodLeaderboardOutputDTO } from '../core/application/dtos/PeriodLeaderboardDTO';
+import { NO_STORE, PUBLIC_CACHE_CONTROL } from '../core/infrastructure/http/api';
 
 export const prerender = false;
 
@@ -119,6 +120,8 @@ try {
   errorMessage = 'Não foi possível carregar os relatórios. Confira a conexão e tente novamente.';
   console.error('Erro ao carregar dados de relatórios no SSR:', error);
 }
+// Pública e igual para todo visitante: pode ficar na CDN. Com erro, nunca.
+Astro.response.headers.set('Cache-Control', errorMessage ? NO_STORE : PUBLIC_CACHE_CONTROL);
 ---
 
 <Layout

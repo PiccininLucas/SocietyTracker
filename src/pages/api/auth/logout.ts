@@ -1,11 +1,17 @@
 import type { APIRoute } from 'astro';
-import { ADMIN_COOKIE_NAME } from '../../../core/infrastructure/auth/pinAuth';
+import {
+  ADMIN_COOKIE_NAME,
+  ADMIN_HINT_COOKIE_NAME,
+} from '../../../core/infrastructure/auth/pinAuth';
 import { json } from '../../../core/infrastructure/http/api';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ cookies }) => {
   cookies.delete(ADMIN_COOKIE_NAME, {
+    path: '/',
+  });
+  cookies.delete(ADMIN_HINT_COOKIE_NAME, {
     path: '/',
   });
 

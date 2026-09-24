@@ -3,6 +3,7 @@ import {
   verifyPin,
   generateSessionToken,
   ADMIN_COOKIE_NAME,
+  ADMIN_HINT_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
 } from '../../../core/infrastructure/auth/pinAuth';
 import {
@@ -63,6 +64,14 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
       path: '/',
       maxAge: SESSION_MAX_AGE_SECONDS,
       httpOnly: true,
+      sameSite: 'lax',
+      secure: import.meta.env.PROD,
+    });
+    // Só para a interface mostrar o "Sair"; a mesma validade do cookie de sessão.
+    cookies.set(ADMIN_HINT_COOKIE_NAME, '1', {
+      path: '/',
+      maxAge: SESSION_MAX_AGE_SECONDS,
+      httpOnly: false,
       sameSite: 'lax',
       secure: import.meta.env.PROD,
     });

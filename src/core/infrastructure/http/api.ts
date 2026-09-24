@@ -3,6 +3,19 @@ import { DomainError } from '../../domain/errors/DomainError';
 import { EntityNotFoundError } from '../../domain/errors/EntityNotFoundError';
 
 /**
+ * Cache na CDN da Vercel para o que é público e igual para todo visitante: as páginas
+ * `/`, `/historico` e `/relatorios` e a rota reports/period. 60s de frescor com 5 min de
+ * stale-while-revalidate: durante a rodada o número atrasa no máximo um minuto para quem
+ * acabou de pedir, e a página deixa de refazer as consultas ao banco a cada visita.
+ * `max-age=0` deixa o navegador sempre perguntar à CDN.
+ *
+ * Só vale para resposta de sucesso sem nada que dependa do cookie. Uma página com erro
+ * (banco fora do ar) usa `NO_STORE`, senão a mensagem de erro ficaria em cache.
+ */
+export const PUBLIC_CACHE_CONTROL = 'public, max-age=0, s-maxage=60, stale-while-revalidate=300';
+export const NO_STORE = 'no-store';
+
+/**
  * Resposta JSON da API. `no-store` por padrão: uma rota que pode ir para a CDN (como
  * reports/period) declara o próprio `Cache-Control`.
  */

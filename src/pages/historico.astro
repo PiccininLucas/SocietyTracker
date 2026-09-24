@@ -4,6 +4,7 @@ import MatchHistoryCard from '../components/ui/MatchHistoryCard.astro';
 import { MatchDetailsModal } from '../components/ui/MatchDetailsModal';
 import { SupabaseMatchRepository } from '../core/infrastructure/repositories/SupabaseMatchRepository';
 import type { MatchSummary } from '../core/domain/repositories/IMatchRepository';
+import { NO_STORE, PUBLIC_CACHE_CONTROL } from '../core/infrastructure/http/api';
 
 export const prerender = false;
 
@@ -21,6 +22,9 @@ try {
   errorMessage = 'Não foi possível carregar o histórico. Tente novamente.';
   matches = [];
 }
+// Pública e igual para todo visitante: pode ficar na CDN. Com erro, nunca. A súmula
+// aberta no modal e as correções vêm da API, sem cache.
+Astro.response.headers.set('Cache-Control', errorMessage ? NO_STORE : PUBLIC_CACHE_CONTROL);
 
 // Fallback de demonstração via query param ?demo quando o banco estiver vazio
 if (matches.length === 0 && Astro.url.searchParams.has('demo')) {

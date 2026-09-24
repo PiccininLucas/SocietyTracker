@@ -1,6 +1,11 @@
 import { SupabaseMatchRepository } from '../../../core/infrastructure/repositories/SupabaseMatchRepository';
 import { GetPeriodLeaderboardUseCase } from '../../../core/application/use-cases/GetPeriodLeaderboardUseCase';
-import { HttpError, endpoint, json } from '../../../core/infrastructure/http/api';
+import {
+  HttpError,
+  PUBLIC_CACHE_CONTROL,
+  endpoint,
+  json,
+} from '../../../core/infrastructure/http/api';
 import { year, yearMonth } from '../../../core/infrastructure/http/validate';
 
 export const prerender = false;
@@ -18,11 +23,7 @@ export const GET = endpoint(async ({ url }) => {
     year: type === 'year' ? year(url.searchParams.get('year'), 'year') : undefined,
   });
 
-  // Dados agregados e públicos, sem variação por autenticação — seguro no CDN.
-  // 60s de frescor com 5 min de stale-while-revalidate: durante a rodada o número
-  // atrasa no máximo um minuto, e o recorte 'all' deixa de varrer o histórico a
-  // cada abertura da tela de relatórios.
-  return json(result, 200, {
-    'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=300',
-  });
+  // Dados agregados e públicos, sem variação por autenticação — seguro no CDN. O
+  // recorte 'all' deixa de varrer o histórico a cada abertura da tela de relatórios.
+  return json(result, 200, { 'Cache-Control': PUBLIC_CACHE_CONTROL });
 });

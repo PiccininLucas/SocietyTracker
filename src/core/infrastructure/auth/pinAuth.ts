@@ -1,6 +1,13 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export const ADMIN_COOKIE_NAME = 'society_admin_session';
+/**
+ * Dica para a interface, legível pelo JavaScript: só diz "há um mesário logado neste
+ * aparelho" e não autoriza nada (quem autoriza é o cookie HttpOnly acima). Existe para o
+ * `Layout` não ler o cookie de sessão no servidor: com isso, o HTML das páginas públicas é
+ * igual para todo visitante e pode ficar na CDN.
+ */
+export const ADMIN_HINT_COOKIE_NAME = 'society_admin_hint';
 export const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60; // 24 horas (86400s)
 
 const DEV_FALLBACK_PIN = '1234';

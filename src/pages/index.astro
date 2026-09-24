@@ -17,6 +17,7 @@ import type { LeaderboardItemDTO } from '../core/application/dtos/LeaderboardDTO
 import { SupabaseHistoricalRepository } from '../core/infrastructure/repositories/SupabaseHistoricalRepository';
 import { historicalTotalsForPeriod, isCoveredByHistoricalTotal } from '../core/domain/entities/HistoricalPlayerTotal';
 import { performanceLeaderboard } from '../core/application/dtos/performanceLeaderboard';
+import { NO_STORE, PUBLIC_CACHE_CONTROL } from '../core/infrastructure/http/api';
 
 export const prerender = false;
 
@@ -97,6 +98,8 @@ try {
 } catch (e) {
   errorMessage = e instanceof Error ? e.message : 'Não foi possível carregar as estatísticas.';
 }
+// Pública e igual para todo visitante: pode ficar na CDN. Com erro, nunca.
+Astro.response.headers.set('Cache-Control', errorMessage ? NO_STORE : PUBLIC_CACHE_CONTROL);
 // Estatísticas Agregadas
 
 const totalAssistsAll = leaderboard.reduce((acc, p) => acc + (p.totalAssists || 0), 0);

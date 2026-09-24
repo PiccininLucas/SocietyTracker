@@ -1,6 +1,5 @@
 ---
 import '../styles/globals.css';
-import { isAuthenticatedFromRequest } from '../core/infrastructure/auth/pinAuth';
 
 export interface Props {
   title?: string;
@@ -19,7 +18,9 @@ const {
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-tracker-smoky.vercel.app');
-const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
+// O Layout não lê cookie nenhum: o HTML sai igual para todo visitante, o que deixa as
+// páginas públicas irem para a CDN (PUBLIC_CACHE_CONTROL). O que muda com o login, como
+// o botão "Sair", é resolvido no navegador pelo script do fim da página.
 ---
 
 <!doctype html>
@@ -150,18 +151,16 @@ const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
 
         <!-- Ação Rápida Mesário / Logout -->
         <div class="flex items-center gap-2">
-          {isAuthed && (
-            <button
-              type="button"
-              id="btn-logout"
-              onclick="fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/'; })"
-              class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-50 hover:bg-rose-500/20 text-gray-400 hover:text-rose-300 border border-white/5 text-xs font-semibold transition-colors"
-              title="Sair da sessão do mesário"
-            >
-              <span>🔒</span>
-              <span>Sair</span>
-            </button>
-          )}
+          <button
+            type="button"
+            id="btn-logout"
+            hidden
+            class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-50 hover:bg-rose-500/20 text-gray-400 hover:text-rose-300 border border-white/5 text-xs font-semibold transition-colors"
+            title="Sair da sessão do mesário"
+          >
+            <span>🔒</span>
+            <span>Sair</span>
+          </button>
 
           <a
             href="/rodada/mesario"
@@ -261,5 +260,20 @@ const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
         </a>
       </div>
     </nav>
+
+    <script>
+      // "Sair" pela dica não-HttpOnly que o login grava junto com a sessão (pinAuth).
+      const logout = document.getElementById('btn-logout');
+      if (logout && document.cookie.split('; ').includes('society_admin_hint=1'))
+        logout.hidden = false;
+      logout?.addEventListener('click', async () => {
+        try {
+          if (!(await fetch('/api/auth/logout', { method: 'POST' })).ok) return;
+        } catch {
+          return;
+        }
+        window.location.href = '/';
+      });
+    </script>
   </body>
 </html>
