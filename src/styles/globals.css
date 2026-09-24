@@ -78,3 +78,10 @@
   }
 }
 
+/* Partida em andamento no mesário (a ilha marca data-live-match): a navegação de baixo
+   fica logo abaixo dos botões de gol, e um toque errado tirava o mesário da partida. O
+   "Modo Mesário" do cabeçalho continua. */
+html[data-live-match] #mobile-nav {
+  display: none;
+}
+

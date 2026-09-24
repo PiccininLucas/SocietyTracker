@@ -108,6 +108,31 @@ export function MesarioSessionWrapper({
     streaks = sequences(sync.cache.matches);
   const actionRef = useRef(false);
   useWakeLock(owner && !!active);
+  // Com lance no aparelho, sair do mesário deixa a fila parada até voltar: o navegador
+  // pergunta antes. O Safari do iPhone não pergunta; para ele fica o aviso do Layout.
+  // Entrar com o PIN é saída de propósito: o login volta para cá e a fila recomeça.
+  const leavingOnPurpose = useRef(false);
+  useEffect(() => {
+    if (!owner || !pending) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      if (leavingOnPurpose.current) return;
+      e.preventDefault();
+      // Obsoleto, mas é o que navegadores mais antigos leem para mostrar o aviso.
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [owner, pending]);
+  // Partida em andamento: a navegação de baixo sai da tela (globals.css), para um toque
+  // logo abaixo dos botões de gol não tirar o mesário da partida.
+  const live = owner && !!active;
+  useEffect(() => {
+    if (!live) return;
+    document.documentElement.dataset.liveMatch = '';
+    return () => {
+      delete document.documentElement.dataset.liveMatch;
+    };
+  }, [live]);
   useEffect(() => {
     if (active && !selected) {
       setSelected(active.matchId);
@@ -313,6 +338,9 @@ export function MesarioSessionWrapper({
                 '/login?redirect=' +
                 encodeURIComponent(window.location.pathname + window.location.search)
               }
+              onClick={() => {
+                leavingOnPurpose.current = true;
+              }}
             >
               Entrar com o PIN
             </a>

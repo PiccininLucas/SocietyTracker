@@ -7,7 +7,6 @@ export interface Props {
   image?: string;
   // 'none': página fora da navegação, como a /offline.
   activeNav?: 'leaderboard' | 'historico' | 'relatorios' | 'nova_rodada' | 'mesario' | 'none';
-  hasLiveMatch?: boolean;
 }
 
 const {
@@ -15,7 +14,6 @@ const {
   description = 'Acompanhe a artilharia, garçons, estatísticas e o placar ao vivo da pelada society de quinta-feira!',
   image = '/og-society-tracker.png',
   activeNav = 'leaderboard',
-  hasLiveMatch = false,
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-tracker-smoky.vercel.app');
@@ -182,18 +180,29 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
                 : 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30',
             ]}
           >
-            {hasLiveMatch ? (
-              <span class="relative flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-            ) : (
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400/60"></span>
-            )}
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400/60"></span>
             <span>Modo Mesário</span>
           </a>
         </div>
       </div>
+
+      <!-- Lances do mesário parados neste aparelho: a fila só é enviada com o mesário aberto.
+           Cobre o iPhone, que não pergunta antes de sair, e quem fechou o app. Fica dentro do
+           cabeçalho fixo para não sumir ao rolar, nem ao recarregar a página rolada. No
+           próprio mesário não aparece: ele mostra a fila. -->
+      {activeNav !== 'mesario' && (
+        <div
+          id="pending-banner"
+          hidden
+          role="status"
+          class="flex flex-wrap items-center justify-center gap-x-3 border-t border-amber-400/40 bg-amber-950/90 px-4 text-center text-sm text-amber-100"
+        >
+          <span id="pending-banner-text"></span>
+          <a id="pending-banner-link" href="/rodada/mesario" class="min-h-[44px] inline-flex items-center font-bold underline">
+            Abrir o mesário
+          </a>
+        </div>
+      )}
     </header>
 
     <div
@@ -220,7 +229,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
     </footer>
 
     <!-- Mobile Bottom Navigation Bar (Fixo para Smartphones) -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-card bg-surface-200/90 border-t border-white/10 px-3 py-2 pb-safe backdrop-blur-xl">
+    <nav id="mobile-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-card bg-surface-200/90 border-t border-white/10 px-3 py-2 pb-safe backdrop-blur-xl">
       <div class="flex items-center justify-around">
         <a
           href="/"
@@ -283,6 +292,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
     </nav>
 
     <script>
+      import { pendingOnDevice } from '../lib/pendingOnDevice';
+
       // Mesmo nome de public/sw.js: as páginas guardadas para abrir sem sinal.
       const PAGES_CACHE = 'society-pages-v1';
 
@@ -308,6 +319,32 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
       window.addEventListener('online', showConnection);
       window.addEventListener('offline', showConnection);
       showConnection();
+
+      const pendingBanner = document.getElementById('pending-banner');
+      const showPending = () => {
+        if (!pendingBanner) return;
+        let pending: ReturnType<typeof pendingOnDevice> = [];
+        try {
+          pending = pendingOnDevice(localStorage);
+        } catch {
+          // Armazenamento bloqueado: não há fila neste aparelho.
+        }
+        const count = pending.reduce((n, p) => n + p.count, 0);
+        pendingBanner.hidden = count === 0;
+        if (!count) return;
+        const text = document.getElementById('pending-banner-text');
+        if (text)
+          text.textContent =
+            count === 1
+              ? 'Há 1 lance deste aparelho ainda não enviado.'
+              : `Há ${count} lances deste aparelho ainda não enviados.`;
+        const link = document.getElementById('pending-banner-link') as HTMLAnchorElement | null;
+        if (link) link.href = '/rodada/mesario?sessionId=' + encodeURIComponent(pending[0].sessionId);
+      };
+      // storage: o mesário aberto em outra aba enviou a fila. pageshow: volta pelo histórico.
+      window.addEventListener('storage', showPending);
+      window.addEventListener('pageshow', showPending);
+      showPending();
 
       // Só no build: no `astro dev` o SW guardaria os módulos do Vite e serviria código velho.
       if (import.meta.env.PROD && 'serviceWorker' in navigator) {

@@ -1,4 +1,5 @@
 import { scoreFromEvents } from '../../core/domain/services/CompetitionService';
+import { MATCH_CACHE_PREFIX } from '../../lib/pendingOnDevice';
 import type { MatchSummary } from '../../core/domain/repositories/IMatchRepository';
 import type { MatchAction } from '../../core/domain/repositories/IMatchCommands';
 import {
@@ -32,7 +33,7 @@ export interface SessionCache {
   timers: Record<string, TimerState>;
   matches: MatchSummary[];
 }
-export const cacheKey = (id: string) => 'society_active_match_state:' + id;
+export const cacheKey = (id: string) => MATCH_CACHE_PREFIX + id;
 export function readCache(sessionId: string): SessionCache {
   const empty: SessionCache = { version: 2, sessionId, pending: [], timers: {}, matches: [] };
   try {
