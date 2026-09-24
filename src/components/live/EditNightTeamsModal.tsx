@@ -339,7 +339,8 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
+            aria-label="Fechar sem salvar"
             title="Fechar sem salvar"
           >
             <X className="w-5 h-5" />
@@ -394,7 +395,8 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                         type="text"
                         value={team.name}
                         onChange={(e) => handleTeamNameChange(team.id, e.target.value)}
-                        className="w-full bg-surface-100/80 border border-white/10 rounded-lg px-2 py-1 text-xs sm:text-sm font-display font-black text-white focus:outline-none focus:border-amber-400"
+                        className="w-full min-h-[44px] bg-surface-100/80 border border-white/10 rounded-lg px-2 py-1 text-base font-display font-black text-white focus:outline-none focus:border-amber-400"
+                        aria-label={'Nome do ' + team.name}
                         placeholder="Nome do Time"
                         title="Clique para editar o nome do time"
                       />
@@ -449,10 +451,13 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleRemovePlayer(team.id, player.id)}
-                              className="text-gray-500 hover:text-rose-400 p-1 rounded transition-colors"
+                              className="min-h-[44px] min-w-[44px] -my-1 -mr-1 flex items-center justify-center text-gray-400 hover:text-rose-400 rounded-lg transition-colors"
+                              aria-label={
+                                'Remover ' + (player.nickname || player.name) + ' do time'
+                              }
                               title="Remover atleta do time"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
 
@@ -463,8 +468,10 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleToggleCaptain(team.id, player.id)}
+                                aria-pressed={isCaptain}
+                                aria-label={'Capitão: ' + (player.nickname || player.name)}
                                 className={cn(
-                                  'px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all flex items-center gap-1 active:scale-95',
+                                  'min-h-[44px] min-w-[44px] px-2 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-center gap-1 active:scale-95',
                                   isCaptain
                                     ? 'bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-sm'
                                     : 'bg-surface-50 text-gray-400 border-white/10 hover:text-amber-300'
@@ -477,19 +484,21 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                               >
                                 <Star
                                   className={cn(
-                                    'w-2.5 h-2.5',
+                                    'w-4 h-4 sm:w-2.5 sm:h-2.5',
                                     isCaptain ? 'fill-current text-amber-300' : 'text-gray-400'
                                   )}
                                 />
-                                <span>Capitão</span>
+                                <span className="hidden sm:inline">Capitão</span>
                               </button>
 
                               {/* Toggle Goleiro / Linha */}
                               <button
                                 type="button"
                                 onClick={() => handleToggleGoalkeeper(team.id, player.id)}
+                                aria-pressed={!!player.isGoalkeeper}
+                                aria-label={'Goleiro: ' + (player.nickname || player.name)}
                                 className={cn(
-                                  'px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all flex items-center gap-1 active:scale-95',
+                                  'min-h-[44px] min-w-[44px] px-2 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-center gap-1 active:scale-95',
                                   player.isGoalkeeper
                                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
                                     : 'bg-surface-50 text-gray-400 border-white/10 hover:text-white'
@@ -500,7 +509,12 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                                     : 'Jogador de Linha'
                                 }
                               >
-                                <span>{player.isGoalkeeper ? '🧤 GK' : '⚽ Linha'}</span>
+                                <span aria-hidden="true" className="text-sm sm:text-[11px]">
+                                  {player.isGoalkeeper ? '🧤' : '⚽'}
+                                </span>
+                                <span className="hidden sm:inline">
+                                  {player.isGoalkeeper ? 'GK' : 'Linha'}
+                                </span>
                               </button>
                             </div>
 
@@ -514,7 +528,10 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                                     handleMovePlayer(team.id, e.target.value, player.id);
                                   }
                                 }}
-                                className="bg-surface-50 text-[10px] text-gray-300 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-amber-400"
+                                aria-label={
+                                  'Mover ' + (player.nickname || player.name) + ' para outro time'
+                                }
+                                className="min-h-[44px] max-w-[9rem] bg-surface-50 text-base text-gray-300 border border-white/10 rounded-lg px-2 focus:outline-none focus:border-amber-400"
                               >
                                 <option value="" disabled>
                                   Time...
@@ -549,7 +566,8 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                             setAddingToTeamId(null);
                             setPlayerSearchQuery('');
                           }}
-                          className="text-gray-400 hover:text-white p-0.5"
+                          className="min-h-[44px] min-w-[44px] -my-2 -mr-2 flex items-center justify-center text-gray-400 hover:text-white rounded-lg"
+                          aria-label="Fechar busca de atleta"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -562,7 +580,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                           placeholder="Buscar no banco..."
                           value={playerSearchQuery}
                           onChange={(e) => setPlayerSearchQuery(e.target.value)}
-                          className="w-full pl-7 pr-2 py-1 text-xs rounded-lg bg-surface-200 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
+                          className="w-full min-h-[44px] pl-7 pr-2 py-1 text-base rounded-lg bg-surface-200 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
                           autoFocus
                         />
                       </div>
@@ -578,7 +596,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                               key={p.id}
                               type="button"
                               onClick={() => handleAddPlayerToTeam(team.id, p)}
-                              className="w-full p-1.5 rounded-lg border border-white/5 bg-surface-200/70 hover:bg-emerald-500/20 hover:border-emerald-500/30 text-left text-xs text-white flex items-center justify-between transition-colors"
+                              className="w-full min-h-[44px] px-2.5 py-1.5 rounded-lg border border-white/5 bg-surface-200/70 hover:bg-emerald-500/20 hover:border-emerald-500/30 text-left text-sm text-white flex items-center justify-between transition-colors"
                             >
                               <span className="truncate">{p.nickname || p.name}</span>
                               <UserPlus className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -594,7 +612,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                         setAddingToTeamId(team.id);
                         setPlayerSearchQuery('');
                       }}
-                      className="w-full py-2 px-3 rounded-xl border border-dashed border-white/15 hover:border-amber-400/50 hover:bg-amber-500/10 text-gray-300 hover:text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                      className="w-full min-h-[44px] py-2 px-3 rounded-xl border border-dashed border-white/15 hover:border-amber-400/50 hover:bg-amber-500/10 text-gray-300 hover:text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>Adicionar Atleta</span>
@@ -618,7 +636,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-2xl bg-surface-50 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 active:scale-95 transition-all"
+              className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2.5 rounded-2xl bg-surface-50 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 active:scale-95 transition-all"
             >
               Cancelar
             </button>
@@ -627,7 +645,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="flex-1 sm:flex-initial px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-gray-950 font-black text-xs sm:text-sm shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-initial min-h-[44px] px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-gray-950 font-black text-xs sm:text-sm shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSaving ? (
                 <>

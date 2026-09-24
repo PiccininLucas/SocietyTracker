@@ -11,6 +11,7 @@ import type { MatchSummary } from '../../src/core/domain/repositories/IMatchRepo
 import { sid, teams, rounds, type RoundName } from './data';
 import '../../src/styles/globals.css';
 import { ReportsIsland } from '../../src/components/export/ReportsIsland';
+import { PinLoginPad } from '../../src/components/live/PinLoginPad';
 import type { PeriodLeaderboardOutputDTO } from '../../src/core/application/dtos/PeriodLeaderboardDTO';
 function Fixture() {
   const [open, setOpen] = useState(true),
@@ -89,6 +90,12 @@ function Fixture() {
     ) : (
       <p>Carregando relatórios…</p>
     );
+  if (query.has('pin'))
+    return (
+      <div className="p-3">
+        <PinLoginPad />
+      </div>
+    );
   if (query.has('builder'))
     return (
       <div className="p-3">
@@ -112,6 +119,11 @@ function Fixture() {
           teams: round.teams,
           matchDurationSeconds: 2,
         }}
+        // Um atleta fora dos times, para o "Adicionar Atleta" do editor ter o que listar.
+        allRegisteredPlayers={[
+          ...round.teams.flatMap((t) => t.players),
+          { id: '00000000-0000-4000-8000-000000009999', name: 'Avulso Único', nickname: null },
+        ]}
         // Curto por padrão para os fluxos longos passarem pela retenção sem ficarem lentos;
         // undo.spec usa uma janela maior para ter tempo de tocar em "Desfazer".
         undoWindowMs={Number(query.get('undo') ?? 300)}
@@ -132,6 +144,7 @@ function Fixture() {
         {matches.map((m) => (
           <button
             key={m.matchId}
+            data-audit-skip
             className="min-h-[44px] p-3"
             onClick={() =>
               window.dispatchEvent(
@@ -149,7 +162,9 @@ function Fixture() {
   const team = { ...teams[0], players: teams[0].players.slice(0, count) };
   return (
     <>
-      <button onClick={() => setOpen(true)}>Abrir gaveta</button>
+      <button data-audit-skip onClick={() => setOpen(true)}>
+        Abrir gaveta
+      </button>
       <output>{result}</output>
       <GoalDrawer
         isOpen={open}

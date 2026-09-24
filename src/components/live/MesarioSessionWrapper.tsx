@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LiveScoreboard } from './LiveScoreboard';
 import { TeamRostersModal } from './TeamRostersModal';
 import { EditNightTeamsModal } from './EditNightTeamsModal';
-import { MatchEditor, actionClass } from './MatchEditor';
+import { MatchEditor, actionClass, fieldClass } from './MatchEditor';
 import { UndoToast } from './UndoToast';
 import { useMatchSession } from './useMatchSession';
 import { useTabLock } from './useTabLock';
@@ -307,7 +307,7 @@ export function MesarioSessionWrapper({
                 aria-label="Time 1"
                 value={home}
                 onChange={(e) => setHome(e.target.value)}
-                className={actionClass + ' block w-full mt-1'}
+                className={fieldClass + ' block w-full mt-1'}
               >
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -322,7 +322,7 @@ export function MesarioSessionWrapper({
                 aria-label="Time 2"
                 value={away}
                 onChange={(e) => setAway(e.target.value)}
-                className={actionClass + ' block w-full mt-1'}
+                className={fieldClass + ' block w-full mt-1'}
               >
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>

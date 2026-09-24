@@ -84,7 +84,8 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
           type="button"
           onClick={onClose}
           disabled={isSaving}
-          className="absolute top-4 right-4 p-1.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+          className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+          aria-label="Fechar"
           title="Fechar"
         >
           <X className="w-5 h-5" />
@@ -119,7 +120,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
               placeholder="Ex: Matheus Silva"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors"
             />
           </div>
 
@@ -132,7 +133,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
               placeholder="Ex: Theus"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors"
             />
           </div>
 
@@ -143,7 +144,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
                 type="button"
                 onClick={() => setIsGoalkeeper(false)}
                 className={cn(
-                  'py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none active:scale-95',
+                  'min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none active:scale-95',
                   !isGoalkeeper
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
                     : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white hover:border-white/20'
@@ -156,7 +157,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
                 type="button"
                 onClick={() => setIsGoalkeeper(true)}
                 className={cn(
-                  'py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none active:scale-95',
+                  'min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none active:scale-95',
                   isGoalkeeper
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
                     : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white hover:border-white/20'
@@ -178,14 +179,14 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="flex-1 py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-xs font-bold text-gray-300 border border-white/5 transition-colors disabled:opacity-50"
+              className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-xs font-bold text-gray-300 border border-white/5 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-black text-gray-950 shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95"
+              className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-black text-gray-950 shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95"
             >
               {isSaving ? (
                 <>

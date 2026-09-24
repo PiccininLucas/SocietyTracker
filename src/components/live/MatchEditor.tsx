@@ -8,6 +8,9 @@ import type { PendingCommand } from './matchSync';
 import { ModalPortal } from '../ui/ModalPortal';
 export const actionClass =
   'min-h-[44px] px-3 py-2 rounded-xl border border-white/15 bg-surface-200 text-white font-semibold text-sm disabled:opacity-40';
+/** Select e input: a altura do botão, com fonte de 16px. Abaixo disso o iPhone dá zoom ao focar. */
+export const fieldClass =
+  'min-h-[44px] px-3 py-2 rounded-xl border border-white/15 bg-surface-200 text-white font-semibold text-base disabled:opacity-40';
 export function MatchEditor({
   match,
   canEdit = true,
@@ -193,7 +196,7 @@ export function MatchEditor({
                     {own ? 'Time que fez o gol contra' : 'Time do gol'}
                     <select
                       aria-label={own ? 'Time que fez o gol contra' : 'Time do gol'}
-                      className={actionClass + ' w-full mt-1'}
+                      className={fieldClass + ' w-full mt-1'}
                       value={team}
                       onChange={(e) => {
                         setTeam(e.target.value);
@@ -230,7 +233,7 @@ export function MatchEditor({
                           aria-label="Autor do gol"
                           required
                           value={scorer}
-                          className={actionClass + ' w-full mt-1'}
+                          className={fieldClass + ' w-full mt-1'}
                           onChange={(e) => {
                             setScorer(e.target.value);
                             if (e.target.value === assist) setAssist('');
@@ -250,7 +253,7 @@ export function MatchEditor({
                           aria-label="Assistência"
                           value={assist}
                           onChange={(e) => setAssist(e.target.value)}
-                          className={actionClass + ' w-full mt-1'}
+                          className={fieldClass + ' w-full mt-1'}
                         >
                           <option value="">Sem assistência</option>
                           {players
@@ -279,7 +282,7 @@ export function MatchEditor({
                       min="0"
                       max="99"
                       required
-                      className={actionClass + ' w-full'}
+                      className={fieldClass + ' w-full'}
                       value={home}
                       onChange={(e) => setHome(Number(e.target.value))}
                     />
@@ -292,7 +295,7 @@ export function MatchEditor({
                       min="0"
                       max="99"
                       required
-                      className={actionClass + ' w-full'}
+                      className={fieldClass + ' w-full'}
                       value={away}
                       onChange={(e) => setAway(Number(e.target.value))}
                     />

@@ -222,8 +222,8 @@ const hasPodium = leaderboard.some((p) => p.totalContributions > 0);
 
     <!-- Tabela Geral de Classificação SSR -->
     <form method="GET" class="glass-card rounded-2xl p-4 flex flex-wrap gap-4 items-end">
- <label class="block text-sm">Temporada<select name="season" class="block mt-1 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/20">{years.map(year=><option value={year} selected={season===year}>{year}</option>)}<option value="all" selected={season==='all'}>Todo o histórico</option></select></label>
- <label class="block text-sm">Semana que inclui<input type="date" name="week" value={selectedWeek} class="block mt-1 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/20" /></label>
+ <label class="block text-sm">Temporada<select name="season" class="block mt-1 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/20 text-base">{years.map(year=><option value={year} selected={season===year}>{year}</option>)}<option value="all" selected={season==='all'}>Todo o histórico</option></select></label>
+ <label class="block text-sm">Semana que inclui<input type="date" name="week" value={selectedWeek} class="block mt-1 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/20 text-base" /></label>
  <button class="min-h-[44px] rounded-xl px-4 bg-emerald-500 text-gray-950 font-bold">Aplicar filtros</button>
 </form>
 {errorMessage&&<div role="alert" class="text-rose-300 rounded-xl border border-rose-500 p-4">{errorMessage}<a href={Astro.url.pathname+Astro.url.search} class="block py-3 underline">Tentar novamente</a></div>}

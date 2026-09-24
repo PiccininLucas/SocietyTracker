@@ -687,7 +687,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             <button
               type="button"
               onClick={handleAutoDraw}
-              className="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-amber-500/10 touch-press-scale"
+              className="min-h-[44px] px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-amber-500/10 touch-press-scale"
             >
               <Dices className="w-4 h-4 text-amber-400" />
               <span>Sortear Equilibrado</span>
@@ -696,7 +696,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             <button
               type="button"
               onClick={handleClearTeams}
-              className="px-3 py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 border border-white/5 text-gray-400 hover:text-white font-bold text-xs transition-all touch-press-scale"
+              className="min-h-[44px] px-3 py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 border border-white/5 text-gray-400 hover:text-white font-bold text-xs transition-all touch-press-scale"
             >
               Limpar Times
             </button>
@@ -704,7 +704,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             <button
               type="button"
               onClick={() => setIsAddPlayerModalOpen(true)}
-              className="px-3.5 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all active:scale-95 touch-press-scale"
+              className="min-h-[44px] px-3.5 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all active:scale-95 touch-press-scale"
             >
               <UserPlus className="w-4 h-4 text-emerald-400" />
               <span>Novo Avulso</span>
@@ -724,7 +724,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                 type="button"
                 onClick={() => handleChangeTeamCount(3)}
                 className={cn(
-                  'px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 justify-center touch-press-scale',
+                  'min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 justify-center touch-press-scale',
                   teamCount === 3
                     ? 'bg-emerald-500 text-gray-950 shadow-md font-extrabold'
                     : 'text-gray-400 hover:text-white hover:bg-surface-200/50'
@@ -738,7 +738,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                 type="button"
                 onClick={() => handleChangeTeamCount(4)}
                 className={cn(
-                  'px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 justify-center touch-press-scale',
+                  'min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 justify-center touch-press-scale',
                   teamCount === 4
                     ? 'bg-emerald-500 text-gray-950 shadow-md font-extrabold'
                     : 'text-gray-400 hover:text-white hover:bg-surface-200/50'
@@ -765,7 +765,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                   type="button"
                   onClick={() => setMatchDurationMinutes(mins)}
                   className={cn(
-                    'px-2.5 py-1 rounded-xl text-xs font-bold border transition-all touch-press-scale',
+                    'min-h-[44px] min-w-[44px] px-2.5 py-1 rounded-xl text-xs font-bold border transition-all touch-press-scale',
                     matchDurationMinutes === mins
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-extrabold'
                       : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
@@ -777,17 +777,18 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             </div>
 
             {/* Input manual de minutos */}
-            <div className="flex items-center gap-1 bg-surface-50 px-2 py-1 rounded-xl border border-white/10">
+            <label className="flex items-center gap-1 bg-surface-50 pr-2 rounded-xl border border-white/10">
               <input
                 type="number"
                 min={1}
                 max={30}
                 value={matchDurationMinutes}
                 onChange={(e) => setMatchDurationMinutes(Number(e.target.value) || 7)}
-                className="w-10 bg-transparent text-center font-bold text-xs text-white focus:outline-none"
+                aria-label="Duração da partida em minutos"
+                className="w-14 min-h-[44px] bg-transparent text-center font-bold text-base text-white focus:outline-none"
               />
               <span className="text-[11px] text-gray-400 font-semibold">minutos</span>
-            </div>
+            </label>
           </div>
         </div>
       </div>
@@ -860,21 +861,25 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             <button
               type="button"
               onClick={handleSelectAllPresence}
-              className="px-2.5 py-1.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-gray-300 hover:text-white font-bold text-[11px] border border-white/5 transition-all"
+              className="min-h-[44px] min-w-[44px] px-2.5 py-1.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-gray-300 hover:text-white font-bold text-[11px] border border-white/5 transition-all"
             >
               Todos
             </button>
             <button
               type="button"
               onClick={handleClearAllPresence}
-              className="px-2.5 py-1.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-gray-400 hover:text-white font-bold text-[11px] border border-white/5 transition-all"
+              className="min-h-[44px] min-w-[44px] px-2.5 py-1.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-gray-400 hover:text-white font-bold text-[11px] border border-white/5 transition-all"
             >
               Nenhum
             </button>
             <button
               type="button"
               onClick={() => setIsPresenceExpanded(!isPresenceExpanded)}
-              className="p-1.5 rounded-xl text-gray-400 hover:text-white hover:bg-surface-50 transition-colors"
+              aria-label={
+                isPresenceExpanded ? 'Recolher lista de presença' : 'Abrir lista de presença'
+              }
+              aria-expanded={isPresenceExpanded}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-gray-400 hover:text-white hover:bg-surface-50 transition-colors"
             >
               {isPresenceExpanded ? (
                 <ChevronUp className="w-4 h-4" />
@@ -895,7 +900,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                 placeholder="Filtrar por nome/apelido..."
                 value={presenceSearch}
                 onChange={(e) => setPresenceSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-surface-100 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                className="w-full min-h-[44px] pl-9 pr-3 py-1.5 rounded-xl bg-surface-100 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
@@ -909,7 +914,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                     type="button"
                     onClick={() => handleTogglePresence(player.id)}
                     className={cn(
-                      'p-2.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-1.5 touch-press-scale',
+                      'min-h-[44px] p-2.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-1.5 touch-press-scale',
                       isPresent
                         ? 'bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm'
                         : 'bg-surface-100/60 border-white/5 text-gray-400 hover:border-white/20'
@@ -1019,8 +1024,11 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                     return (
                       <div
                         key={p.id}
+                        // Quatro botões de 44px ao lado do nome: no celular capitão e goleiro
+                        // ficam só com o ícone, e o flex-wrap desce os botões se o nome não
+                        // couber (cards estreitos das colunas do desktop).
                         className={cn(
-                          'flex items-center justify-between p-2 rounded-xl border text-xs group transition-all',
+                          'flex flex-wrap items-center justify-between gap-x-2 gap-y-1 p-2 rounded-xl border text-xs group transition-all',
                           isCaptain
                             ? 'bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-400/30'
                             : p.isGoalkeeper
@@ -1028,8 +1036,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                               : 'bg-surface-200/60 border-white/5 hover:border-white/20'
                         )}
                       >
-                        <div className="flex items-center gap-2 min-w-0 pr-1">
-                          <span className="w-5 h-5 rounded-lg bg-surface-50 text-gray-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                        <div className="flex flex-1 basis-16 items-center gap-2 min-w-0 pr-1">
+                          <span className="hidden sm:flex w-5 h-5 rounded-lg bg-surface-50 text-gray-400 font-bold text-[10px] items-center justify-center shrink-0">
                             {idx + 1}
                           </span>
                           <span
@@ -1042,13 +1050,15 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0 ml-auto">
                           {/* Botão de Capitão: [ ⭐ Capitão ] */}
                           <button
                             type="button"
                             onClick={() => handleToggleCaptain(team.id, p.id)}
+                            aria-pressed={isCaptain}
+                            aria-label={'Capitão: ' + (p.nickname || p.name)}
                             className={cn(
-                              'px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95',
+                              'min-h-[44px] min-w-[44px] px-2 rounded-lg text-[11px] font-black border transition-all flex items-center justify-center gap-1 cursor-pointer select-none active:scale-95',
                               isCaptain
                                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm ring-1 ring-amber-400/40'
                                 : 'bg-surface-50 text-gray-400 border-white/10 hover:text-amber-300 hover:border-amber-500/30'
@@ -1061,19 +1071,21 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                           >
                             <Star
                               className={cn(
-                                'w-2.5 h-2.5',
+                                'w-4 h-4 sm:w-2.5 sm:h-2.5',
                                 isCaptain ? 'fill-current text-amber-300' : 'text-gray-400'
                               )}
                             />
-                            <span>{isCaptain ? 'Capitão' : 'Capitão'}</span>
+                            <span className="hidden sm:inline">Capitão</span>
                           </button>
 
                           {/* Toggle Rápido: Linha / Goleiro */}
                           <button
                             type="button"
                             onClick={() => handleToggleGoalkeeper(team.id, p.id)}
+                            aria-pressed={!!p.isGoalkeeper}
+                            aria-label={'Goleiro: ' + (p.nickname || p.name)}
                             className={cn(
-                              'px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95',
+                              'min-h-[44px] min-w-[44px] px-2 rounded-lg text-[11px] font-black border transition-all flex items-center justify-center gap-1 cursor-pointer select-none active:scale-95',
                               p.isGoalkeeper
                                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-sm'
                                 : 'bg-surface-50 text-gray-400 border-white/10 hover:text-white hover:border-white/20'
@@ -1084,25 +1096,32 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                                 : 'Jogador de Linha'
                             }
                           >
-                            <span>{p.isGoalkeeper ? '🧤 Goleiro' : '⚽ Linha'}</span>
+                            <span aria-hidden="true" className="text-sm sm:text-[11px]">
+                              {p.isGoalkeeper ? '🧤' : '⚽'}
+                            </span>
+                            <span className="hidden sm:inline">
+                              {p.isGoalkeeper ? 'Goleiro' : 'Linha'}
+                            </span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(p)}
-                            className="text-gray-500 hover:text-emerald-400 p-1 transition-colors"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:text-emerald-400 hover:bg-white/5 transition-colors"
                             title="Editar atleta"
+                            aria-label={'Editar ' + (p.nickname || p.name)}
                           >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-4 h-4" />
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleRemoveFromTeam(team.id, p.id)}
-                            className="text-gray-500 hover:text-rose-400 p-1 transition-colors"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-400 hover:bg-white/5 transition-colors"
                             title="Remover do time"
+                            aria-label={'Remover ' + (p.nickname || p.name) + ' do time'}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -1116,7 +1135,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       </div>
 
       {/* 5. Banco de Atletas Presentes Disponíveis (Livres para Escalar) */}
-      <div className="p-5 rounded-3xl glass-card bg-surface-100/90 border border-white/10 shadow-xl space-y-4">
+      <div className="p-3 sm:p-5 rounded-3xl glass-card bg-surface-100/90 border border-white/10 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h3 className="font-display font-black text-base sm:text-lg text-white">
@@ -1135,13 +1154,14 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
               placeholder="Buscar atleta livre..."
               value={poolSearchQuery}
               onChange={(e) => setPoolSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-surface-50 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+              className="w-full min-h-[44px] pl-9 pr-3 py-1.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
             />
           </div>
         </div>
 
         {/* Chips de Jogadores Disponíveis com Seletor Rápido de Time */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-72 overflow-y-auto pr-1">
+        {/* No celular, uma linha por atleta: com os "+" em 44 × 44, dois por linha não cabem. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-96 sm:max-h-72 overflow-y-auto pr-1">
           {filteredAvailablePool.length === 0 ? (
             <div className="col-span-full py-8 text-center text-gray-500 text-xs">
               {totalPresent === 0
@@ -1154,51 +1174,48 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             filteredAvailablePool.map((player) => (
               <div
                 key={player.id}
-                className="p-2.5 rounded-2xl bg-surface-200/80 border border-white/5 hover:border-emerald-500/40 transition-all flex flex-col justify-between gap-2 shadow-sm group"
+                className="p-2 rounded-2xl bg-surface-200/80 border border-white/5 hover:border-emerald-500/40 transition-all flex items-center sm:flex-col sm:items-stretch justify-between gap-2 shadow-sm group"
               >
-                <div className="flex items-start justify-between gap-1 min-w-0">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs text-white truncate flex items-center gap-1">
+                {/* O nome abre a edição do cadastro: um lápis separado não caberia na linha. */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenEdit(player)}
+                  className="min-h-[44px] min-w-0 flex-1 flex items-center gap-1 px-1 rounded-lg text-left hover:bg-white/5 transition-colors"
+                  title="Editar dados do atleta"
+                  aria-label={'Editar ' + (player.nickname || player.name)}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="font-bold text-xs text-white truncate flex items-center gap-1">
                       <span className="truncate">{player.nickname || player.name}</span>
                       {player.isGoalkeeper && (
                         <span className="text-[10px] shrink-0" title="Goleiro Padrão">
                           🧤
                         </span>
                       )}
-                    </div>
+                    </span>
                     {player.nickname && player.nickname !== player.name && (
-                      <div className="text-[10px] text-gray-400 truncate">{player.name}</div>
+                      <span className="block text-[10px] text-gray-400 truncate">
+                        {player.name}
+                      </span>
                     )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEdit(player)}
-                    className="p-1 rounded-lg text-gray-500 hover:text-emerald-400 hover:bg-white/5 transition-colors shrink-0"
-                    title="Editar dados do atleta"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  </span>
+                  <Pencil className="w-3 h-3 shrink-0 text-gray-500 group-hover:text-emerald-400" />
+                </button>
 
                 {/* Botões Rápidos para Escalar nos 3 ou 4 Times */}
-                <div
-                  className={cn(
-                    'grid gap-1 pt-1 border-t border-white/5',
-                    teamCount === 3 ? 'grid-cols-3' : 'grid-cols-4'
-                  )}
-                >
+                <div className="flex gap-1 shrink-0 sm:pt-1 sm:border-t sm:border-white/5">
                   {teams.map((team) => (
                     <button
                       key={team.id}
                       type="button"
                       onClick={() => handleAssignToTeam(player, team.id)}
-                      className="h-6 rounded-lg text-[10px] font-black flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm touch-press-scale"
+                      className="w-11 h-11 sm:w-auto sm:flex-1 rounded-lg text-sm font-black flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm touch-press-scale"
                       style={{
                         backgroundColor: team.colorHex,
                         color: team.id === 'team-2' ? '#111827' : '#ffffff',
                       }}
                       title={`Escalar no ${team.name}`}
+                      aria-label={`Escalar ${player.nickname || player.name} no ${team.name}`}
                     >
                       +
                     </button>
@@ -1221,7 +1238,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
               type="date"
               value={sessionDate}
               onChange={(e) => setSessionDate(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-surface-50 border border-white/10 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="min-h-[44px] px-3 py-2 rounded-xl bg-surface-50 border border-white/10 text-base text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
 
@@ -1234,7 +1251,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
               placeholder="Ex: Rodada especial de fim de mês"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-surface-50 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+              className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
             />
           </div>
         </div>
@@ -1263,7 +1280,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
             <button
               type="button"
               onClick={() => setIsAddPlayerModalOpen(false)}
-              className="absolute top-4 right-4 p-1 rounded-xl text-gray-400 hover:text-white"
+              className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-gray-400 hover:text-white"
+              aria-label="Fechar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1289,7 +1307,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                   placeholder="Ex: Matheus Silva"
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -1302,7 +1320,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                   placeholder="Ex: Theus"
                   value={newPlayerNickname}
                   onChange={(e) => setNewPlayerNickname(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -1315,7 +1333,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                     type="button"
                     onClick={() => setNewPlayerIsGoalkeeper(false)}
                     className={cn(
-                      'py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
+                      'min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
                       !newPlayerIsGoalkeeper
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                         : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
@@ -1328,7 +1346,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                     type="button"
                     onClick={() => setNewPlayerIsGoalkeeper(true)}
                     className={cn(
-                      'py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
+                      'min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
                       newPlayerIsGoalkeeper
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                         : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
@@ -1344,14 +1362,14 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
                 <button
                   type="button"
                   onClick={() => setIsAddPlayerModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-xs font-bold text-gray-300"
+                  className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-xs font-bold text-gray-300"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingPlayer}
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-black text-gray-950 disabled:opacity-50"
+                  className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-black text-gray-950 disabled:opacity-50"
                 >
                   {isCreatingPlayer ? 'Salvando...' : 'Cadastrar'}
                 </button>

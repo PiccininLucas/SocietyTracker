@@ -46,7 +46,7 @@ export const TeamRostersModal: React.FC<TeamRostersModalProps> = ({
                   onClose();
                   onEdit();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold active:scale-95 transition-all"
+                className="min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold active:scale-95 transition-all"
                 title="Editar composição dos times e capitães"
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -57,7 +57,8 @@ export const TeamRostersModal: React.FC<TeamRostersModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-all"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-all"
+              aria-label="Fechar elenco"
               title="Fechar elenco"
             >
               <X className="w-5 h-5" />
@@ -190,7 +191,7 @@ export const TeamRostersModal: React.FC<TeamRostersModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-surface-50 hover:bg-white/10 text-white font-bold text-xs sm:text-sm border border-white/10 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full sm:w-auto min-h-[44px] px-6 py-2.5 rounded-2xl bg-surface-50 hover:bg-white/10 text-white font-bold text-xs sm:text-sm border border-white/10 active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             <X className="w-4 h-4" />
             <span>Fechar</span>

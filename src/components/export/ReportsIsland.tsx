@@ -198,7 +198,7 @@ export const ReportsIsland: React.FC<ReportsIslandProps> = ({
               Temporada
               <select
                 aria-label="Temporada do relatório"
-                className="block min-h-[44px] rounded-xl px-3 bg-surface-100 border border-white/20"
+                className="block min-h-[44px] rounded-xl px-3 bg-surface-100 border border-white/20 text-base"
                 value={selectedYear}
                 disabled={isLoading}
                 onChange={(e) => void handleYearChange(e.target.value)}
@@ -223,7 +223,7 @@ export const ReportsIsland: React.FC<ReportsIslandProps> = ({
                 onChange={(e) => handleSessionChange(e.target.value)}
                 disabled={isLoading}
                 aria-label="Selecionar data da rodada"
-                className="bg-surface-50 border border-white/10 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className="min-h-[44px] bg-surface-50 border border-white/10 text-white text-base font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id} className="bg-surface-100 text-white">
@@ -245,7 +245,7 @@ export const ReportsIsland: React.FC<ReportsIslandProps> = ({
                 onChange={(e) => handleMonthChange(e.target.value)}
                 disabled={isLoading}
                 aria-label="Selecionar mês do ranking"
-                className="bg-surface-50 border border-white/10 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className="min-h-[44px] bg-surface-50 border border-white/10 text-white text-base font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
                 {months.map((m) => (
                   <option

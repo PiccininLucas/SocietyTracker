@@ -76,7 +76,7 @@ const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
     <header class="sticky top-0 z-40 w-full glass-card border-b border-white/5 bg-background/80 backdrop-blur-md">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <!-- Logo & Marca -->
-        <a href="/" class="flex items-center gap-2.5 group">
+        <a href="/" class="min-h-[44px] flex items-center gap-2.5 group">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-gray-950 font-black text-lg shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
             ⚽
           </div>
@@ -166,7 +166,7 @@ const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
           <a
             href="/rodada/mesario"
             class:list={[
-              'relative flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md active:scale-95 touch-press-scale',
+              'relative min-h-[44px] flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md active:scale-95 touch-press-scale',
               activeNav === 'mesario'
                 ? 'bg-emerald-500 text-gray-950 shadow-emerald-500/30 ring-2 ring-emerald-400/50'
                 : 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30',

@@ -166,7 +166,7 @@ export const MatchTimer: React.FC<MatchTimerProps> = ({
             soundFx.playWhistle();
             hapticFeedback.timeExpired();
           }}
-          className="text-gray-400 hover:text-gray-200 p-1 rounded-lg transition-colors"
+          className="min-h-[44px] min-w-[44px] -my-2 -mr-2 flex items-center justify-center text-gray-400 hover:text-gray-200 rounded-lg transition-colors"
           title="Testar Apito do Juiz"
           aria-label="Testar Som de Apito"
         >

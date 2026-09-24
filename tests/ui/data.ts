@@ -29,5 +29,7 @@ export const rounds = {
   retry: round(3, '2026-09-17'),
   undo: round(4, '2026-09-24'),
   tabs: round(5, '2026-10-01'),
+  touch: round(6, '2026-10-08'),
+  touchTeams: round(7, '2026-10-15'),
 };
 export type RoundName = keyof typeof rounds;

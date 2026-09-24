@@ -311,14 +311,14 @@ const formatDate = (dateStr: string) => {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_auto] items-end gap-4">
         <div class="min-w-0">
           <label for="history-matchup" class="block text-sm font-semibold text-gray-300">Confronto</label>
-          <select id="history-matchup" name="confronto" class="block mt-2 w-full min-w-0 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/15 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 [color-scheme:dark]">
+          <select id="history-matchup" name="confronto" class="block mt-2 w-full min-w-0 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/15 text-base text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 [color-scheme:dark]">
             <option value="" selected={!selectedMatchup}>Todos os confrontos</option>
             {matchups.map(({ value, label }) => <option value={value} selected={selectedMatchup === value}>{label}</option>)}
           </select>
         </div>
         <div class="min-w-0">
           <label for="history-date" class="block text-sm font-semibold text-gray-300">Data da rodada</label>
-          <input id="history-date" type="date" name="data" value={selectedDate} class="block mt-2 w-full min-w-0 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/15 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 [color-scheme:dark]" />
+          <input id="history-date" type="date" name="data" value={selectedDate} class="block mt-2 w-full min-w-0 min-h-[44px] rounded-xl px-3 bg-surface-200 border border-white/15 text-base text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 [color-scheme:dark]" />
         </div>
         <div class="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-1">
           <button type="submit" class="min-h-[44px] flex-1 sm:flex-none rounded-xl px-5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 focus-visible:outline-offset-4">Aplicar filtros</button>

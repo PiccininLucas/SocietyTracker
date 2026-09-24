@@ -282,7 +282,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({
                       value={filterQuery}
                       onChange={(e) => setFilterQuery(e.target.value)}
                       placeholder="Buscar jogador emprestado..."
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-gray-800/90 border border-gray-700 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                      className="w-full min-h-[44px] pl-9 pr-3 py-2.5 rounded-xl bg-gray-800/90 border border-gray-700 text-base text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 )}
@@ -396,7 +396,7 @@ export const GoalDrawer: React.FC<GoalDrawerProps> = ({
                       value={filterQuery}
                       onChange={(e) => setFilterQuery(e.target.value)}
                       placeholder="Buscar jogador emprestado..."
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-gray-800/90 border border-gray-700 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                      className="w-full min-h-[44px] pl-9 pr-3 py-2.5 rounded-xl bg-gray-800/90 border border-gray-700 text-base text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 )}
