@@ -291,6 +291,7 @@ describe('Use Cases Business Logic', () => {
         id: 's-1',
         sessionDate: '2026-08-13',
         status: 'finished',
+        matchDurationSeconds: 480,
         teams: [teamPreto, teamBranco],
       });
 
@@ -371,6 +372,8 @@ describe('Use Cases Business Logic', () => {
 
       assert.ok(result);
       assert.equal(result.sessionId, 's-1');
+      // O card da rodada mostra a duração escolhida no montador, não "7 min" fixo.
+      assert.equal(result.matchDurationSeconds, 480);
       assert.equal(result.totalGoals, 3);
       assert.equal(result.totalMatches, 1);
 
@@ -387,6 +390,14 @@ describe('Use Cases Business Logic', () => {
       assert.equal(result.players[0].rank, 1);
       assert.equal(result.players.find((p) => p.playerId === 'p-5')?.isGoalkeeper, true);
       assert.equal(result.players.find((p) => p.playerId === 'p-1')?.isGoalkeeper, false);
+    });
+
+    it('should fall back to the default duration for a round saved without one', async () => {
+      const sessionRepo = new MockSessionRepository();
+      sessionRepo.sessions.push(new Session({ id: 's-2', sessionDate: '2026-08-20' }));
+      const useCase = new GetRoundHighlightsUseCase(sessionRepo, new MockMatchRepository());
+      const result = await useCase.execute({ sessionId: 's-2' });
+      assert.equal(result?.matchDurationSeconds, 420);
     });
   });
 

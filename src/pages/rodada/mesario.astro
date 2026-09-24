@@ -69,7 +69,7 @@ if (errorMessage) Astro.response.headers.set('Cache-Control', NO_STORE);
 
 <Layout
   title="SocietyTracker • Modo Mesário ao Vivo"
-  description="Controle o placar, cronômetro de 7 minutos, gols e assistências em tempo real na beira do campo."
+  description="Controle o placar, cronômetro da partida, gols e assistências em tempo real na beira do campo."
   activeNav="mesario"
 >
   {errorMessage ? <div role="alert" class="text-rose-300 rounded-xl border border-rose-400 p-4">{errorMessage}<a href={Astro.url.pathname+Astro.url.search} class="block min-h-[44px] underline">Tentar novamente</a></div> : sessionData ? (

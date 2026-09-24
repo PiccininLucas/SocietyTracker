@@ -16,6 +16,8 @@ export interface RoundHighlightsOutputDTO {
   sessionId: string;
   sessionDate: string;
   status: string;
+  /** Duração regulamentar escolhida para a rodada (sessions.match_duration_seconds). */
+  matchDurationSeconds: number;
   totalMatches: number;
   totalGoals: number;
   highlights: RoundHighlights;

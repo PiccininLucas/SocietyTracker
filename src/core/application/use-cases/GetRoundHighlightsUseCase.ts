@@ -80,6 +80,7 @@ export class GetRoundHighlightsUseCase {
       sessionId: session.id,
       sessionDate: session.sessionDate,
       status: session.status,
+      matchDurationSeconds: session.matchDurationSeconds,
       totalMatches: matches.length,
       totalGoals: matches.reduce((n, m) => n + m.homeScore + m.awayScore, 0),
       highlights: RoundHighlightsService.calculate(stats),

@@ -11,6 +11,7 @@ import type { MatchSummary } from '../../src/core/domain/repositories/IMatchRepo
 import { sid, teams, rounds, type RoundName } from './data';
 import '../../src/styles/globals.css';
 import { ReportsIsland } from '../../src/components/export/ReportsIsland';
+import { RoundSummaryCard } from '../../src/components/export/RoundSummaryCard';
 import { PinLoginPad } from '../../src/components/live/PinLoginPad';
 import type { PeriodLeaderboardOutputDTO } from '../../src/core/application/dtos/PeriodLeaderboardDTO';
 function Fixture() {
@@ -89,6 +90,48 @@ function Fixture() {
       </div>
     ) : (
       <p>Carregando relatórios…</p>
+    );
+  if (query.has('roundCard'))
+    return (
+      <div className="p-3">
+        <RoundSummaryCard
+          data={{
+            sessionId: sid,
+            sessionDate: '2026-09-03',
+            status: 'finished',
+            // Rodada de 3 times: 8 minutos, e não os 7 do padrão.
+            matchDurationSeconds: 480,
+            totalMatches: 1,
+            totalGoals: 2,
+            highlights: {
+              topScorers: ['Jogador 0'],
+              topAssisters: [],
+              mvps: ['Jogador 0'],
+              bottomPlayers: ['Jogador 1'],
+            },
+            players: [
+              {
+                playerId: teams[0].players[0].id,
+                name: 'Jogador 0',
+                isGoalkeeper: false,
+                goals: 2,
+                assists: 0,
+                contributions: 2,
+                rank: 1,
+              },
+              {
+                playerId: teams[0].players[1].id,
+                name: 'Jogador 1',
+                isGoalkeeper: false,
+                goals: 0,
+                assists: 0,
+                contributions: 0,
+                rank: 2,
+              },
+            ],
+          }}
+        />
+      </div>
     );
   if (query.has('pin'))
     return (

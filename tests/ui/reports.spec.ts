@@ -16,3 +16,8 @@ test('relatório anual, todo o histórico e erro de rede no celular', async ({ p
     true
   );
 });
+
+test('card da rodada mostra a duração escolhida para a rodada', async ({ page }) => {
+  await page.goto('/tests/ui/index.html?roundCard');
+  await expect(page.getByText('SocietyTracker • 8 min ou 2 gols', { exact: true })).toBeVisible();
+});

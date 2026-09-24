@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { RoundHighlightsOutputDTO } from '../../core/application/dtos/RoundHighlightsDTO';
+import { MATCH_RULES } from '../../core/domain/entities/Match';
 import {
   downloadElementAsPng,
   copyElementToClipboard,
@@ -47,6 +48,10 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
   };
 
   const formattedDate = formatDateHeader(data.sessionDate);
+  // A duração é escolhida por rodada no montador; "7 min" fixo contradizia rodadas de 8.
+  const durationMinutes = (data.matchDurationSeconds / 60).toLocaleString('pt-BR', {
+    maximumFractionDigits: 1,
+  });
   const filename = `resumo-rodada-${data.sessionDate}`;
 
   const showToast = (msg: string) => {
@@ -394,7 +399,9 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
 
         {/* Rodapé do Card */}
         <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-400">
-          <span>SocietyTracker • 7 min ou 2 gols</span>
+          <span>
+            SocietyTracker • {durationMinutes} min ou {MATCH_RULES.MAX_GOALS_FOR_VICTORY} gols
+          </span>
           <span>society-tracker-smoky.vercel.app</span>
         </div>
       </div>
