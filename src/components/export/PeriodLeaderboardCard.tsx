@@ -315,7 +315,7 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
         {/* Rodapé do Card */}
         <div className="mt-5 pt-3 border-t border-white/5 flex flex-wrap gap-2 items-center justify-between text-[10px] text-gray-400">
           <span>SocietyTracker • Ranking Oficial</span>
-          <span>societytracker.vercel.app</span>
+          <span>society-tracker-smoky.vercel.app</span>
         </div>
       </div>
     </div>

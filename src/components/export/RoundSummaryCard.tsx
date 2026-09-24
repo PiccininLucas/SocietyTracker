@@ -388,7 +388,7 @@ export const RoundSummaryCard: React.FC<RoundSummaryCardProps> = ({ data }) => {
         {/* Rodapé do Card */}
         <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-400">
           <span>SocietyTracker • 7 min ou 2 gols</span>
-          <span>societytracker.vercel.app</span>
+          <span>society-tracker-smoky.vercel.app</span>
         </div>
       </div>
     </div>

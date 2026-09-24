@@ -18,7 +18,7 @@ const {
   hasLiveMatch = false,
 } = Astro.props;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://societytracker.vercel.app');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-tracker-smoky.vercel.app');
 const isAuthed = isAuthenticatedFromRequest(Astro.cookies, Astro.request);
 ---
 
