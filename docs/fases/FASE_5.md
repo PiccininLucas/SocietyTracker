@@ -1,222 +1,176 @@
-# Fase 5 — Times, saída segura do mesário e acabamento
+# Fase 5 — Times, saída segura do mesário e acabamento (24/09/2026)
 
-Plano de 24/09/2026. As Fases 1 a 4 estão na `main`, da `c686a09` à `c8c0083`. A Fase 5
-junta duas sobras da Fase 4 (`useTeamDraft` e o README) com os problemas de uso que mais
-aparecem na quadra.
-
-**Não há migration nesta fase.** Nenhum item muda o banco: o deploy pode ir direto, depois
-que a `202609240003` da Fase 4 estiver aplicada.
+**Commits:** de `d6a2db1` a `f2580fa`, mais o commit de documentação que fecha a fase
+(24/09). **Plano original:** [planos/2026-09-24-fase-5.md](planos/2026-09-24-fase-5.md).
+Ele parte da proposta que estava neste arquivo até o commit `4d4f1e7`.
 
 ## Escopo
 
-| # | Item | Por que agora |
+A fase juntou as duas sobras da Fase 4 (`useTeamDraft` e o README) com os problemas de uso
+que mais aparecem na quadra:
+
+| # | Item | Commit |
 |---|---|---|
-| 1 | Regras dos times num lugar só (`teamRules.ts`) | O montador e o editor do mesário já divergem em cinco pontos |
-| 2 | Sair do mesário sem deixar lances para trás | A fila só é enviada com o mesário aberto, e nada avisa ao sair |
-| 3 | Duração da partida sem "7 min" fixo | O texto contradiz a duração configurada na rodada |
-| 4 | Modais e avisos por cima do cabeçalho e da navegação | Botões ficam cobertos no celular |
-| 5 | README e `AGENT.md` | O README ainda é o do starter do Astro |
+| 1 | Regras dos times num lugar só | `d6a2db1` |
+| 2 | Sair do mesário sem deixar lances para trás | `0339894` |
+| 3 | Duração da partida sem "7 min" fixo | `1e672bb` |
+| 4 | Modais e avisos por cima do cabeçalho e da navegação | `f2580fa` |
+| 5 | README, `AGENT.md` e este registro | commit de documentação |
 
----
+**Não houve migration.** Nenhum item mudou o banco.
 
-## 1. Regras dos times num lugar só
+## O que foi feito, por commit
 
-O montador ([TeamBuilderIsland.tsx](../../src/components/live/TeamBuilderIsland.tsx)) e o
-editor de times da noite
-([EditNightTeamsModal.tsx](../../src/components/live/EditNightTeamsModal.tsx)) têm cópias
-próprias das mesmas regras. A busca já foi unificada na Fase 4
-([search.ts](../../src/lib/search.ts)). O resto divergiu:
+### `d6a2db1` — Regras dos times num lugar só
 
-| Regra | Montador | Editor do mesário | Servidor |
-|---|---|---|---|
-| Teto de 6 por time e 24 por rodada | Recusa ao adicionar ([l.298](../../src/components/live/TeamBuilderIsland.tsx#L298)) | Aceita o 7º; o erro só vem do servidor ao salvar ([l.203](../../src/components/live/EditNightTeamsModal.tsx#L203)) | `assertValidRoundFormat` recusa |
-| Capitão desmarcado ou removido | O time volta ao nome da cor ([l.348](../../src/components/live/TeamBuilderIsland.tsx#L348), [l.379](../../src/components/live/TeamBuilderIsland.tsx#L379)) | O nome continua "Time &lt;ex-capitão&gt;" ([l.99](../../src/components/live/EditNightTeamsModal.tsx#L99), [l.187](../../src/components/live/EditNightTeamsModal.tsx#L187)) | — |
-| Capitão movido para outro time | — | O time de origem fica com o nome dele ([l.149](../../src/components/live/EditNightTeamsModal.tsx#L149)) | — |
-| Capitão obrigatório para salvar | Exige um por time ([l.595](../../src/components/live/TeamBuilderIsland.tsx#L595)) | Não exige | Não exige |
-| PIN expirado (401) ao salvar | Aviso com link para o PIN; o rascunho fica ([l.637](../../src/components/live/TeamBuilderIsland.tsx#L637)) | Mostra o texto cru do middleware ([l.275](../../src/components/live/EditNightTeamsModal.tsx#L275)) | — |
+O montador e o editor de times do mesário tinham cópias próprias das mesmas regras, e elas
+tinham divergido: o editor aceitava o 7º jogador (o erro só vinha do servidor ao salvar),
+deixava "Time &lt;ex-capitão&gt;" depois que o capitão saía, não exigia capitão e mostrava o
+texto cru do middleware no 401.
 
-**Proposta**
+- **[teamRules.ts](../../src/components/live/teamRules.ts):** TypeScript puro sobre um time
+  mínimo, usado pelas duas telas. O `captainId` é a única fonte de verdade sobre o capitão.
+  - `TEAM_TEMPLATES`: os quatro coletes, que saíram do montador;
+  - `canAddPlayer`: 6 por time sempre, e 24 por rodada só para quem ainda não está em time
+    nenhum, porque mover não muda o total;
+  - `addPlayer`, `removePlayer`, `movePlayer`, `toggleCaptain`, `toggleGoalkeeper` e
+    `updatePlayer`, que cobre o capitão renomeado no cadastro;
+  - `saveProblems`: nome vazio, time vazio, acima de 6, acima de 24 e sem capitão.
+- **Nome do time:** segue o capitão só enquanto é automático (o da cor ou "Time
+  &lt;capitão&gt;"). Um nome digitado à mão no editor fica quando o capitão sai e quando um
+  capitão novo é marcado.
+- **Editor do mesário:**
+  - recusa no ato adicionar ou mover para um time cheio;
+  - mostra "Sem capitão" em cada time sem capitão e exige um por time para salvar;
+  - no 401, dá o link para o PIN;
+  - trata a falha de rede com o `describeNetworkError`;
+  - ao abrir, normaliza o `captainId`, porque rodadas antigas podem ter só o `isCaptain`
+    do jogador.
+- **Montador:** o "Nenhum" da lista de presença zerava só os jogadores e deixava o capitão
+  e o "Time X" num time vazio. Agora ele refaz os times pelos templates. O `defaultName`
+  saiu do `TeamDraft`.
+- **`useTeamDraft` não foi criado.** O rascunho já é salvo pelo `teamDraft.ts`, e depois da
+  extração não sobrou duplicação nos componentes que justificasse um hook.
 
-- Novo `src/components/live/teamRules.ts`, TypeScript puro ao lado de `teamDraft.ts` e
-  `matchSync.ts`. As funções são genéricas sobre um time mínimo (`id`, `name`,
-  `captainId`, `players`), para servir ao `TeamDraft` do montador e ao `LiveTeam` do
-  editor. O módulo terá:
-  - `TEAM_TEMPLATES`: os quatro coletes, hoje em `ALL_AVAILABLE_TEAMS`;
-  - `defaultTeamName(colorHex)`: o nome pela cor do colete;
-  - `canAddPlayer(teams, teamId)`: devolve a mensagem de recusa ou `null`, com as mesmas
-    mensagens de `ROUND_RULES` dos dois lados;
-  - `addPlayer`, `removePlayer`, `movePlayer`, `toggleCaptain` e `toggleGoalkeeper`;
-  - `saveProblems(teams, { requireCaptain })`: time vazio, acima do teto e sem capitão.
-- Quando o capitão sai, o nome volta para o da cor **só se ainda for o automático** ("Time
-  &lt;capitão&gt;"). Um nome digitado à mão no editor fica como está.
-- No 401, o editor mostra o aviso de sessão expirada e o link para o PIN, como o montador e
-  o mesário. Pode reaproveitar o `AuthRequiredError` de `matchSync.ts`.
-- **`useTeamDraft` vira só `teamRules.ts`.** O rascunho já é salvo pelo `teamDraft.ts`, e
-  um hook só embrulharia os `setState`. Ele só entra se, depois da extração, sobrar
-  duplicação nos componentes.
+### `0339894` — Sair do mesário sem deixar lances para trás
 
-**Testes**
+A fila de lances só é enviada com o mesário aberto. Um toque na navegação de baixo, logo
+abaixo dos botões de gol, ou fechar a aba dentro da janela do "Desfazer" deixava lances
+parados no celular, sem aviso.
 
-- `tests/team-rules.test.ts`: tetos, nome automático e nome à mão, capitão movido, goleiro
-  e `saveProblems`.
-- E2E: o editor recusa o 7º jogador no ato e mostra a mensagem do teto.
+- **`beforeunload`** enquanto a aba dona da fila tem algo pendente, inclusive o gol retido
+  pelo "Desfazer". O "Entrar com o PIN" fica de fora, porque o login volta ao mesário e a
+  fila recomeça.
+- **Navegação de baixo:** some durante a partida em andamento. A ilha marca
+  `data-live-match` no `<html>`, e o `globals.css` esconde o `#mobile-nav`. O "Modo Mesário"
+  do cabeçalho continua.
+- **Banner em toda página, menos no mesário:** "Há N lances deste aparelho ainda não
+  enviados", com o link para `/rodada/mesario?sessionId=<rodada>`. Ele lê as chaves por
+  rodada pelo [pendingOnDevice.ts](../../src/lib/pendingOnDevice.ts), que não importa nada
+  para o script do Layout continuar pequeno, e se atualiza no `storage` e no `pageshow`.
+  Cobre o iPhone, cujo Safari não mostra o diálogo do `beforeunload`.
+- **O banner fica dentro do cabeçalho fixo.** Na primeira versão ele ficava abaixo dele. Na
+  verificação no build real, uma recarga com a página rolada fazia a ancoragem de rolagem
+  do navegador esconder o banner atrás do cabeçalho.
+- A prop `hasLiveMatch` saiu do `Layout`: nenhuma página a passava.
 
-## 2. Sair do mesário sem deixar lances para trás
-
-A fila de lances fica no aparelho e só é enviada com o mesário aberto
-([MesarioSessionWrapper.tsx:82](../../src/components/live/MesarioSessionWrapper.tsx#L82)).
-Algumas saídas deixam os lances parados no celular até ele voltar ao mesário, sem aviso
-nenhum:
-
-- um toque na navegação de baixo, que fica logo abaixo dos botões de gol durante a partida
-  ([Layout.astro:223](../../src/layouts/Layout.astro#L223));
-- um toque no cabeçalho;
-- fechar a aba dentro da janela do "Desfazer".
-
-**Proposta**
-
-- `beforeunload` enquanto houver lance pendente, inclusive o gol retido pelo "Desfazer".
-  O Safari do iPhone não mostra esse diálogo, por isso os dois pontos abaixo.
-- Esconder a navegação de baixo enquanto houver partida em andamento. A ilha marca
-  `document.documentElement.dataset.liveMatch` e o CSS do `Layout` esconde a barra. O
-  link "Modo Mesário" do cabeçalho continua.
-- Aviso em qualquer página: um banner no `Layout`, igual ao de sem conexão, diz "Há N
-  lances deste aparelho ainda não enviados" e leva ao mesário. Ele lê as chaves
-  `society_active_match_state:<sessionId>` do localStorage. Isso cobre o iPhone e quem
-  fecha o app.
-- Tirar a prop `hasLiveMatch` do `Layout`: nenhuma página a passa
-  ([Layout.astro:10](../../src/layouts/Layout.astro#L10)).
-
-**Testes**
-
-- E2E no harness: com um lance pendente (offline), `page.close({ runBeforeUnload: true })`
-  dispara o diálogo `beforeunload`; sem pendência, não dispara.
-- O banner e a barra escondida ficam no `Layout`, que o harness não carrega (ele é um SPA
-  do Vite). Verificação manual até o e2e rodar no Astro real (Fase 6).
-
-## 3. Duração da partida sem "7 min" fixo
+### `1e672bb` — Duração da partida sem "7 min" fixo
 
 A duração é escolhida por rodada (`sessions.match_duration_seconds`), mas três textos
-dizem 7 minutos:
+diziam 7 minutos:
 
-- o selo "Tempo Oficial (7 min)" no card do histórico
-  ([MatchHistoryCard.astro:94](../../src/components/ui/MatchHistoryCard.astro#L94)). O card
-  já mostra a duração real jogada, então o selo vira "Tempo regulamentar";
-- o rodapé "7 min ou 2 gols" do card PNG da rodada
-  ([RoundSummaryCard.tsx:397](../../src/components/export/RoundSummaryCard.tsx#L397)). O
-  `GetRoundHighlightsUseCase` já tem a sessão
-  ([l.79](../../src/core/application/use-cases/GetRoundHighlightsUseCase.ts#L79)): o
-  `RoundHighlightsOutputDTO` ganha `matchDurationSeconds`, e os "2 gols" vêm de
-  `MATCH_RULES.MAX_GOALS_FOR_VICTORY`;
-- a descrição da página do mesário, "cronômetro de 7 minutos"
-  ([mesario.astro:72](../../src/pages/rodada/mesario.astro#L72)), que perde o número.
+- **rodapé do card PNG da rodada:** o `RoundHighlightsOutputDTO` ganhou
+  `matchDurationSeconds`, que vem da sessão, e os "2 gols" vêm de `MATCH_RULES`;
+- **selo do card do histórico:** "Tempo Oficial (7 min)" virou "Tempo regulamentar";
+- **descrição da página do mesário:** perdeu o número.
 
-**Testes:** caso de uso da rodada devolvendo a duração da sessão; card renderizado com 8
-minutos.
+### `f2580fa` — Modais e avisos por cima do cabeçalho e da navegação
 
-## 4. Modais e avisos por cima do cabeçalho e da navegação
+O `<main>` é `relative z-10` e cria um contexto de empilhamento. Um `fixed z-50` dentro
+dele não passa por cima do cabeçalho nem da navegação de baixo. No celular, a barra ficava
+por cima do fundo do modal, clicável.
 
-O `<main>` é `relative z-10` ([Layout.astro:210](../../src/layouts/Layout.astro#L210)) e cria
-um contexto de empilhamento. Um `fixed z-50` dentro dele não passa por cima do cabeçalho
-(`z-40`) nem da navegação de baixo (`z-50`), que estão fora. Afetados:
+- O modal "Novo avulso" do montador e o `EditPlayerModal` passam pelo `ModalPortal`, como
+  os outros modais. O Esc não fecha o `EditPlayerModal` no meio do salvamento.
+- Os avisos de "exportado" dos cards viraram o [Toast](../../src/components/ui/Toast.tsx),
+  um portal para o `body` com `z-[100]`, `role="status"` e o topo abaixo da barra de status
+  do iPhone.
 
-- o modal "Novo avulso" do montador
-  ([TeamBuilderIsland.tsx:1278](../../src/components/live/TeamBuilderIsland.tsx#L1278));
-- o `EditPlayerModal` ([EditPlayerModal.tsx:80](../../src/components/ui/EditPlayerModal.tsx#L80));
-- os avisos de "exportado" dos cards, em `top-5`, embaixo do cabeçalho de 64 px
-  ([PeriodLeaderboardCard.tsx:205](../../src/components/export/PeriodLeaderboardCard.tsx#L205),
-  [RoundSummaryCard.tsx:116](../../src/components/export/RoundSummaryCard.tsx#L116)).
+### Commit de documentação — README, `AGENT.md` e registro
 
-**Proposta:** os dois modais passam pelo `ModalPortal`, que já dá foco preso, Esc e
-`z-[100]`. Os avisos usam um portal para o `body`, num componente pequeno em
-`components/ui/`.
+- **README:** trocou o do starter do Astro. Tem:
+  - o que é o app, as páginas e a stack;
+  - como rodar, com cada variável do `.env.example`;
+  - os scripts e como os testes funcionam;
+  - o deploy, com a migration antes do push, o `vercel-build` e o CI;
+  - o PWA e o cache;
+  - os links para a documentação.
+- **`AGENT.md`**, nos pontos em que divergia do código:
+  - o schema de verdade são as migrations, a partir da baseline;
+  - o formato da rodada é 3 ou 4 times, com a duração por rodada;
+  - a chave do mesário é `society_active_match_state:<sessionId>`;
+  - os alvos de toque são de 44 × 44 e os campos de 16 px, conferidos pela `touch.spec`;
+  - os modais passam pelo portal;
+  - a validação é feita com lint, formato, tipos, testes e e2e;
+  - as fases seguem os planos das fases, e não o roadmap 06;
+  - migrations só por `npm run db:*`, com o `REVOKE … FROM PUBLIC, anon, authenticated`.
+- `society-tracker-specs/` continua sem alteração.
 
-**Testes:** a `touch.spec` já abre os dois modais. Ela passa a conferir, com
-`document.elementFromPoint`, que os botões do rodapé do modal recebem o toque a 360 × 640,
-como a `assist.spec` faz com a gaveta.
+## Migration e produção
 
-## 5. README e `AGENT.md`
+Esta fase não tem migration. O deploy depende da `202609240003_close_session` da Fase 4,
+que estava pendente no fim daquela fase: confira com `npm run db:status` antes do push, e
+aplique com `npm run db:migrate -- --yes` se ainda faltar.
 
-**README**, no lugar do starter:
+## Decisões
 
-- o que é o app e a stack;
-- como rodar: `npm ci`, `.env` a partir do `.env.example` e para que serve cada variável;
-- os scripts: `dev`, `check`, `check:astro`, `lint`, `format`, `test`, `test:e2e`,
-  `build` e `db:*`;
-- o deploy: a Vercel publica a `main`, o `vercel-build` roda tipos e testes antes, e a
-  migration vai ao banco antes do push;
-- PWA e cache: o SW só é registrado no build, `VERSION` do `sw.js` muda quando a
-  estratégia muda, os ícones saem de `node scripts/icons.mjs`, e `PUBLIC_CACHE_CONTROL`
-  vale para as páginas públicas;
-- links para `AGENT.md`, o ADR 0001, `supabase/README.md` e `docs/`.
+As quatro decisões em aberto no plano foram respondidas assim:
 
-**`AGENT.md`**, nos pontos em que diverge do código:
+1. **Capitão no editor do mesário: exigido para salvar**, como no montador. A proposta era
+   não exigir, porque o capitão pode ir embora no meio da noite, e o usuário escolheu
+   exigir. Quando o capitão sai, o mesário marca outro antes de salvar. O servidor continua
+   sem exigir.
+2. **Nome do time quando o capitão sai:** volta para a cor só se era o automático. Pela
+   mesma regra, marcar um capitão novo não apaga um nome digitado à mão.
+3. **Navegação de baixo durante a partida:** escondida.
+4. **Banner de lances pendentes:** em toda página, menos no mesário.
 
-- a chave do mesário no localStorage é `society_active_match_state:<sessionId>`, e não a
-  chave única;
-- o schema de verdade são as migrations, a partir da baseline `202608140000`, e não o
-  spec 04;
-- os alvos de toque são de 44 × 44 e os campos de 16 px, conferidos pela `touch.spec`;
-- a validação passa a ser `npm run lint`, `check`, `test` e `test:e2e`, e não só
-  `npx tsc --noEmit`;
-- as fases seguem os planos das fases, e não o `06_IMPLEMENTATION_ROADMAP.md`;
-- migrations só por `npm run db:*`, com `REVOKE … FROM PUBLIC, anon, authenticated` em
-  toda função nova.
+## Testes
 
-Os arquivos de `society-tracker-specs/` continuam sem alteração, como nas fases
-anteriores.
+- **Unitários:** de 159 para 180.
+  - `team-rules.test.ts` (17): os tetos, o mover que ignora o teto da rodada, o nome
+    automático e o nome à mão, a cor fora dos coletes, o capitão renomeado e a ordem do
+    `saveProblems`;
+  - `pending-on-device.test.ts` (3): a contagem por rodada, JSON inválido, versão errada,
+    fila vazia e a chave antiga;
+  - `use-cases.test.ts` (+1): a duração da rodada no caso de uso, com 480 e com o padrão
+    de 420.
+- **E2E:** de 23 para 26.
+  - `teams.spec`: o editor recusa o 7º jogador e o mover para um time cheio, e não salva
+    sem capitão;
+  - `leave.spec`: a barra some durante a partida, o `beforeunload` aparece com lance
+    pendente e não aparece depois que a fila é enviada;
+  - `reports.spec` (+1): o card da rodada mostra "8 min ou 2 gols", e o aviso de exportado
+    fica no `body`;
+  - a `touch.spec` passou a conferir que os botões do rodapé de "Novo jogador", "Editar
+    atleta" e "Editar times da rodada" recebem o toque, e que a barra de baixo fica atrás
+    do modal. Antes da correção, a checagem acertava a barra.
+- **Banner:** o harness não carrega o `Layout`. O banner foi conferido na página `/offline`
+  do build real, no Edge a 360 × 640: some sem fila, aparece com o link de 44 px, usa o
+  singular e some quando outra aba esvazia a fila.
+- **Suíte inteira:** lint, formato, `check`, `check:astro`, `npm test`, `test:e2e` (26/26) e
+  build passaram no fim. Cada commit passa sozinho em `npm run check` e `npm test`.
 
----
+## O que ficou de fora
 
-## Decisões a confirmar
-
-1. **Capitão no editor do mesário:** proposta de **não exigir** para salvar, porque o
-   capitão pode ir embora no meio da noite. O editor só mostra quais times estão sem
-   capitão.
-2. **Nome do time quando o capitão sai:** volta para a cor só se for o nome automático. O
-   nome digitado à mão fica.
-3. **Navegação de baixo durante a partida:** esconder (proposta) ou manter, contando só com
-   o aviso.
-4. **Banner de lances pendentes em qualquer página:** entra (proposta) ou fica só o
-   `beforeunload`.
-
-## Ordem e commits
-
-Um commit por item, nesta ordem: 1 (a maior mudança, com testes próprios), 2, 3, 4 e 5. O
-item 5 fecha a fase porque descreve o estado final.
-
-## Verificação
-
-- `npm run lint`, `npm run format:check`, `npm run check`, `npm run check:astro`,
-  `npm test`, `npm run test:e2e` e `npm run build`.
-- Testes novos: `team-rules.test.ts`, o editor recusando o 7º jogador, o diálogo de
-  `beforeunload`, os modais recebendo o toque na `touch.spec`, e a duração no caso de uso
-  da rodada.
-- Manual no celular, depois do deploy:
-  - com uma partida em andamento, a barra de baixo some;
-  - offline, registrar um gol e abrir outra página: aparece o banner de lance pendente;
+- Verificação num celular de verdade, depois do deploy:
+  - a barra de baixo some durante a partida;
+  - offline, um gol e outra página mostram o banner, e o link volta ao mesário;
   - "Novo avulso" e "Editar atleta" abrem por cima da barra;
-  - o card PNG da rodada mostra a duração configurada.
-
-## Fora do escopo (Fase 6 ou depois)
-
-- Paginação ou agregação no banco para `/historico` e `/relatorios`, e o ranking da
-  `index.astro` num caso de uso: hoje as duas primeiras carregam o histórico inteiro.
-- Composition root (cada rota faz `new Supabase*Repository()`) e tipos gerados do
-  Supabase.
-- E2E no Astro real, e não no SPA do Vite: cobriria o `Layout`, o service worker, as
-  páginas `.astro` na auditoria de toque e o banner do item 2.
-- As duas falhas intermitentes do e2e vistas na Fase 4 (`live.spec` e `assist.spec`): o
-  harness ficou sem o React montar, e a causa não foi encontrada.
-- Observabilidade: Sentry, `/api/health` e conferência da versão do schema na
-  inicialização.
-- Modelo de RLS: hoje toda consulta usa a service role.
-- Cronômetro e elencos compartilhados entre dois aparelhos.
-- Ajustes pequenos que podem entrar se sobrar tempo:
-  - fontes do Google carregadas duas vezes, pelo `@import` do
-    [globals.css](../../src/styles/globals.css) e pelo `<link>` do `Layout`;
-  - `html-to-image` só carregado ao exportar, com `import()` dinâmico;
-  - "Sair" no celular;
-  - imagem do preview do WhatsApp: o `og-society-tracker.png` não existe;
-  - `motion-reduce`;
-  - opção de desligar o som.
+  - o card PNG mostra a duração configurada;
+  - o editor recusa o 7º jogador e o salvamento sem capitão.
+- Tudo o que o plano deixou para a Fase 6 ou depois, listado no
+  [README](README.md#situação-dos-pontos-do-levantamento-de-2209) como "Pendente": e2e no
+  Astro real, paginação do histórico, composition root, tipos gerados do Supabase, RLS,
+  observabilidade, elencos compartilhados entre aparelhos e as falhas intermitentes do
+  e2e vistas na Fase 4.

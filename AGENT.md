@@ -21,6 +21,12 @@ Antes de criar, alterar ou refatorar qualquer arquivo de código, leia atentamen
 5. `society-tracker-specs/05_UI_UX_MESARIO_FLOW.md`: Telas mobile-first, gaveta de 2 toques e persistência offline.
 6. `society-tracker-specs/06_IMPLEMENTATION_ROADMAP.md`: Sequência exata de tarefas para entrega incremental.
 
+As specs são a especificação original e não são atualizadas. Onde divergem do código, vale o código:
+
+- **Schema:** a verdade são as migrations em `supabase/migrations/`, a partir da baseline `202608140000_baseline.sql`, e não o `04_DATABASE_SCHEMA.sql`. Como aplicar: `supabase/README.md`.
+- **Formato da rodada:** 3 ou 4 times de até 6 jogadores, com teto de 24 (`ROUND_RULES`). A duração da partida é escolhida por rodada no montador (`sessions.match_duration_seconds`); os 7 minutos são só o padrão.
+- **Histórico das mudanças:** `docs/fases/README.md` registra o que cada fase de melhoria mudou e o que está pendente.
+
 ---
 
 ## 3. Diretrizes de Arquitetura (Clean Architecture)
@@ -43,7 +49,7 @@ Você deve manter a independência rigorosa entre as camadas:
 1. **Camada de Domínio (`src/core/domain/`):**
    - Deve ser TypeScript PURO.
    - **PROIBIDO** importar frameworks (Astro, React, Supabase, Next, etc.) ou bibliotecas de terceiros no Domínio.
-   - Toda lógica crítica (ex: regra dos 2 gols que encerra a partida, tempo limite de 420 segundos) deve viver dentro das entidades ou Domain Services.
+   - Toda lógica crítica (ex: regra dos 2 gols que encerra a partida, tempo limite da rodada, 420 segundos por padrão) deve viver dentro das entidades ou Domain Services.
    - **Exceção — escrita de partida:** as regras de escrita da partida vivem na transação SQL `society_match_command`, e o domínio TS guarda as regras de leitura e as constantes (`MATCH_RULES`). Ver `docs/adr/0001-transacao-sql-e-a-autoridade-das-partidas.md`.
 
 2. **Camada de Aplicação (`src/core/application/`):**
@@ -65,15 +71,17 @@ Você deve manter a independência rigorosa entre as camadas:
 ## 4. Regras de Código e Estilo
 
 - **TypeScript:** Modo estrito (`strict: true`). Nunca use `any`; crie tipos ou interfaces explícitas.
-- **Mobile-First UI:** Use Tailwind CSS focado em telas de smartphones (360px a 430px). Botões de toque rápido devem ter área de clique ampla (mínimo de 44px de altura).
+- **Mobile-First UI:** Use Tailwind CSS focado em telas de smartphones (360px a 430px). Todo botão, link e campo tem pelo menos 44 × 44 px, e todo campo de texto, número, data ou select tem fonte de pelo menos 16px (abaixo disso o iPhone dá zoom ao focar). A `tests/ui/touch.spec.ts` confere as duas regras nas ilhas React.
+- **Modais e avisos flutuantes:** use o `ModalPortal` (ou um portal para o `body`, como o `Toast`). Dentro do `<main>` do Layout, que é `relative z-10`, um `fixed z-50` fica embaixo do cabeçalho e da navegação de baixo.
 - **Tratamento de Erros:** Não silencie erros. Retorne mensagens amigáveis na UI e códigos HTTP semânticos (400, 404, 500) nas rotas de API.
-- **Persistência Local (Modo Mesário):** O componente de cronômetro deve sincronizar o estado da partida em andamento no `localStorage` sob a chave `society_active_match_state` para proteger contra recarregamento acidental de página na quadra.
+- **Persistência Local (Modo Mesário):** O mesário guarda no `localStorage`, sob a chave `society_active_match_state:<sessionId>` (uma por rodada), a fila de lances ainda não enviados, os cronômetros e as partidas confirmadas (`matchSync.ts`). Isso protege contra recarga na quadra e contra a falta de sinal. A chave única antiga, `society_active_match_state`, só é lida para preservar registros da versão anterior.
 
 ---
 
 ## 5. Fluxo de Trabalho do Agente
 
 Ao executar o desenvolvimento:
-1. **Passo Único por Vez:** Não tente gerar todo o sistema de uma só vez. Siga o arquivo `06_IMPLEMENTATION_ROADMAP.md` fase por fase.
-2. **Validação Contínua:** Após implementar cada Caso de Uso ou componente, certifique-se de que não há erros de tipagem no TypeScript (`npx tsc --noEmit`).
-3. **Commit / Checkpoints Lógicos:** Mantenha o código limpo, modular e devidamente documentado para fácil manutenção.
+1. **Passo Único por Vez:** Não tente gerar todo o sistema de uma só vez. O trabalho segue os planos das fases em `docs/fases/` (um `FASE_N.md` por fase), e não mais o `06_IMPLEMENTATION_ROADMAP.md`. Ao fechar uma fase, atualize o `FASE_N.md` e a tabela de situação do `docs/fases/README.md`.
+2. **Validação Contínua:** Antes de cada commit, rode `npm run lint`, `npm run format:check`, `npm run check` e `npm test`. Ao mexer em tela ou arquivo `.astro`, rode também `npm run test:e2e` e `npm run check:astro`. O CI roda tudo isso e o build.
+3. **Migrations:** só por `npm run db:*` (`scripts/db.mjs`), nunca pelo SQL Editor nem pelo CLI do Supabase. Toda função nova termina com `REVOKE ALL ON FUNCTION … FROM PUBLIC, anon, authenticated;` e `GRANT EXECUTE … TO service_role;`: no Supabase, `REVOKE … FROM PUBLIC` sozinho não tira o acesso da chave pública. A migration vai ao banco antes do deploy do código que depende dela. Ver `supabase/README.md`.
+4. **Commit / Checkpoints Lógicos:** Mantenha o código limpo, modular e devidamente documentado para fácil manutenção.

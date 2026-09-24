@@ -18,7 +18,7 @@ decisões tomadas, as migrations e o que ficou pendente. Os planos originais est
 | 24/09 | Correção avulsa: domínio de produção na URL canônica e nos cards | `304f325` | — |
 | 24/09 | **Fase 3** — Base: ferramentas, migrations, código morto, rotas e CI | `28cc92b`…`b75de6a` | [FASE_3.md](FASE_3.md) |
 | 24/09 | **Fase 4** — UX e desempenho | `014f9fc`…`c8c0083` | [FASE_4.md](FASE_4.md) |
-| — | **Fase 5** — Times, saída segura do mesário e acabamento (planejada) | — | [FASE_5.md](FASE_5.md) |
+| 24/09 | **Fase 5** — Times, saída segura do mesário e acabamento | `d6a2db1`…`f2580fa` e o commit de documentação | [FASE_5.md](FASE_5.md) |
 
 ## Migrations por etapa
 
@@ -29,13 +29,14 @@ decisões tomadas, as migrations e o que ficou pendente. Os planos originais est
 | Fase 2 | `202609220003_client_match_id` | Sim |
 | Fase 3 | `202608140000_baseline` (só registrada), `202609240001_command_returns_match`, `202609240002_drop_unused_views` | Sim (24/09) |
 | Fase 4 | `202609240003_close_session` | Pendente no fim da fase: aplicar antes do push |
+| Fase 5 | Nenhuma | — |
 
 As migrations são aplicadas só por `npm run db:*`. Como e por quê: ver
 [supabase/README.md](../../supabase/README.md).
 
 ## Situação dos pontos do levantamento de 22/09
 
-"F1" a "F4" são as fases feitas. "Fase 5" é a planejada. "Pendente" ainda não tem fase.
+"F1" a "F5" são as fases feitas. "Pendente" ainda não tem fase.
 
 ### 1. Risco imediato
 
@@ -61,7 +62,7 @@ As migrations são aplicadas só por `npm run db:*`. Como e por quê: ver
 | Rascunho do montador perdido no reload | F2 |
 | Sugestão do próximo confronto perdida no reload | F2 |
 | Elencos e cronômetro não compartilhados entre dois aparelhos | Pendente |
-| Navegação de baixo visível durante a partida, sem aviso ao sair com pendências | Fase 5 |
+| Navegação de baixo visível durante a partida, sem aviso ao sair com pendências | F5 |
 
 ### 3. Banco e migrations
 
@@ -84,7 +85,7 @@ As migrations são aplicadas só por `npm run db:*`. Como e por quê: ver
 | Páginas com lógica e carga do histórico inteiro, sem paginação | Pendente |
 | Sem composition root | Pendente |
 | Rotas sem validação e com erro do Postgres na UI | F3 |
-| Regras duplicadas entre o montador e o editor de times (`useTeamDraft`) | Fase 5 |
+| Regras duplicadas entre o montador e o editor de times (`useTeamDraft`) | F5 (`teamRules.ts`, sem hook) |
 | Utilitários duplicados (datas, `nickname \|\| name`, cores, fetch) | Parcial: fuso (F1) e busca (F4) |
 | Rodada nunca encerrada | F4 |
 
@@ -102,10 +103,10 @@ As migrations são aplicadas só por `npm run db:*`. Como e por quê: ver
 |---|---|
 | Alvos de toque menores que 44px e campos menores que 16px | F4 |
 | Busca não ignorava acentos | F4 |
-| Modais e avisos atrás do cabeçalho e da navegação | Fase 5 |
+| Modais e avisos atrás do cabeçalho e da navegação | F5 |
 | Mensagem do Postgres em inglês na data repetida | F1 (409 com mensagem própria) |
 | Erro do montador longe do botão Salvar | Pendente |
-| "7 min" fixo no texto | Fase 5 |
+| "7 min" fixo no texto | F5 |
 | Sem "Sair" no celular, ponto "ao vivo" sempre piscando, preview do WhatsApp quebrado | Pendente |
 | Labels, `aria-pressed`, `motion-reduce` e desligar o som | Parcial: labels e `aria-pressed` nos botões alterados na F4 |
 
@@ -121,5 +122,5 @@ As migrations são aplicadas só por `npm run db:*`. Como e por quê: ver
 | E2E num SPA do Vite, não no Astro real | Pendente |
 | Glob `tests/*.test.ts` não recursivo | Pendente |
 | Sem Sentry, sem `/api/health`, sem checagem da versão do schema | Pendente |
-| README do starter do Astro, `AGENT.md` e specs divergentes | Fase 5 |
+| README do starter do Astro, `AGENT.md` e specs divergentes | F5 (README e `AGENT.md`; as specs ficam como estavam) |
 | `supabase/.temp` no git, `@types/*` em dependencies, `vite` não declarado, sem `.nvmrc` | F3 |
