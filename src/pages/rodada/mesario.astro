@@ -7,6 +7,7 @@ import {
 import { SupabaseSessionRepository } from '../../core/infrastructure/repositories/SupabaseSessionRepository';
 import { SupabasePlayerRepository } from '../../core/infrastructure/repositories/SupabasePlayerRepository';
 import type { LivePlayer } from '../../components/live/types';
+import { NO_STORE } from '../../core/infrastructure/http/api';
 
 export const prerender = false;
 
@@ -61,6 +62,9 @@ try {
   errorMessage = 'Não foi possível carregar a rodada. Confira a conexão e tente novamente.';
   sessionData = null;
 }
+// Com erro, `no-store`: o service worker não troca a cópia boa guardada no aparelho (a que
+// abre sem sinal) por esta. Sem erro, fica o padrão, que a CDN não guarda.
+if (errorMessage) Astro.response.headers.set('Cache-Control', NO_STORE);
 ---
 
 <Layout

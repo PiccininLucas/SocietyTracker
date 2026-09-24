@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { TeamBuilderIsland, type PlayerItem } from '../../components/live/TeamBuilderIsland';
 import { SupabasePlayerRepository } from '../../core/infrastructure/repositories/SupabasePlayerRepository';
+import { NO_STORE } from '../../core/infrastructure/http/api';
 
 export const prerender = false;
 
@@ -22,6 +23,8 @@ try {
   }
 } catch {
   players = [];
+  // O service worker não guarda a tela vazia no lugar da cópia com os jogadores.
+  Astro.response.headers.set('Cache-Control', NO_STORE);
 }
 ---
 

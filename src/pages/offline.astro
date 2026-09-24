@@ -1,0 +1,43 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// Estática: o service worker guarda esta página na instalação e a mostra quando uma
+// página que nunca foi aberta neste aparelho é pedida sem sinal.
+export const prerender = true;
+---
+
+<Layout
+  title="SocietyTracker • Sem conexão"
+  description="Sem conexão com a internet."
+  activeNav="none"
+>
+  <section class="max-w-md mx-auto my-12 p-6 rounded-3xl glass-card border border-white/10 space-y-4 text-center">
+    <span class="text-5xl" aria-hidden="true">📡</span>
+    <h1 class="font-display font-black text-2xl text-white">Sem conexão</h1>
+    <p class="text-sm text-gray-300">
+      Esta página ainda não foi aberta neste aparelho, e sem sinal não dá para carregá-la.
+    </p>
+    <p class="text-sm text-gray-300">
+      O Modo Mesário já aberto aqui continua funcionando: os lances ficam guardados no aparelho e
+      são enviados quando o sinal voltar.
+    </p>
+    <div class="flex flex-col gap-2">
+      <a
+        href="/rodada/mesario"
+        class="min-h-[44px] inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 font-bold text-gray-950"
+      >
+        Abrir o Modo Mesário
+      </a>
+      <button
+        type="button"
+        id="retry"
+        class="min-h-[44px] rounded-xl border border-white/15 bg-surface-200 px-4 font-semibold text-white"
+      >
+        Tentar de novo
+      </button>
+    </div>
+  </section>
+  <script>
+    document.getElementById('retry')?.addEventListener('click', () => location.reload());
+  </script>
+</Layout>

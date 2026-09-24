@@ -5,7 +5,8 @@ export interface Props {
   title?: string;
   description?: string;
   image?: string;
-  activeNav?: 'leaderboard' | 'historico' | 'relatorios' | 'nova_rodada' | 'mesario';
+  // 'none': página fora da navegação, como a /offline.
+  activeNav?: 'leaderboard' | 'historico' | 'relatorios' | 'nova_rodada' | 'mesario' | 'none';
   hasLiveMatch?: boolean;
 }
 
@@ -31,7 +32,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
     <meta name="theme-color" content="#090d16" />
+    <!-- PWA: instalável na tela inicial; o service worker (public/sw.js) abre sem sinal. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Society" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
     <!-- SEO Primary Tags -->
@@ -74,7 +80,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
     </div>
 
     <!-- Header Superior (Desktop e Tablets) -->
-    <header class="sticky top-0 z-40 w-full glass-card border-b border-white/5 bg-background/80 backdrop-blur-md">
+    <!-- Instalado no iPhone, a barra de status é translúcida e fica por cima da página: o
+         padding da área segura desce o cabeçalho para baixo dela. No navegador vale 0. -->
+    <header
+      class="sticky top-0 z-40 w-full glass-card border-b border-white/5 bg-background/80 backdrop-blur-md"
+      style="padding-top: env(safe-area-inset-top, 0px)"
+    >
       <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <!-- Logo & Marca -->
         <a href="/" class="min-h-[44px] flex items-center gap-2.5 group">
@@ -185,6 +196,16 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
       </div>
     </header>
 
+    <div
+      id="offline-banner"
+      hidden
+      role="status"
+      class="relative z-30 border-b border-amber-400/40 bg-amber-950/90 px-4 py-2 text-center text-sm text-amber-100"
+    >
+      Sem conexão. O que está na tela pode estar desatualizado; os lances do mesário ficam neste
+      aparelho e são enviados quando o sinal voltar.
+    </div>
+
     <!-- Conteúdo Principal da Página -->
     <main class="relative z-10 flex-1 w-full max-w-6xl mx-auto px-3.5 sm:px-6 py-6 pb-28 md:pb-12">
       <slot />
@@ -262,6 +283,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
     </nav>
 
     <script>
+      // Mesmo nome de public/sw.js: as páginas guardadas para abrir sem sinal.
+      const PAGES_CACHE = 'society-pages-v1';
+
       // "Sair" pela dica não-HttpOnly que o login grava junto com a sessão (pinAuth).
       const logout = document.getElementById('btn-logout');
       if (logout && document.cookie.split('; ').includes('society_admin_hint=1'))
@@ -272,8 +296,39 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://society-
         } catch {
           return;
         }
+        // As telas do mesário guardadas no aparelho saem junto com a sessão.
+        await window.caches?.delete(PAGES_CACHE).catch(() => false);
         window.location.href = '/';
       });
+
+      const banner = document.getElementById('offline-banner');
+      const showConnection = () => {
+        if (banner) banner.hidden = navigator.onLine;
+      };
+      window.addEventListener('online', showConnection);
+      window.addEventListener('offline', showConnection);
+      showConnection();
+
+      // Só no build: no `astro dev` o SW guardaria os módulos do Vite e serviria código velho.
+      if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          const firstVisit = !navigator.serviceWorker.controller;
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then(() => navigator.serviceWorker.ready)
+            .then((registration) => {
+              // Na primeira visita a página e o JS dela carregaram antes do SW existir, e
+              // a primeira abertura sem sinal viria sem nada. Ele guarda tudo agora.
+              if (!firstVisit) return;
+              registration.active?.postMessage({
+                type: 'cache-page',
+                url: location.href,
+                assets: performance.getEntriesByType('resource').map((entry) => entry.name),
+              });
+            })
+            .catch(() => {});
+        });
+      }
     </script>
   </body>
 </html>
