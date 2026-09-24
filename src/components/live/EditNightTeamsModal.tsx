@@ -16,6 +16,16 @@ import { cn } from '../ui/utils';
 import { hapticFeedback } from '../ui/vibration';
 import { soundFx } from '../ui/audio';
 import { matchesPlayerSearch } from '../../lib/search';
+import { describeNetworkError } from './matchSync';
+import {
+  addPlayer,
+  canAddPlayer,
+  movePlayer,
+  removePlayer,
+  saveProblems,
+  toggleCaptain,
+  toggleGoalkeeper,
+} from './teamRules';
 
 /** Resposta de PUT /api/sessions/[id]/teams. */
 interface SavedPlayer {
@@ -57,6 +67,8 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // PIN expirado no "Salvar": o aviso ganha o link para entrar de novo.
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   // Controle de adição de atleta a um time específico
   const [addingToTeamId, setAddingToTeamId] = useState<string | null>(null);
@@ -65,9 +77,17 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
   // Sincroniza o estado local sempre que o modal abre ou as props mudam
   useEffect(() => {
     if (isOpen) {
-      setEditableTeams(JSON.parse(JSON.stringify(teams)));
+      // O captainId é a fonte de verdade; rodadas antigas podem ter só o isCaptain do jogador.
+      setEditableTeams(
+        teams.map((t) => ({
+          ...t,
+          captainId: t.captainId ?? t.players.find((p) => p.isCaptain)?.id ?? null,
+          players: t.players.map((p) => ({ ...p })),
+        }))
+      );
       setErrorMessage(null);
       setSuccessMessage(null);
+      setNeedsLogin(false);
       setAddingToTeamId(null);
       setPlayerSearchQuery('');
     }
@@ -95,138 +115,55 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
 
   if (!isOpen) return null;
 
+  // As regras (tetos, capitão, nome automático) são as mesmas do montador: teamRules.ts.
+
   // 1. Alternar Capitão
   const handleToggleCaptain = (teamId: string, playerId: string) => {
     hapticFeedback.click();
     soundFx.playClickBeep('normal');
-
-    setEditableTeams((prev) =>
-      prev.map((t) => {
-        if (t.id !== teamId) return t;
-
-        const isCurrentlyCaptain = t.captainId === playerId;
-        if (isCurrentlyCaptain) {
-          return {
-            ...t,
-            captainId: null,
-            players: t.players.map((p) => (p.id === playerId ? { ...p, isCaptain: false } : p)),
-          };
-        }
-
-        const captainPlayer = t.players.find((p) => p.id === playerId);
-        const captainName = captainPlayer ? captainPlayer.nickname || captainPlayer.name : '';
-
-        return {
-          ...t,
-          captainId: playerId,
-          name: captainName ? `Time ${captainName}` : t.name,
-          players: t.players.map((p) => ({
-            ...p,
-            isCaptain: p.id === playerId,
-          })),
-        };
-      })
-    );
+    setEditableTeams((prev) => toggleCaptain(prev, teamId, playerId));
   };
 
   // 2. Alternar Goleiro / Linha
   const handleToggleGoalkeeper = (teamId: string, playerId: string) => {
     hapticFeedback.click();
-    setEditableTeams((prev) =>
-      prev.map((t) => {
-        if (t.id !== teamId) return t;
-        return {
-          ...t,
-          players: t.players.map((p) =>
-            p.id === playerId ? { ...p, isGoalkeeper: !p.isGoalkeeper } : p
-          ),
-        };
-      })
-    );
+    setEditableTeams((prev) => toggleGoalkeeper(prev, teamId, playerId));
   };
 
-  // 3. Mover Atleta para Outro Time
-  const handleMovePlayer = (fromTeamId: string, toTeamId: string, playerId: string) => {
+  // 3. Mover Atleta para Outro Time (recusado no ato se o destino já tem 6)
+  const handleMovePlayer = (toTeamId: string, playerId: string) => {
+    const refusal = canAddPlayer(editableTeams, toTeamId, playerId);
+    setErrorMessage(refusal);
+    if (refusal) {
+      hapticFeedback.cancel();
+      return;
+    }
     hapticFeedback.click();
     soundFx.playClickBeep('normal');
-
-    setEditableTeams((prev) => {
-      const playerToMove = prev
-        .find((t) => t.id === fromTeamId)
-        ?.players.find((p) => p.id === playerId);
-
-      if (!playerToMove) return prev;
-
-      return prev.map((t) => {
-        if (t.id === fromTeamId) {
-          const isRemovingCaptain = t.captainId === playerId;
-          return {
-            ...t,
-            captainId: isRemovingCaptain ? null : t.captainId,
-            players: t.players.filter((p) => p.id !== playerId),
-          };
-        }
-        if (t.id === toTeamId) {
-          return {
-            ...t,
-            players: [
-              ...t.players,
-              {
-                ...playerToMove,
-                isCaptain: false,
-              },
-            ],
-          };
-        }
-        return t;
-      });
-    });
+    setEditableTeams((prev) => movePlayer(prev, playerId, toTeamId));
   };
 
   // 4. Remover Atleta do Time (vai para o banco)
-  const handleRemovePlayer = (teamId: string, playerId: string) => {
+  const handleRemovePlayer = (playerId: string) => {
     hapticFeedback.click();
-    setEditableTeams((prev) =>
-      prev.map((t) => {
-        if (t.id !== teamId) return t;
-        const isRemovingCaptain = t.captainId === playerId;
-        return {
-          ...t,
-          captainId: isRemovingCaptain ? null : t.captainId,
-          players: t.players.filter((p) => p.id !== playerId),
-        };
-      })
-    );
+    setEditableTeams((prev) => removePlayer(prev, playerId));
   };
 
-  // 5. Adicionar Atleta do Banco a um Time
+  // 5. Adicionar Atleta do Banco a um Time (recusado no ato acima dos tetos)
   const handleAddPlayerToTeam = (teamId: string, player: LivePlayer) => {
-    hapticFeedback.click();
-    soundFx.playClickBeep('high');
-
-    setEditableTeams((prev) =>
-      prev.map((t) => {
-        if (t.id !== teamId) return t;
-        // Evita duplicatas
-        if (t.players.some((p) => p.id === player.id)) return t;
-
-        return {
-          ...t,
-          players: [
-            ...t.players,
-            {
-              ...player,
-              isCaptain: false,
-              isLoaned: false,
-              isGoalkeeper: player.isGoalkeeper ?? false,
-            },
-          ],
-        };
-      })
-    );
-
+    const refusal = canAddPlayer(editableTeams, teamId, player.id);
+    setErrorMessage(refusal);
     setAddingToTeamId(null);
     setPlayerSearchQuery('');
+    if (refusal) {
+      hapticFeedback.cancel();
+      return;
+    }
+    hapticFeedback.click();
+    soundFx.playClickBeep('high');
+    setEditableTeams((prev) =>
+      addPlayer(prev, teamId, { ...player, isCaptain: false, isLoaned: false })
+    );
   };
 
   // 6. Editar Nome do Time Manualmente
@@ -239,15 +176,15 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    // Validação básica: cada time precisa de nome
-    for (const team of editableTeams) {
-      if (!team.name.trim()) {
-        setErrorMessage('Todos os times devem ter um nome válido.');
-        return;
-      }
+    // Nome, tetos e capitão, como no montador. A API confere o formato de novo.
+    const [problem] = saveProblems(editableTeams);
+    if (problem) {
+      setErrorMessage(problem);
+      return;
     }
 
     setIsSaving(true);
+    setNeedsLogin(false);
     hapticFeedback.victory();
 
     try {
@@ -261,7 +198,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
             playerId: p.id,
             isGoalkeeper: !!p.isGoalkeeper,
             isLoaned: !!p.isLoaned,
-            isCaptain: t.captainId === p.id || !!p.isCaptain,
+            isCaptain: t.captainId === p.id,
           })),
         })),
       };
@@ -270,19 +207,27 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Erro ao salvar alterações dos times.');
+      if (res.status === 401) {
+        setNeedsLogin(true);
+        throw new Error(
+          'Sessão de mesário expirada. Entre com o PIN de novo; as alterações dos times não foram salvas.'
+        );
       }
+      // 502/504 do gateway vêm em HTML: sem o catch aparecia "Unexpected token '<'".
+      const data: { teams?: SavedTeam[]; error?: string } | null = await res
+        .json()
+        .catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'Erro ao salvar alterações dos times.');
+      if (!data?.teams) throw new Error('Resposta do servidor incompleta. Tente novamente.');
 
-      const data: { teams?: SavedTeam[] } = await res.json();
       setSuccessMessage('Times e elencos atualizados com sucesso!');
       soundFx.playWhistle();
 
       // Monta a nova lista de LiveTeam com base nos dados retornados
-      const updatedLiveTeams: LiveTeam[] = (data.teams || []).map((t) => ({
+      const updatedLiveTeams: LiveTeam[] = data.teams.map((t) => ({
         id: t.id,
         sessionId: t.sessionId,
         name: t.name,
@@ -305,9 +250,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
         onClose();
       }, 700);
     } catch (error) {
-      setErrorMessage(
-        (error instanceof Error && error.message) || 'Ocorreu um erro ao salvar os times.'
-      );
+      setErrorMessage(describeNetworkError(error));
     } finally {
       setIsSaving(false);
     }
@@ -349,9 +292,23 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
 
         {/* Notificações de Status */}
         {errorMessage && (
-          <div className="mx-6 mt-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-shake">
+          <div
+            role="alert"
+            className="mx-6 mt-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex flex-wrap items-center gap-2 animate-shake"
+          >
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{errorMessage}</span>
+            <span className="flex-1">{errorMessage}</span>
+            {needsLogin && (
+              <a
+                href={
+                  '/login?redirect=' +
+                  encodeURIComponent(window.location.pathname + window.location.search)
+                }
+                className="min-h-[44px] inline-flex items-center px-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-100 font-bold text-sm"
+              >
+                Entrar com o PIN
+              </a>
+            )}
           </div>
         )}
 
@@ -405,6 +362,11 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                       {team.players.length}
                     </span>
                   </div>
+                  {!team.players.some((p) => p.id === team.captainId) && (
+                    <p className="text-[11px] text-gray-400 italic">
+                      Sem capitão: marque a ⭐ de um jogador
+                    </p>
+                  )}
                 </div>
 
                 {/* Lista de Atletas */}
@@ -418,7 +380,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                     </div>
                   ) : (
                     team.players.map((player, idx) => {
-                      const isCaptain = team.captainId === player.id || player.isCaptain;
+                      const isCaptain = team.captainId === player.id;
 
                       return (
                         <div
@@ -450,7 +412,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                             {/* Ações Rápidas: Remover */}
                             <button
                               type="button"
-                              onClick={() => handleRemovePlayer(team.id, player.id)}
+                              onClick={() => handleRemovePlayer(player.id)}
                               className="min-h-[44px] min-w-[44px] -my-1 -mr-1 flex items-center justify-center text-gray-400 hover:text-rose-400 rounded-lg transition-colors"
                               aria-label={
                                 'Remover ' + (player.nickname || player.name) + ' do time'
@@ -479,7 +441,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                                 title={
                                   isCaptain
                                     ? 'Capitão da equipe (clique para desmarcar)'
-                                    : 'Definir como Capitão e renomear equipe'
+                                    : 'Definir como capitão da equipe'
                                 }
                               >
                                 <Star
@@ -525,7 +487,7 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
                                 value=""
                                 onChange={(e) => {
                                   if (e.target.value) {
-                                    handleMovePlayer(team.id, e.target.value, player.id);
+                                    handleMovePlayer(e.target.value, player.id);
                                   }
                                 }}
                                 aria-label={

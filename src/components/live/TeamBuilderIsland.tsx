@@ -21,6 +21,16 @@ import { localDateISO } from '../../core/domain/services/CompetitionService';
 import { ROUND_RULES } from '../../core/domain/entities/Session';
 import { EditPlayerModal, type EditablePlayerData } from '../ui/EditPlayerModal';
 import { loadDraft, saveDraft, clearDraft, serializeDraft, type DraftState } from './teamDraft';
+import {
+  TEAM_TEMPLATES,
+  addPlayer,
+  canAddPlayer,
+  removePlayer,
+  saveProblems,
+  toggleCaptain,
+  toggleGoalkeeper,
+  updatePlayer,
+} from './teamRules';
 import { matchesPlayerSearch } from '../../lib/search';
 
 export interface PlayerItem {
@@ -33,7 +43,6 @@ export interface PlayerItem {
 
 export interface TeamDraft {
   id: string;
-  defaultName: string;
   name: string;
   colorHex: string;
   colorName: string;
@@ -55,12 +64,10 @@ function shuffle<T>(items: readonly T[]): T[] {
   return out;
 }
 
-const ALL_AVAILABLE_TEAMS: { id: string; name: string; colorHex: string; colorName: string }[] = [
-  { id: 'team-1', name: 'Time Preto', colorHex: '#1f2937', colorName: 'Preto' },
-  { id: 'team-2', name: 'Time Branco', colorHex: '#e5e7eb', colorName: 'Branco' },
-  { id: 'team-3', name: 'Time Azul', colorHex: '#3b82f6', colorName: 'Azul' },
-  { id: 'team-4', name: 'Time Vermelho', colorHex: '#ef4444', colorName: 'Vermelho' },
-];
+/** Os primeiros `count` coletes, sem ninguém escalado. */
+function emptyTeams(count: 3 | 4): TeamDraft[] {
+  return TEAM_TEMPLATES.slice(0, count).map((t) => ({ ...t, captainId: null, players: [] }));
+}
 
 /** Montagem limpa: todos presentes, times vazios, formato e tempo sugeridos pelo total. */
 function initialDraftState(players: PlayerItem[]): DraftState {
@@ -72,12 +79,7 @@ function initialDraftState(players: PlayerItem[]): DraftState {
     teamCount,
     // Sugerido: 8 min para 3 times, 7 min para 4 times
     matchDurationMinutes: teamCount === 3 ? 8 : 7,
-    teams: ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({
-      ...t,
-      defaultName: t.name,
-      captainId: null,
-      players: [],
-    })),
+    teams: emptyTeams(teamCount),
   };
 }
 
@@ -123,7 +125,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   // Restaura no mount, não no useState: a ilha é renderizada no servidor, que não tem o
   // rascunho, e ler o localStorage no primeiro render quebraria a hidratação.
   useEffect(() => {
-    const draft = loadDraft(initialPlayers, ALL_AVAILABLE_TEAMS);
+    const draft = loadDraft(initialPlayers, TEAM_TEMPLATES);
     if (!draft) return;
     applyDraft(draft);
     setRestoredAt(draft.savedAt);
@@ -209,17 +211,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       if (next.has(playerId)) {
         next.delete(playerId);
         // Se foi desmarcado da presença, remove de qualquer time que estivesse escalado
-        setTeams((currentTeams) =>
-          currentTeams.map((t) => {
-            const isRemovingCaptain = t.captainId === playerId;
-            return {
-              ...t,
-              captainId: isRemovingCaptain ? null : t.captainId,
-              name: isRemovingCaptain ? t.defaultName : t.name,
-              players: t.players.filter((p) => p.id !== playerId),
-            };
-          })
-        );
+        setTeams((currentTeams) => removePlayer(currentTeams, playerId));
       } else {
         next.add(playerId);
       }
@@ -235,7 +227,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
   // Desmarcar todos da presença
   const handleClearAllPresence = () => {
     setPresentPlayerIds(new Set());
-    setTeams((prev) => prev.map((t) => ({ ...t, players: [] })));
+    // Pelos templates: zerar só os jogadores deixava o capitão e o "Time X" num time vazio.
+    setTeams(emptyTeams(teamCount));
   };
 
   // Alternar estrutura entre 3 ou 4 times
@@ -251,146 +244,41 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       setMatchDurationMinutes(7);
     }
 
-    setTeams((prev) => {
-      if (count === 3) {
-        // Reduz para 3 times (Time 4 tem jogadores devolvidos ao pool disponível)
-        return ALL_AVAILABLE_TEAMS.slice(0, 3).map((template, idx) => {
-          const existing = prev[idx];
-          return existing
-            ? {
-                ...template,
-                defaultName: template.name,
-                name: existing.name,
-                captainId: existing.captainId,
-                players: existing.players,
-              }
-            : {
-                ...template,
-                defaultName: template.name,
-                captainId: null,
-                players: [],
-              };
-        });
-      } else {
-        // Expande para 4 times
-        return ALL_AVAILABLE_TEAMS.map((template, idx) => {
-          const existing = prev[idx];
-          return existing
-            ? {
-                ...template,
-                defaultName: template.name,
-                name: existing.name,
-                captainId: existing.captainId,
-                players: existing.players,
-              }
-            : {
-                ...template,
-                defaultName: template.name,
-                captainId: null,
-                players: [],
-              };
-        });
-      }
-    });
-  };
-
-  // Adicionar jogador ao time. Teto de 6 por time e 24 por rodada (ROUND_RULES).
-  const handleAssignToTeam = (player: PlayerItem, teamId: string) => {
-    const target = teams.find((t) => t.id === teamId);
-    if (!target || target.players.some((p) => p.id === player.id)) return;
-
-    if (target.players.length >= ROUND_RULES.MAX_PLAYERS_PER_TEAM) {
-      setErrorMessage(
-        `${target.name || target.defaultName} já está completo com ` +
-          `${ROUND_RULES.MAX_PLAYERS_PER_TEAM} jogadores. Tire alguém antes de adicionar outro.`
-      );
-      return;
-    }
-
-    if (totalAssigned >= ROUND_RULES.MAX_PLAYERS_PER_ROUND) {
-      setErrorMessage(
-        `A rodada já tem os ${ROUND_RULES.MAX_PLAYERS_PER_ROUND} jogadores do limite.`
-      );
-      return;
-    }
-
-    setErrorMessage(null);
+    // Os times que continuam mantêm a escalação; os que saem devolvem os jogadores ao banco.
     setTeams((prev) =>
-      prev.map((t) =>
-        t.id === teamId
+      emptyTeams(count).map((template, idx) =>
+        prev[idx]
           ? {
-              ...t,
-              players: [...t.players, { ...player, isGoalkeeper: player.isGoalkeeper ?? false }],
+              ...template,
+              name: prev[idx].name,
+              captainId: prev[idx].captainId,
+              players: prev[idx].players,
             }
-          : t
+          : template
       )
     );
   };
 
+  // Adicionar jogador ao time. Teto de 6 por time e 24 por rodada (ROUND_RULES).
+  const handleAssignToTeam = (player: PlayerItem, teamId: string) => {
+    const refusal = canAddPlayer(teams, teamId, player.id);
+    setErrorMessage(refusal);
+    if (!refusal) setTeams((prev) => addPlayer(prev, teamId, player));
+  };
+
   // Alternar posição entre Goleiro e Linha
   const handleToggleGoalkeeper = (teamId: string, playerId: string) => {
-    setTeams((prev) =>
-      prev.map((t) => {
-        if (t.id === teamId) {
-          return {
-            ...t,
-            players: t.players.map((p) =>
-              p.id === playerId ? { ...p, isGoalkeeper: !p.isGoalkeeper } : p
-            ),
-          };
-        }
-        return t;
-      })
-    );
+    setTeams((prev) => toggleGoalkeeper(prev, teamId, playerId));
   };
 
   // Definir ou alternar o Capitão do time
   const handleToggleCaptain = (teamId: string, playerId: string) => {
-    setTeams((prev) =>
-      prev.map((t) => {
-        if (t.id === teamId) {
-          const isAlreadyCaptain = t.captainId === playerId;
-          if (isAlreadyCaptain) {
-            // Se desmarcou o capitão atual, reseta para o nome padrão da cor
-            return {
-              ...t,
-              captainId: null,
-              name: t.defaultName,
-            };
-          }
-
-          const captainPlayer = t.players.find((p) => p.id === playerId);
-          const captainDisplayName = captainPlayer
-            ? captainPlayer.nickname || captainPlayer.name
-            : '';
-
-          return {
-            ...t,
-            captainId: playerId,
-            name: captainDisplayName ? `Time ${captainDisplayName}` : t.defaultName,
-          };
-        }
-        return t;
-      })
-    );
+    setTeams((prev) => toggleCaptain(prev, teamId, playerId));
   };
 
   // Remover jogador do time
-  const handleRemoveFromTeam = (teamId: string, playerId: string) => {
-    setTeams((prev) =>
-      prev.map((t) => {
-        if (t.id === teamId) {
-          const isRemovingCaptain = t.captainId === playerId;
-          return {
-            ...t,
-            captainId: isRemovingCaptain ? null : t.captainId,
-            name: isRemovingCaptain ? t.defaultName : t.name,
-            players: t.players.filter((p) => p.id !== playerId),
-          };
-        }
-        return t;
-      })
-    );
+  const handleRemoveFromTeam = (playerId: string) => {
+    setTeams((prev) => removePlayer(prev, playerId));
   };
 
   // Sorteio automático equilibrado entre os times escolhidos (3 ou 4) com os presentes
@@ -414,12 +302,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
     const shuffledOutfielders = shuffle(outfielders);
 
     // 3. Inicializa os 3 ou 4 times vazios
-    const newTeams: TeamDraft[] = ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({
-      ...t,
-      defaultName: t.name,
-      captainId: null,
-      players: [],
-    }));
+    const newTeams = emptyTeams(teamCount);
 
     const capacity = () => newTeams.filter((t) => t.players.length < MAX_PER_TEAM);
     const sobraram: string[] = [];
@@ -464,14 +347,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
 
   // Limpar todos os times
   const handleClearTeams = () => {
-    setTeams(
-      ALL_AVAILABLE_TEAMS.slice(0, teamCount).map((t) => ({
-        ...t,
-        defaultName: t.name,
-        captainId: null,
-        players: [],
-      }))
-    );
+    setTeams(emptyTeams(teamCount));
   };
 
   // Abrir modal de edição de atleta
@@ -495,32 +371,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       )
     );
 
-    setTeams((prev) =>
-      prev.map((t) => {
-        const updatedPlayers = t.players.map((p) =>
-          p.id === updatedPlayer.id
-            ? {
-                ...p,
-                name: updatedPlayer.name,
-                nickname: updatedPlayer.nickname || null,
-                isGoalkeeper: updatedPlayer.isGoalkeeper ?? p.isGoalkeeper,
-              }
-            : p
-        );
-
-        let teamName = t.name;
-        if (t.captainId === updatedPlayer.id) {
-          const captainName = updatedPlayer.nickname || updatedPlayer.name;
-          teamName = `Time ${captainName}`;
-        }
-
-        return {
-          ...t,
-          name: teamName,
-          players: updatedPlayers,
-        };
-      })
-    );
+    setTeams((prev) => updatePlayer(prev, updatedPlayer));
   };
 
   // Cadastrar jogador avulso na hora
@@ -562,46 +413,11 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
 
   // Salvar a Sessão e ir para o Mesário
   const handleSaveSession = async () => {
-    // Mesmas regras de ROUND_RULES que a API aplica — aqui só para avisar antes do envio.
-    const vazios = teams.filter((t) => t.players.length === 0);
-    if (vazios.length) {
-      setErrorMessage(
-        `Todo time precisa de pelo menos um jogador. Sem ninguém: ` +
-          `${vazios.map((t) => t.name || t.defaultName).join(', ')}.`
-      );
-      return;
-    }
-
-    const cheios = teams.filter((t) => t.players.length > ROUND_RULES.MAX_PLAYERS_PER_TEAM);
-    if (cheios.length) {
-      setErrorMessage(
-        `Cada time pode ter no máximo ${ROUND_RULES.MAX_PLAYERS_PER_TEAM} jogadores. ` +
-          `Acima do limite: ${cheios
-            .map((t) => `${t.name || t.defaultName} (${t.players.length})`)
-            .join(', ')}.`
-      );
-      return;
-    }
-
-    if (totalAssigned > ROUND_RULES.MAX_PLAYERS_PER_ROUND) {
-      setErrorMessage(
-        `A rodada comporta no máximo ${ROUND_RULES.MAX_PLAYERS_PER_ROUND} jogadores ` +
-          `(escalados: ${totalAssigned}).`
-      );
-      return;
-    }
-
-    // Validação de Capitães: Cada time deve ter exatamente 1 capitão selecionado
-    const teamsWithoutCaptain = teams.filter(
-      (t) => !t.captainId || !t.players.some((p) => p.id === t.captainId)
-    );
-
-    if (teamsWithoutCaptain.length > 0) {
-      setErrorMessage(
-        `Defina um capitão para cada equipe antes de iniciar (${teamsWithoutCaptain
-          .map((t) => t.colorName || t.defaultName)
-          .join(', ')} sem capitão selecionado).`
-      );
+    // Mesmas regras de ROUND_RULES que a API aplica, mais o capitão; aqui só para avisar
+    // antes do envio.
+    const [problem] = saveProblems(teams);
+    if (problem) {
+      setErrorMessage(problem);
       return;
     }
 
@@ -1116,7 +932,7 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
 
                           <button
                             type="button"
-                            onClick={() => handleRemoveFromTeam(team.id, p.id)}
+                            onClick={() => handleRemoveFromTeam(p.id)}
                             className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-400 hover:bg-white/5 transition-colors"
                             title="Remover do time"
                             aria-label={'Remover ' + (p.nickname || p.name) + ' do time'}

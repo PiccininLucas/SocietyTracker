@@ -1,4 +1,5 @@
 import type { PlayerItem, TeamDraft } from './TeamBuilderIsland';
+import type { TeamTemplate } from './teamRules';
 
 /**
  * Rascunho do montador de times, salvo no aparelho a cada mudança. Um reload, um toque
@@ -32,8 +33,6 @@ interface StoredDraft {
     players: { id: string; isGoalkeeper: boolean }[];
   }[];
 }
-
-type TeamTemplate = Pick<TeamDraft, 'id' | 'name' | 'colorHex' | 'colorName'>;
 
 /** Só ids e escolhas: nomes e fotos vêm sempre do cadastro atual. */
 export function serializeDraft(state: DraftState): Omit<StoredDraft, 'version' | 'savedAt'> {
@@ -97,7 +96,6 @@ export function sanitizeDraft(
         : null;
     teams.push({
       ...template,
-      defaultName: template.name,
       name:
         captainId && isRecord(stored) && typeof stored.name === 'string'
           ? stored.name
