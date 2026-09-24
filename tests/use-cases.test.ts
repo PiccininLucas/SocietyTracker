@@ -522,7 +522,7 @@ describe('Use Cases Business Logic', () => {
             id: 'non-existent-id',
             name: 'Qualquer Nome',
           }),
-        /Jogador com ID non-existent-id não encontrado/
+        /Jogador com ID 'non-existent-id' não foi encontrado/
       );
     });
 

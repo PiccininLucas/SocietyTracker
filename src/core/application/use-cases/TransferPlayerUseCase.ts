@@ -1,3 +1,4 @@
+import { DomainError } from '../../domain/errors/DomainError';
 import type { ISessionRepository } from '../../domain/repositories/ISessionRepository';
 import type { TransferPlayerInputDTO, TransferPlayerOutputDTO } from '../dtos/TransferPlayerDTO';
 
@@ -6,11 +7,11 @@ export class TransferPlayerUseCase {
 
   public async execute(input: TransferPlayerInputDTO): Promise<TransferPlayerOutputDTO> {
     if (!input.fromTeamId || !input.toTeamId || !input.playerId) {
-      throw new Error('IDs do time de origem, time de destino e jogador são obrigatórios.');
+      throw new DomainError('IDs do time de origem, time de destino e jogador são obrigatórios.');
     }
 
     if (input.fromTeamId === input.toTeamId) {
-      throw new Error('Time de origem e destino devem ser diferentes.');
+      throw new DomainError('Time de origem e destino devem ser diferentes.');
     }
 
     await this.sessionRepository.transferPlayer(

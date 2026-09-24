@@ -43,7 +43,7 @@ export class SupabasePlayerRepository implements IPlayerRepository {
     const { data, error } = await query;
 
     if (error) {
-      throw new Error(`Erro ao buscar jogadores: ${error.message}`);
+      throw new DatabaseError(`Erro ao buscar jogadores: ${error.message}`, error.code);
     }
 
     return ((data as PlayerRow[]) || []).map((row) => this.toDomain(row));
@@ -57,7 +57,10 @@ export class SupabasePlayerRepository implements IPlayerRepository {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Erro ao buscar jogador por ID (${id}): ${error.message}`);
+      throw new DatabaseError(
+        `Erro ao buscar jogador por ID (${id}): ${error.message}`,
+        error.code
+      );
     }
 
     if (!data) return null;

@@ -1,3 +1,4 @@
+import { DomainError } from '../../domain/errors/DomainError';
 import type { ISessionRepository } from '../../domain/repositories/ISessionRepository';
 import { assertValidRoundFormat } from '../../domain/entities/Session';
 import type {
@@ -10,16 +11,16 @@ export class UpdateSessionTeamsUseCase {
 
   public async execute(input: UpdateSessionTeamsInputDTO): Promise<UpdateSessionTeamsOutputDTO> {
     if (!input.sessionId || input.sessionId.trim() === '') {
-      throw new Error('ID da rodada é obrigatório.');
+      throw new DomainError('ID da rodada é obrigatório.');
     }
 
     if (!input.teams || input.teams.length === 0) {
-      throw new Error('É necessário fornecer ao menos um time para atualização.');
+      throw new DomainError('É necessário fornecer ao menos um time para atualização.');
     }
 
     for (const team of input.teams) {
       if (!team.name || team.name.trim() === '') {
-        throw new Error('Nome do time não pode ser vazio.');
+        throw new DomainError('Nome do time não pode ser vazio.');
       }
     }
 

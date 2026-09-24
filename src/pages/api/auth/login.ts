@@ -11,6 +11,7 @@ import {
   registerFailure,
   clearFailures,
 } from '../../../core/infrastructure/auth/loginThrottle';
+import { json } from '../../../core/infrastructure/http/api';
 
 export const prerender = false;
 
@@ -20,17 +21,10 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     const verdict = checkThrottle(key);
     if (verdict.blocked) {
       console.warn(`[auth] Login bloqueado por excesso de tentativas. Origem: ${key}`);
-      return new Response(
-        JSON.stringify({
-          error: 'Muitas tentativas. Aguarde alguns minutos antes de tentar de novo.',
-        }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            'Retry-After': String(verdict.retryAfterSeconds),
-          },
-        }
+      return json(
+        { error: 'Muitas tentativas. Aguarde alguns minutos antes de tentar de novo.' },
+        429,
+        { 'Retry-After': String(verdict.retryAfterSeconds) }
       );
     }
 
@@ -56,10 +50,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
         `[auth] Tentativa de login recusada. Origem: ${key}. ` +
           (left.blocked ? 'Limite atingido.' : `Restam ${left.remaining} tentativas na janela.`)
       );
-      return new Response(
-        JSON.stringify({ error: 'PIN incorreto. Verifique e tente novamente.' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'PIN incorreto. Verifique e tente novamente.' }, 401);
     }
 
     clearFailures(key);
@@ -76,19 +67,13 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
       secure: import.meta.env.PROD,
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Autenticado com sucesso!',
-        expiresInSeconds: SESSION_MAX_AGE_SECONDS,
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json({
+      success: true,
+      message: 'Autenticado com sucesso!',
+      expiresInSeconds: SESSION_MAX_AGE_SECONDS,
+    });
   } catch (error) {
     console.error('[auth] Falha ao processar login:', error);
-    return new Response(
-      JSON.stringify({ error: 'Erro ao processar login. Tente novamente em instantes.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json({ error: 'Erro ao processar login. Tente novamente em instantes.' }, 500);
   }
 };

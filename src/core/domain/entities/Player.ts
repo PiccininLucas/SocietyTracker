@@ -1,3 +1,4 @@
+import { DomainError } from '../errors/DomainError';
 export interface PlayerProps {
   id?: string;
   name: string;
@@ -13,7 +14,7 @@ export class Player {
 
   constructor(props: PlayerProps) {
     if (!props.name || props.name.trim().length === 0) {
-      throw new Error('Nome do jogador é obrigatório.');
+      throw new DomainError('Nome do jogador é obrigatório.');
     }
 
     this.props = {
@@ -67,7 +68,7 @@ export class Player {
   public updateInfo(name?: string, nickname?: string | null, isGoalkeeper?: boolean): void {
     if (name !== undefined) {
       if (name.trim().length === 0) {
-        throw new Error('Nome do jogador é obrigatório.');
+        throw new DomainError('Nome do jogador é obrigatório.');
       }
       this.props.name = name.trim();
     }

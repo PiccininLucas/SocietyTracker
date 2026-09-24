@@ -1,3 +1,4 @@
+import { DomainError } from '../errors/DomainError';
 export interface TeamPlayer {
   playerId: string;
   isLoaned?: boolean;
@@ -25,10 +26,10 @@ export class Team {
 
   constructor(props: TeamProps) {
     if (!props.sessionId) {
-      throw new Error('ID da sessão é obrigatório.');
+      throw new DomainError('ID da sessão é obrigatório.');
     }
     if (!props.name || props.name.trim().length === 0) {
-      throw new Error('Nome do time é obrigatório.');
+      throw new DomainError('Nome do time é obrigatório.');
     }
 
     this.props = {

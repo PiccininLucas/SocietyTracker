@@ -1,8 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { apiError, classifyError } from '../src/core/infrastructure/http/matchApi.ts';
+import { HttpError, apiError, classifyError } from '../src/core/infrastructure/http/api.ts';
 import { DatabaseError } from '../src/core/infrastructure/database/DatabaseError.ts';
 import { DomainError } from '../src/core/domain/errors/DomainError.ts';
+import { EntityNotFoundError } from '../src/core/domain/errors/EntityNotFoundError.ts';
 
 // O mesário descarta da fila todo comando recusado com 4xx (exceto 408/429). Por isso
 // só recusas definitivas podem sair como 4xx; o resto precisa ser 5xx para ser reenviado.
@@ -36,6 +37,15 @@ describe('classifyError', () => {
     assert.equal(classifyError(new SyntaxError('Unexpected end of JSON input')).status, 400);
   });
 
+  it('uses the status of route refusals and 404 for missing entities', () => {
+    assert.deepEqual(classifyError(new HttpError(400, 'id: informe um UUID válido.')), {
+      status: 400,
+      message: 'id: informe um UUID válido.',
+    });
+    // Antes a rota adivinhava o 404 procurando "não encontrado" no texto.
+    assert.equal(classifyError(new EntityNotFoundError('Jogador', 'x')).status, 404);
+  });
+
   it('turns network, PostgREST and unknown failures into retryable 503s', () => {
     const transient: unknown[] = [
       new DatabaseError('TypeError: fetch failed', ''),
@@ -48,7 +58,8 @@ describe('classifyError', () => {
     for (const error of transient) {
       const result = classifyError(error);
       assert.equal(result.status, 503, String(error));
-      assert.match(result.message, /pendente/);
+      assert.match(result.message, /indisponível/);
+      assert.match(classifyError(error, 'Fica pendente.').message, /pendente/);
     }
   });
 

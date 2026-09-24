@@ -1,3 +1,4 @@
+import { DomainError } from '../../domain/errors/DomainError';
 import type { IPlayerRepository } from '../../domain/repositories/IPlayerRepository';
 import { Player } from '../../domain/entities/Player';
 import type { CreatePlayerInputDTO, CreatePlayerOutputDTO } from '../dtos/CreatePlayerDTO';
@@ -7,7 +8,7 @@ export class CreatePlayerUseCase {
 
   public async execute(input: CreatePlayerInputDTO): Promise<CreatePlayerOutputDTO> {
     if (!input.name || input.name.trim() === '') {
-      throw new Error('Nome do jogador é obrigatório.');
+      throw new DomainError('Nome do jogador é obrigatório.');
     }
 
     const player = new Player({

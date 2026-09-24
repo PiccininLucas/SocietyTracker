@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { ADMIN_COOKIE_NAME } from '../../../core/infrastructure/auth/pinAuth';
+import { json } from '../../../core/infrastructure/http/api';
 
 export const prerender = false;
 
@@ -8,8 +9,5 @@ export const POST: APIRoute = async ({ cookies }) => {
     path: '/',
   });
 
-  return new Response(JSON.stringify({ success: true, message: 'Sessão encerrada com sucesso.' }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return json({ success: true, message: 'Sessão encerrada com sucesso.' });
 };

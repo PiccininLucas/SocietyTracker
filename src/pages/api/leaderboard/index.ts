@@ -1,23 +1,9 @@
-import type { APIRoute } from 'astro';
 import { SupabaseMatchRepository } from '../../../core/infrastructure/repositories/SupabaseMatchRepository';
 import { GetLeaderboardUseCase } from '../../../core/application/use-cases/GetLeaderboardUseCase';
+import { endpoint, json } from '../../../core/infrastructure/http/api';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
-  try {
-    const matchRepo = new SupabaseMatchRepository();
-    const useCase = new GetLeaderboardUseCase(matchRepo);
-    const leaderboard = await useCase.execute();
-
-    return new Response(JSON.stringify(leaderboard), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Erro ao buscar classificação.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-};
+export const GET = endpoint(async () =>
+  json(await new GetLeaderboardUseCase(new SupabaseMatchRepository()).execute())
+);

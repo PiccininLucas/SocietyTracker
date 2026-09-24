@@ -99,7 +99,7 @@ export class Session {
 
   constructor(props: SessionProps) {
     if (!props.sessionDate || props.sessionDate.trim().length === 0) {
-      throw new Error('Data da sessão é obrigatória.');
+      throw new DomainError('Data da sessão é obrigatória.');
     }
 
     this.props = {

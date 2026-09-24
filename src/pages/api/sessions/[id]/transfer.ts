@@ -1,36 +1,21 @@
-import type { APIRoute } from 'astro';
 import { SupabaseSessionRepository } from '../../../../core/infrastructure/repositories/SupabaseSessionRepository';
 import { TransferPlayerUseCase } from '../../../../core/application/use-cases/TransferPlayerUseCase';
+import { endpoint, json, readJsonObject } from '../../../../core/infrastructure/http/api';
+import { optionalBoolean, uuid } from '../../../../core/infrastructure/http/validate';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, params }) => {
-  try {
-    const sessionId = params.id;
-    const body = await request.json();
-
-    const sessionRepo = new SupabaseSessionRepository();
-    const useCase = new TransferPlayerUseCase(sessionRepo);
-
-    const result = await useCase.execute({
-      sessionId,
-      fromTeamId: body.fromTeamId,
-      toTeamId: body.toTeamId,
-      playerId: body.playerId,
-      isLoaned: body.isLoaned,
-      // Sem isto o goleiro chegava ao time de destino como jogador de linha, e o
-      // match_participants da partida seguinte herdava a flag errada.
-      isGoalkeeper: body.isGoalkeeper,
-    });
-
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message || 'Erro ao transferir jogador.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-};
+export const POST = endpoint(async ({ request, params }) => {
+  const body = await readJsonObject(request);
+  const result = await new TransferPlayerUseCase(new SupabaseSessionRepository()).execute({
+    sessionId: uuid(params.id, 'id da rodada'),
+    fromTeamId: uuid(body.fromTeamId, 'fromTeamId'),
+    toTeamId: uuid(body.toTeamId, 'toTeamId'),
+    playerId: uuid(body.playerId, 'playerId'),
+    isLoaned: optionalBoolean(body.isLoaned, 'isLoaned'),
+    // Sem isto o goleiro chegava ao time de destino como jogador de linha, e o
+    // match_participants da partida seguinte herdava a flag errada.
+    isGoalkeeper: optionalBoolean(body.isGoalkeeper, 'isGoalkeeper'),
+  });
+  return json(result);
+});

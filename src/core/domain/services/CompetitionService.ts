@@ -1,3 +1,4 @@
+import { DomainError } from '../errors/DomainError';
 import type {
   MatchSummary,
   MatchSummaryEvent,
@@ -392,7 +393,7 @@ export function localDateISO(reference: Date = new Date()) {
 }
 export function weekRange(date: string) {
   const d = new Date(date + 'T12:00:00Z');
-  if (Number.isNaN(d.getTime())) throw new Error('Semana inválida.');
+  if (Number.isNaN(d.getTime())) throw new DomainError('Semana inválida.');
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
   const start = d.toISOString().slice(0, 10);
   d.setUTCDate(d.getUTCDate() + 6);

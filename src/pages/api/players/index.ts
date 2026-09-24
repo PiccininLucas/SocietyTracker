@@ -1,15 +1,18 @@
-import type { APIRoute } from 'astro';
 import { SupabasePlayerRepository } from '../../../core/infrastructure/repositories/SupabasePlayerRepository';
 import { CreatePlayerUseCase } from '../../../core/application/use-cases/CreatePlayerUseCase';
+import { endpoint, json, readJsonObject } from '../../../core/infrastructure/http/api';
+import {
+  nullableString,
+  optionalBoolean,
+  requiredString,
+} from '../../../core/infrastructure/http/validate';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
-  try {
-    const playerRepo = new SupabasePlayerRepository();
-    const players = await playerRepo.findAll(true);
-
-    const payload = players.map((p) => ({
+export const GET = endpoint(async () => {
+  const players = await new SupabasePlayerRepository().findAll(true);
+  return json(
+    players.map((p) => ({
       id: p.id,
       name: p.name,
       nickname: p.nickname,
@@ -17,42 +20,18 @@ export const GET: APIRoute = async () => {
       avatarUrl: p.avatarUrl,
       isGoalkeeper: p.isGoalkeeper,
       isActive: p.isActive,
-    }));
+    }))
+  );
+});
 
-    return new Response(JSON.stringify(payload), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message || 'Erro ao listar jogadores.' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-};
-
-export const POST: APIRoute = async ({ request }) => {
-  try {
-    const body = await request.json();
-    const playerRepo = new SupabasePlayerRepository();
-    const useCase = new CreatePlayerUseCase(playerRepo);
-
-    const result = await useCase.execute({
-      name: body.name,
-      nickname: body.nickname,
-      avatarUrl: body.avatarUrl,
-      isGoalkeeper: body.isGoalkeeper ?? false,
-      isActive: body.isActive ?? true,
-    });
-
-    return new Response(JSON.stringify(result), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message || 'Erro ao cadastrar jogador.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-};
+export const POST = endpoint(async ({ request }) => {
+  const body = await readJsonObject(request);
+  const result = await new CreatePlayerUseCase(new SupabasePlayerRepository()).execute({
+    name: requiredString(body.name, 'name'),
+    nickname: nullableString(body.nickname, 'nickname'),
+    avatarUrl: nullableString(body.avatarUrl, 'avatarUrl'),
+    isGoalkeeper: optionalBoolean(body.isGoalkeeper, 'isGoalkeeper') ?? false,
+    isActive: optionalBoolean(body.isActive, 'isActive') ?? true,
+  });
+  return json(result, 201);
+});

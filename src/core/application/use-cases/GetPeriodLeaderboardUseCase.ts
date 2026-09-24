@@ -1,3 +1,4 @@
+import { DomainError } from '../../domain/errors/DomainError';
 import type { IMatchRepository, LeaderboardItem } from '../../domain/repositories/IMatchRepository';
 import { resolveMatchesPlayed } from '../dtos/performanceLeaderboard';
 import type {
@@ -19,7 +20,7 @@ export class GetPeriodLeaderboardUseCase {
 
     if (input.type === 'year') {
       if (!input.year || !/^\d{4}$/.test(input.year))
-        throw new Error('Temporada inválida. Informe o ano.');
+        throw new DomainError('Temporada inválida. Informe o ano.');
       startDate = input.year + '-01-01';
       endDate = input.year + '-12-31';
       periodLabel = 'Temporada ' + input.year;

@@ -101,7 +101,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       .order('session_date', { ascending: false });
 
     if (error) {
-      throw new Error(`Erro ao listar sessões: ${error.message}`);
+      throw new DatabaseError(`Erro ao listar sessões: ${error.message}`, error.code);
     }
 
     return ((data as SessionRow[]) || []).map((row) => this.mapSessionToDomain(row));
@@ -116,7 +116,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Erro ao buscar última sessão: ${error.message}`);
+      throw new DatabaseError(`Erro ao buscar última sessão: ${error.message}`, error.code);
     }
 
     if (!data) return null;
@@ -132,7 +132,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Erro ao buscar sessão por ID (${id}): ${error.message}`);
+      throw new DatabaseError(`Erro ao buscar sessão por ID (${id}): ${error.message}`, error.code);
     }
 
     if (!data) return null;
@@ -148,7 +148,10 @@ export class SupabaseSessionRepository implements ISessionRepository {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Erro ao buscar sessão por data (${date}): ${error.message}`);
+      throw new DatabaseError(
+        `Erro ao buscar sessão por data (${date}): ${error.message}`,
+        error.code
+      );
     }
 
     if (!data) return null;
@@ -197,7 +200,10 @@ export class SupabaseSessionRepository implements ISessionRepository {
     const { error } = await this.client.from('sessions').update({ status }).eq('id', id);
 
     if (error) {
-      throw new Error(`Erro ao atualizar status da sessão (${id}): ${error.message}`);
+      throw new DatabaseError(
+        `Erro ao atualizar status da sessão (${id}): ${error.message}`,
+        error.code
+      );
     }
   }
 
@@ -208,7 +214,10 @@ export class SupabaseSessionRepository implements ISessionRepository {
       .eq('session_id', sessionId);
 
     if (error) {
-      throw new Error(`Erro ao buscar times da sessão (${sessionId}): ${error.message}`);
+      throw new DatabaseError(
+        `Erro ao buscar times da sessão (${sessionId}): ${error.message}`,
+        error.code
+      );
     }
 
     return ((data as TeamRow[]) || []).map((row) => this.mapTeamToDomain(row));
@@ -219,7 +228,7 @@ export class SupabaseSessionRepository implements ISessionRepository {
       p_session_id: sessionId,
       p_teams: teams,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new DatabaseError(error.message, error.code);
     return this.getTeamsBySessionId(sessionId);
   }
 
@@ -237,6 +246,6 @@ export class SupabaseSessionRepository implements ISessionRepository {
       p_loaned: isLoaned,
       p_goalkeeper: isGoalkeeper,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new DatabaseError(error.message, error.code);
   }
 }

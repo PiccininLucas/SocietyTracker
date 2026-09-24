@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../database/supabaseClient';
+import { DatabaseError } from '../database/DatabaseError';
 import type { HistoricalPlayerTotal } from '../../domain/entities/HistoricalPlayerTotal';
 
 export class SupabaseHistoricalRepository {
@@ -13,7 +14,11 @@ export class SupabaseHistoricalRepository {
       .order('goals', { ascending: false });
     // Allow deployment before the additive migration. Other failures remain visible.
     if (error?.code === '42P01' || error?.code === 'PGRST205') return [];
-    if (error) throw new Error(`Não foi possível carregar as estatísticas: ${error.message}`);
+    if (error)
+      throw new DatabaseError(
+        `Não foi possível carregar as estatísticas: ${error.message}`,
+        error.code
+      );
     return (data ?? []).map((r) => ({
       playerId: r.player_id,
       sourceName: r.source_name,
