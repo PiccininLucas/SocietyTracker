@@ -20,6 +20,7 @@ import { cn } from '../ui/utils';
 import { localDateISO } from '../../core/domain/services/CompetitionService';
 import { ROUND_RULES } from '../../core/domain/entities/Session';
 import { EditPlayerModal, type EditablePlayerData } from '../ui/EditPlayerModal';
+import { ModalPortal } from '../ui/ModalPortal';
 import { loadDraft, saveDraft, clearDraft, serializeDraft, type DraftState } from './teamDraft';
 import {
   TEAM_TEMPLATES,
@@ -1090,109 +1091,112 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       </div>
 
       {/* Modal Rápido: Cadastrar Jogador Avulso */}
+      {/* No portal: dentro do <main> (relative z-10) o modal ficava embaixo da navegação. */}
       {isAddPlayerModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-sm rounded-3xl glass-card-glow bg-surface-100 border border-emerald-500/30 p-6 shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setIsAddPlayerModalOpen(false)}
-              className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-gray-400 hover:text-white"
-              aria-label="Fechar"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <ModalPortal label="Novo jogador" onClose={() => setIsAddPlayerModalOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+            <div className="relative w-full max-w-sm rounded-3xl glass-card-glow bg-surface-100 border border-emerald-500/30 p-6 shadow-2xl">
+              <button
+                type="button"
+                onClick={() => setIsAddPlayerModalOpen(false)}
+                className="absolute top-3 right-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-gray-400 hover:text-white"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                <UserPlus className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-display font-black text-lg text-white">Novo Jogador</h3>
-                <p className="text-xs text-gray-400">Cadastre um atleta avulso na hora</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreatePlayer} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1">
-                  Nome Completo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Matheus Silva"
-                  value={newPlayerName}
-                  onChange={(e) => setNewPlayerName(e.target.value)}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1">
-                  Apelido (Como é chamado)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Theus"
-                  value={newPlayerNickname}
-                  onChange={(e) => setNewPlayerNickname(e.target.value)}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1">
-                  Posição Inicial
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewPlayerIsGoalkeeper(false)}
-                    className={cn(
-                      'min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
-                      !newPlayerIsGoalkeeper
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
-                    )}
-                  >
-                    <span>⚽</span>
-                    <span>Linha</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewPlayerIsGoalkeeper(true)}
-                    className={cn(
-                      'min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
-                      newPlayerIsGoalkeeper
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                        : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
-                    )}
-                  >
-                    <span>🧤</span>
-                    <span>Goleiro</span>
-                  </button>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-lg text-white">Novo Jogador</h3>
+                  <p className="text-xs text-gray-400">Cadastre um atleta avulso na hora</p>
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddPlayerModalOpen(false)}
-                  className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-xs font-bold text-gray-300"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingPlayer}
-                  className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-black text-gray-950 disabled:opacity-50"
-                >
-                  {isCreatingPlayer ? 'Salvando...' : 'Cadastrar'}
-                </button>
-              </div>
-            </form>
+              <form onSubmit={handleCreatePlayer} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Matheus Silva"
+                    value={newPlayerName}
+                    onChange={(e) => setNewPlayerName(e.target.value)}
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Apelido (Como é chamado)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Theus"
+                    value={newPlayerNickname}
+                    onChange={(e) => setNewPlayerNickname(e.target.value)}
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-surface-50 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Posição Inicial
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewPlayerIsGoalkeeper(false)}
+                      className={cn(
+                        'min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
+                        !newPlayerIsGoalkeeper
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
+                      )}
+                    >
+                      <span>⚽</span>
+                      <span>Linha</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewPlayerIsGoalkeeper(true)}
+                      className={cn(
+                        'min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5',
+                        newPlayerIsGoalkeeper
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          : 'bg-surface-50 text-gray-400 border-white/5 hover:text-white'
+                      )}
+                    >
+                      <span>🧤</span>
+                      <span>Goleiro</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPlayerModalOpen(false)}
+                    className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-surface-50 hover:bg-surface-200 text-xs font-bold text-gray-300"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingPlayer}
+                    className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-black text-gray-950 disabled:opacity-50"
+                  >
+                    {isCreatingPlayer ? 'Salvando...' : 'Cadastrar'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Modal de Edição de Atleta */}

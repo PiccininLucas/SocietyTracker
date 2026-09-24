@@ -17,7 +17,14 @@ test('relatório anual, todo o histórico e erro de rede no celular', async ({ p
   );
 });
 
-test('card da rodada mostra a duração escolhida para a rodada', async ({ page }) => {
+test('card da rodada: duração da rodada e aviso de exportado fora do main', async ({ page }) => {
   await page.goto('/tests/ui/index.html?roundCard');
   await expect(page.getByText('SocietyTracker • 8 min ou 2 gols', { exact: true })).toBeVisible();
+
+  // O aviso de exportado vai para o body, fora do <main> (relative z-10) que o deixava
+  // embaixo do cabeçalho.
+  await page.getByRole('button', { name: /Baixar PNG/ }).click();
+  const toast = page.getByRole('status').filter({ hasText: /PNG baixado|Erro ao baixar/ });
+  await expect(toast).toBeVisible();
+  expect(await toast.evaluate((el) => el.parentElement === document.body)).toBe(true);
 });

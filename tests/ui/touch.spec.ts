@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Alvos de toque e campos no celular (360 × 640, o viewport padrão da config).
@@ -45,6 +45,35 @@ async function offenders(page: Page) {
   });
 }
 
+/** O centro do elemento recebe o toque: nada por cima dele (como na assist.spec). */
+function receivesTouch(locator: Locator) {
+  return locator.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+  });
+}
+
+/**
+ * O modal fica por cima de tudo: os botões do rodapé recebem o toque, e a navegação de
+ * baixo (#mobile-nav, fora do <main> como no Layout) fica atrás do fundo do modal. Dentro
+ * do <main>, que é relative z-10, um fixed z-50 ficava embaixo da barra.
+ */
+async function expectModalOnTop(page: Page, label: string, buttons: string[]) {
+  const dialog = page.getByRole('dialog', { name: label });
+  // O contêiner do portal não tem tamanho (os filhos são fixed): espera pelo botão.
+  await expect(dialog.getByRole('button', { name: buttons[0], exact: true })).toBeVisible();
+  for (const name of buttons)
+    expect
+      .soft(await receivesTouch(dialog.getByRole('button', { name, exact: true })), name)
+      .toBe(true);
+  const navCovered = await page.locator('#mobile-nav').evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return !!hit?.closest('[role="dialog"]');
+  });
+  expect.soft(navCovered, 'navegação de baixo atrás do modal ' + label).toBe(true);
+}
+
 test('montador de times: presença, escalação, avulso e edição', async ({ page }) => {
   await page.goto('/tests/ui/index.html?builder');
   await page.getByRole('button', { name: 'Sortear Equilibrado' }).click();
@@ -57,6 +86,7 @@ test('montador de times: presença, escalação, avulso e edição', async ({ pa
 
   await page.getByRole('button', { name: 'Novo Avulso' }).click();
   expect.soft(await offenders(page)).toEqual([]);
+  await expectModalOnTop(page, 'Novo jogador', ['Cancelar', 'Cadastrar']);
   await page.getByRole('button', { name: 'Cancelar' }).click();
 
   await page
@@ -64,6 +94,7 @@ test('montador de times: presença, escalação, avulso e edição', async ({ pa
     .first()
     .click();
   expect.soft(await offenders(page)).toEqual([]);
+  await expectModalOnTop(page, 'Editar atleta', ['Cancelar', 'Salvar Alterações']);
 });
 
 test('mesário: confronto, placar, gaveta, correção, times e desfazer', async ({ page }) => {
@@ -106,6 +137,7 @@ test('mesário: editar times da noite', async ({ page }) => {
   await page.goto('/tests/ui/index.html?live&session=touchTeams');
   await page.getByRole('button', { name: 'Editar times', exact: true }).click();
   expect.soft(await offenders(page)).toEqual([]);
+  await expectModalOnTop(page, 'Editar times da rodada', ['Cancelar', 'Salvar Alterações']);
   await page.getByRole('button', { name: 'Adicionar Atleta' }).first().click();
   expect.soft(await offenders(page)).toEqual([]);
 });

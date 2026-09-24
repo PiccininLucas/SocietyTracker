@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Toast } from '../ui/Toast';
 import type {
   PeriodLeaderboardOutputDTO,
   LeaderboardRankedItemDTO,
@@ -201,12 +202,7 @@ export const PeriodLeaderboardCard: React.FC<PeriodLeaderboardCardProps> = ({ da
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 bg-emerald-500 text-gray-950 px-4 py-2.5 rounded-2xl font-bold text-sm shadow-2xl flex items-center gap-2 animate-bounce-short">
-          <span>✅</span>
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      {toastMessage && <Toast message={toastMessage} />}
 
       {/* Botões de Ação no Topo do Card */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-100/90 p-3.5 rounded-2xl border border-white/10 shadow-lg">
