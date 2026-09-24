@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { PGlite } from '@electric-sql/pglite';
+import { createDatabase, migrate, BASELINE_VERSION } from './helpers/db';
 import {
   standings,
   headToHead,
@@ -11,13 +11,9 @@ import {
 import type { MatchSummary } from '../src/core/domain/repositories/IMatchRepository';
 const uuid = () => crypto.randomUUID();
 async function setup(applyMigration = true) {
-  const db = new PGlite();
-  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
-  const schema = (await readFile('society-tracker-specs/04_DATABASE_SCHEMA.sql', 'utf8')).replace(
-    'CREATE EXTENSION IF NOT EXISTS "pgcrypto";',
-    ''
-  );
-  await db.exec(schema);
+  const db = await createDatabase();
+  // Só a baseline: os dados abaixo imitam um banco anterior às migrations versionadas.
+  await migrate(db, { until: BASELINE_VERSION });
   const sid = uuid(),
     teams = [uuid(), uuid(), uuid(), uuid()],
     players = Array.from({ length: 8 }, uuid);
@@ -38,33 +34,7 @@ async function setup(applyMigration = true) {
     }
   }
   const migration = await readFile('supabase/migrations/202609090001_match_integrity.sql', 'utf8');
-  if (applyMigration) {
-    await db.exec(migration);
-    await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
-    await db.exec(await readFile('supabase/migrations/202609210001_loan_in_goal.sql', 'utf8'));
-    await db.exec(
-      await readFile('supabase/migrations/202609210002_finish_applies_score.sql', 'utf8')
-    );
-    await db.exec(
-      await readFile('supabase/migrations/202609210003_revoke_roster_writes.sql', 'utf8')
-    );
-    await db.exec(await readFile('supabase/migrations/202609210004_hot_path_indexes.sql', 'utf8'));
-    await db.exec(await readFile('supabase/migrations/202609210005_time_limit_reason.sql', 'utf8'));
-    await db.exec(
-      await readFile('supabase/migrations/202609210006_snapshot_date_range.sql', 'utf8')
-    );
-    await db.exec(
-      await readFile('supabase/migrations/202609210007_session_team_players_captain.sql', 'utf8')
-    );
-    await db.exec(await readFile('supabase/migrations/202609210008_round_goalkeeper.sql', 'utf8'));
-    await db.exec(
-      await readFile('supabase/migrations/202609220001_create_session_rpc.sql', 'utf8')
-    );
-    await db.exec(
-      await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
-    );
-    await db.exec(await readFile('supabase/migrations/202609220003_client_match_id.sql', 'utf8'));
-  }
+  if (applyMigration) await migrate(db, { after: BASELINE_VERSION });
   async function command(
     action: string,
     mid: string | null,
@@ -112,19 +82,6 @@ test('exclusão preserva auditoria, remove estatísticas, resiste a retries e pe
     assert.deepEqual(await command('remove_match', first.match_id, {}), removed);
     assert.deepEqual(await snapshot(), []);
     assert.deepEqual(playerPerformance(await snapshot()), []);
-    const view = await db.query<{
-      total_goals: number;
-      total_assists: number;
-      total_matches_played: number;
-    }>('SELECT * FROM vw_player_leaderboard');
-    assert.ok(
-      view.rows.every(
-        (p) =>
-          Number(p.total_goals) === 0 &&
-          Number(p.total_assists) === 0 &&
-          Number(p.total_matches_played) === 0
-      )
-    );
     assert.equal(
       (await db.query('SELECT * FROM match_events WHERE id=$1', [goal.event_id])).rows.length,
       1
@@ -834,19 +791,8 @@ test('RPCs de escrita só podem ser chamadas pela service_role', async () => {
       'society_transfer_player(uuid,uuid,uuid,boolean,boolean)',
       'society_create_session(date,text,integer,jsonb)',
     ];
-    // Reproduz os default privileges do Supabase, que concedem EXECUTE explicitamente a
-    // anon e authenticated — o motivo de REVOKE FROM PUBLIC não bastar. O PGlite não tem
-    // esses defaults, então sem este GRANT o teste passaria mesmo sem as migrations.
-    for (const fn of writers) {
-      await db.exec('GRANT EXECUTE ON FUNCTION ' + fn + ' TO anon, authenticated');
-    }
-    await db.exec(
-      await readFile('supabase/migrations/202609220001_create_session_rpc.sql', 'utf8')
-    );
-    await db.exec(
-      await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
-    );
-
+    // createDatabase() já concede EXECUTE a anon e authenticated em toda função nova, como
+    // os default privileges do Supabase: sem os REVOKE das migrations, o teste falha.
     const expected = { anon: false, authenticated: false, service_role: true };
     for (const fn of writers) {
       for (const [role, allowed] of Object.entries(expected)) {

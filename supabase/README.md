@@ -1,4 +1,45 @@
-# Migração de integridade das partidas
+# Banco de dados (Supabase)
+
+## Como aplicar migrations
+
+As migrations são aplicadas pelo `scripts/db.mjs`, nunca à mão no SQL Editor. Várias
+delas redefinem `society_match_command` inteira. Rodar um arquivo antigo depois dos mais
+novos desfaz o que eles mudaram, sem erro nenhum. O script só aplica o que ainda não está
+registrado em `society_schema_versions` e recusa arquivo fora de ordem.
+
+Pré-requisito: `SUPABASE_DB_URL` no `.env` (Supabase Dashboard > Connect > Direct
+connection). O TLS é sempre verificado com a CA raiz do Supabase, em
+`certs/supabase-root-ca.crt` (certificado público; `PG_CA` aponta para outro arquivo).
+
+```text
+npm run db:status                   # aplicadas, pendentes e fora de ordem (só leitura)
+npm run db:diff                     # banco x migrations do repositório (só leitura)
+npm run db:migrate -- --yes         # aplica as pendentes em ordem e confere as permissões
+npm run db:grants                   # o que a chave pública consegue fazer (só leitura)
+npm run db:mark-applied -- <v> --yes  # registra sem executar (usado só na baseline)
+```
+
+Sem `--yes`, `db:migrate` só mostra o que faria. Aplique a migration **antes** do deploy
+do código que depende dela.
+
+Regras para uma migration nova:
+
+- nome `AAAAMMDDNNNN_descricao.sql`, com `BEGIN;` e `COMMIT;` e registrando a própria
+  versão (`INSERT INTO public.society_schema_versions VALUES ('…') ON CONFLICT DO NOTHING;`);
+- toda função nova termina com `REVOKE ALL ON FUNCTION … FROM PUBLIC, anon, authenticated;`
+  e `GRANT EXECUTE … TO service_role;`. No Supabase, `REVOKE … FROM PUBLIC` não basta: os
+  default privileges dão EXECUTE a `anon` e `authenticated` em toda função nova;
+- `tests/migrations.test.ts` monta o banco do zero com esses default privileges e falha se
+  a chave pública puder executar função de escrita ou gravar em alguma tabela.
+
+### Baseline
+
+`migrations/202608140000_baseline.sql` recria as tabelas que existiam antes das migrations
+versionadas: as seis do `society-tracker-specs/04_DATABASE_SCHEMA.sql`, como estão em
+produção, com o RLS que foi ligado pelo painel. Num banco novo ela roda como qualquer
+outra. Em produção ela é só registrada, com `db:mark-applied 202608140000`, depois de um
+`db:diff` sem diferenças. Os testes e o `db:diff` montam o banco a partir dela, e não do
+spec 04.
 
 ## Importação dos totais de 2026 até 03/09
 
@@ -6,14 +47,10 @@ O CSV `Transicao_app (1).csv` foi conferido linha a linha: 39 jogadores, 357 gol
 258 assistências, 615 participações e 16 ocorrências de Bola Murcha. A última coluna
 é Bola Murcha, não gols contra. O período é a temporada de 2026 até 03/09/2026, inclusive.
 
-No SQL Editor do projeto Supabase, execute nesta ordem:
+A tabela vem de `migrations/202609100001_historical_totals.sql`. Os dados vêm de
+`imports/2026_ate_03_09.sql`, executado depois da migration. Os dois já estão em produção.
 
-1. `migrations/202609100001_historical_totals.sql` completo, para criar a tabela.
-2. `imports/2026_ate_03_09.sql` completo, para importar os dados.
-3. Publique a versão do aplicativo que lê os totais antigos. A importação sozinha não
-   altera o comportamento de uma versão anterior do site.
-
-O segundo arquivo reutiliza cadastros cujo nome ou apelido coincide com o CSV,
+O arquivo de importação reutiliza cadastros cujo nome ou apelido coincide com o CSV,
 ignorando acentos, caixa e espaços repetidos. Nomes não encontrados geram novos
 cadastros. **Antes de executar, confira se algum jogador já existe com outro apelido**:
 nesse caso, preencha o vínculo `player_id` no ponto indicado no próprio SQL.
@@ -44,21 +81,22 @@ quando o CSV informa zero gols. Jogos/vitórias/empates/derrotas/aproveitamento 
 tabela e médias identificadas como “no app” usam somente registros do app. O
 numerador dessas médias usa apenas os gols registrados, nunca o total importado.
 Relatórios mensais e semanais mantêm somente dados registrados, pois o acumulado
-não permite distribuir eventos por mês ou dia. `vw_player_leaderboard` permanece
-uma consulta das partidas; a combinação usada no app está no serviço de domínio.
+não permite distribuir eventos por mês ou dia. A combinação usada no app está no
+serviço de domínio; as views de ranking do spec 04 foram removidas em `202609240002`.
 
-Migração e importação validadas localmente com PostgreSQL isolado, incluindo
-reexecução e rollback. **Não aplicadas remotamente**: a chave do ambiente local foi
-recusada pelo Supabase com `Legacy API keys are disabled`. Atualize as credenciais
-somente nas configurações de ambiente; não cole chaves em mensagens.
+## Integridade das partidas (202609090001)
 
-`migrations/202609090001_match_integrity.sql` é a migração inicial de integridade. O responsável informou que a aplicou com sucesso após conciliar as partidas simultâneas.
+A migração inicial de integridade. O responsável a aplicou em produção depois de conciliar
+as partidas simultâneas. Se houver partidas simultâneas legadas na mesma rodada, ela aborta
+sem descartar dados; não há comando automático de exclusão.
 
-## Nova migração: apagar partida
+A migração mantém jogos e eventos. Diferenças entre placar e eventos são preservadas como
+gols de autoria não informada e registradas em `society_migration_audit`. Escalações
+antigas são inferidas a partir dos eventos e elencos disponíveis; a informação nova passa a
+ser registrada por partida. Não existe script de downgrade: depois de novas partidas,
+remover os novos campos apagaria informações que o schema anterior não comporta.
 
-Antes do deploy desta funcionalidade, execute **o arquivo completo** `migrations/202609090002_delete_match.sql` no SQL Editor do mesmo projeto Supabase. A migração inicial já aplicada não precisa ser repetida. Em um banco novo, aplique os dois arquivos na ordem numérica.
-
-Confirme com `SELECT * FROM society_schema_versions WHERE version = '202609090002';`.
+## Apagar partida (202609090002)
 
 O botão “Apagar partida” exige autenticação de administrador e confirmação. Pode apagar a partida atual ou uma recente ainda editável; partidas consolidadas continuam bloqueadas, inclusive após outras exclusões.
 
@@ -66,39 +104,16 @@ A exclusão é lógica: `matches.deleted_at` e `deleted_snapshot` preservam a s�
 
 Os números de sequência não são reutilizados: apagar a partida #5 faz a próxima ser #6. A exclusão não altera times nem jogadores da rodada. O cliente só retira a partida após confirmação do servidor; uma falha de rede mantém a operação pendente para nova tentativa.
 
-A migração foi validada em PostgreSQL isolado e não foi executada remotamente pelo agente.
-
-## Aplicação
-
-1. Corrija as variáveis do ambiente local/deploy para o projeto Supabase correto. Não envie a chave de serviço em mensagens nem a disponibilize ao navegador.
-2. Faça backup do banco e aplique primeiro numa cópia com os dados existentes, especialmente para revisar as participações inferidas e divergências de placar registradas em `society_migration_audit`.
-3. Use o SQL Editor do projeto correto, uma conexão PostgreSQL administrativa ou o fluxo de migrações Supabase já utilizado pela equipe. Execute o arquivo completo, incluindo `BEGIN` e `COMMIT`.
-4. Se houver partidas simultâneas legadas na mesma rodada, a migração abortará sem descartar dados. Concilie esses registros com o responsável pela rodada antes de repetir. Não há comando automático de exclusão.
-5. Confirme o marcador e as funções:
-
-```sql
-SELECT * FROM society_schema_versions WHERE version = '202609090001';
-SELECT to_regprocedure('public.society_match_command(text,uuid,jsonb,uuid)');
-SELECT to_regprocedure('public.society_matches_snapshot(uuid)');
-SELECT * FROM society_migration_audit;
-```
-
-6. Disponibilize a aplicação e valide leitura, início, gol, correção, finalização e recarga em uma rodada de teste autorizada. A confirmação remota dessa etapa está pendente.
-
-## Dados antigos e reversibilidade
-
-A migração mantém jogos e eventos. Diferenças entre placar e eventos são preservadas como gols de autoria não informada e registradas para auditoria. Escalações antigas são inferidas a partir dos eventos e elencos disponíveis; a informação nova passa a ser registrada por partida.
-
-A reaplicação é protegida por marcador de versão e não restaura gols já corrigidos. Erros antes do `COMMIT` fazem rollback integral. Não existe script destrutivo de downgrade: após novas partidas, remover os novos campos apagaria informações históricas que o schema anterior não comporta.
-
 ## Validação local
 
 ```text
-npm test
+npm run lint
+npm run format:check
 npm run check
 npm run check:astro
-npm run build
+npm test
 npm run test:e2e
+npm run build
 ```
 
 No Windows, a configuração utiliza Edge instalado. Em outro sistema, instale o Chromium do Playwright, ou defina `PLAYWRIGHT_CHANNEL` para um navegador compatível instalado. O fixture roda apenas em `127.0.0.1:4322`, usa banco em memória e não grava dados reais. Se o ambiente restringir a configuração global de telemetria do Astro, use `ASTRO_TELEMETRY_DISABLED=1` no processo de verificação/build.

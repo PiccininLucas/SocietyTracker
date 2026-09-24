@@ -15,6 +15,11 @@
     "test:e2e": "playwright test",
     "check:astro": "astro check",
     "lint": "eslint .",
+    "db:status": "node scripts/db.mjs status",
+    "db:migrate": "node scripts/db.mjs migrate",
+    "db:mark-applied": "node scripts/db.mjs mark-applied",
+    "db:diff": "node scripts/db.mjs diff",
+    "db:grants": "node scripts/db.mjs grants",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{js,mjs,ts}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{js,mjs,ts}\""
   },

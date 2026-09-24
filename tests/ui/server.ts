@@ -1,7 +1,6 @@
 import { createServer } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
-import { PGlite } from '@electric-sql/pglite';
-import { readFile } from 'node:fs/promises';
+import { createDatabase, migrate } from '../helpers/db';
 import type { APIContext } from 'astro';
 import { matchCommand, json, apiError } from '../../src/core/infrastructure/http/matchApi';
 import type { MatchCommand } from '../../src/core/domain/repositories/IMatchCommands';
@@ -10,31 +9,8 @@ import { sid, teams, rounds } from './data';
 import { GetPeriodLeaderboardUseCase } from '../../src/core/application/use-cases/GetPeriodLeaderboardUseCase';
 import type { IMatchRepository } from '../../src/core/domain/repositories/IMatchRepository';
 import { playerPerformance } from '../../src/core/domain/services/CompetitionService';
-const db = new PGlite();
-await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
-await db.exec(
-  (await readFile('society-tracker-specs/04_DATABASE_SCHEMA.sql', 'utf8')).replace(
-    'CREATE EXTENSION IF NOT EXISTS "pgcrypto";',
-    ''
-  )
-);
-await db.exec(await readFile('supabase/migrations/202609090001_match_integrity.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609090002_delete_match.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609210001_loan_in_goal.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609210002_finish_applies_score.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609210003_revoke_roster_writes.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609210004_hot_path_indexes.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609210005_time_limit_reason.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609210006_snapshot_date_range.sql', 'utf8'));
-await db.exec(
-  await readFile('supabase/migrations/202609210007_session_team_players_captain.sql', 'utf8')
-);
-await db.exec(await readFile('supabase/migrations/202609210008_round_goalkeeper.sql', 'utf8'));
-await db.exec(await readFile('supabase/migrations/202609220001_create_session_rpc.sql', 'utf8'));
-await db.exec(
-  await readFile('supabase/migrations/202609220002_revoke_public_rpc_execute.sql', 'utf8')
-);
-await db.exec(await readFile('supabase/migrations/202609220003_client_match_id.sql', 'utf8'));
+const db = await createDatabase();
+await migrate(db);
 for (const round of [{ id: sid, sessionDate: '2026-09-03', teams }, ...Object.values(rounds)]) {
   await db.query('INSERT INTO sessions(id,session_date) VALUES($1,$2)', [
     round.id,
