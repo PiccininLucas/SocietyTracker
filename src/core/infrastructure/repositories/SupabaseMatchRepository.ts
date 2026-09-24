@@ -40,30 +40,32 @@ export class SupabaseMatchRepository implements IMatchRepository, IMatchCommands
     return data as MatchSummary[];
   }
   async getMatchById(id: string): Promise<MatchSummary | null> {
-    const { data, error } = await this.client
-      .from('matches')
-      .select('session_id')
-      .eq('id', id)
-      .maybeSingle();
+    // Uma ida ao banco. Antes eram duas: o session_id e a rodada inteira, filtrada aqui.
+    const { data, error } = await this.client.rpc('society_match_snapshot', { p_match_id: id });
     if (error) throw new DatabaseError(error.message, error.code);
-    if (!data) return null;
-    return (await this.getMatchesSummary(data.session_id)).find((m) => m.matchId === id) ?? null;
+    return (data as MatchSummary | null) ?? null;
   }
   async executeCommand(command: MatchCommand): Promise<MatchCommandResult> {
-    const { data, error } = await this.client.rpc('society_match_command', {
+    // A súmula volta na mesma chamada e sai da transação da escrita (202609240001).
+    const { data, error } = await this.client.rpc('society_match_command_with_match', {
       p_action: command.action,
       p_match_id: command.matchId ?? null,
       p_input: command.input,
       p_operation_id: command.operationId,
     });
     if (error) throw new DatabaseError(error.message, error.code);
-    const result = data as { match_id: string; event_id?: string; deleted_match?: MatchSummary };
-    const match = result.deleted_match ?? (await this.getMatchById(result.match_id));
+    const result = data as {
+      match_id: string;
+      event_id?: string | null;
+      match?: MatchSummary | null;
+      deleted_match?: MatchSummary;
+    };
+    const match = result.deleted_match ?? result.match;
     if (!match)
       throw new Error(
         'Partida salva, mas não foi possível carregar a confirmação. Tente novamente.'
       );
-    return { match, eventId: result.event_id };
+    return { match, eventId: result.event_id ?? undefined };
   }
   async getLeaderboard() {
     return this.getLeaderboardByDateRange();

@@ -810,3 +810,81 @@ test('RPCs de escrita só podem ser chamadas pela service_role', async () => {
     await db.close();
   }
 });
+
+test('society_match_command_with_match devolve, na mesma chamada, a súmula que a escrita deixou', async () => {
+  const { db, sid, teams, players, snapshot } = await setup();
+  type Result = {
+    match_id: string;
+    event_id: string | null;
+    match?: MatchSummary | null;
+    deleted_match?: MatchSummary;
+  };
+  async function run(
+    action: string,
+    mid: string | null,
+    input: Record<string, unknown>,
+    operationId = uuid()
+  ) {
+    const r = await db.query<{ data: Result }>(
+      'SELECT society_match_command_with_match($1,$2,$3,$4) data',
+      [action, mid, JSON.stringify(input), operationId]
+    );
+    return r.rows[0].data;
+  }
+  const current = async (id: string) => (await snapshot()).find((m) => m.matchId === id);
+  try {
+    const start = await run('start', null, {
+      sessionId: sid,
+      homeTeamId: teams[0],
+      awayTeamId: teams[1],
+    });
+    const id = start.match_id;
+    assert.deepEqual(start.match, await current(id));
+
+    const goalOp = uuid();
+    const goalInput = { teamId: teams[0], scorerId: players[0], assistId: players[1] };
+    const goal = await run('goal', id, goalInput, goalOp);
+    assert.equal(goal.event_id, goalOp);
+    assert.equal(goal.match?.homeScore, 1);
+    assert.deepEqual(goal.match, await current(id));
+    // Replay: mesma chave, mesmo resultado, sem gol a mais.
+    assert.deepEqual(await run('goal', id, goalInput, goalOp), goal);
+
+    const edit = await run('edit', id, { ...goalInput, eventId: goalOp, assistId: null });
+    assert.equal(edit.match?.events?.[0].assistId, null);
+    assert.deepEqual(edit.match, await current(id));
+
+    const score = await run('score', id, { homeScore: 1, awayScore: 1 });
+    assert.equal(score.match?.awayScore, 1);
+    assert.deepEqual(score.match, await current(id));
+
+    const del = await run('delete', id, { eventId: goalOp });
+    assert.deepEqual(del.match, await current(id));
+
+    const finish = await run('finish', id, { durationSeconds: 300 });
+    assert.equal(finish.match?.status, 'finished');
+    assert.deepEqual(finish.match, await current(id));
+
+    const second = await run('start', null, {
+      sessionId: sid,
+      homeTeamId: teams[2],
+      awayTeamId: teams[3],
+    });
+    const removed = await run('remove_match', second.match_id, {});
+    assert.ok(removed.deleted_match?.deletedAt);
+    assert.equal(removed.match, undefined);
+
+    const lost = await db.query<{ data: MatchSummary | null }>(
+      'SELECT society_match_snapshot($1) data',
+      [second.match_id]
+    );
+    assert.equal(lost.rows[0].data, null);
+    const kept = await db.query<{ data: MatchSummary | null }>(
+      'SELECT society_match_snapshot($1) data',
+      [id]
+    );
+    assert.deepEqual(kept.rows[0].data, await current(id));
+  } finally {
+    await db.close();
+  }
+});

@@ -63,24 +63,28 @@ const reportRepository = {
     }));
   },
 } as IMatchRepository;
+// Mesmas funções SQL que o SupabaseMatchRepository chama em produção.
 const repository = {
   async executeCommand(command: MatchCommand) {
     const r = await db.query<{
-      data: { match_id: string; event_id: string; deleted_match?: MatchSummary };
-    }>('SELECT society_match_command($1,$2,$3,$4) data', [
+      data: { event_id: string | null; match?: MatchSummary; deleted_match?: MatchSummary };
+    }>('SELECT society_match_command_with_match($1,$2,$3,$4) data', [
       command.action,
       command.matchId ?? null,
       JSON.stringify(command.input),
       command.operationId,
     ]);
-    return {
-      match:
-        r.rows[0].data.deleted_match ??
-        (await snapshot(null)).find((m) => m.matchId === r.rows[0].data.match_id)!,
-      eventId: r.rows[0].data.event_id,
-    };
+    const { deleted_match, match, event_id } = r.rows[0].data;
+    return { match: (deleted_match ?? match)!, eventId: event_id ?? undefined };
   },
 };
+async function matchById(id: string) {
+  const r = await db.query<{ data: MatchSummary | null }>(
+    'SELECT society_match_snapshot($1) data',
+    [id]
+  );
+  return r.rows[0].data;
+}
 const server = await createServer({
   configFile: false,
   oxc: { jsx: { runtime: 'automatic' } },
@@ -105,8 +109,7 @@ const server = await createServer({
               );
             } else if (path === '/api/sessions') response = json({ id: sid, teams });
             else if (path.includes('/sessions/')) response = json(await snapshot(parts[3]));
-            else if (req.method === 'GET')
-              response = json((await snapshot(null)).find((m) => m.matchId === parts[3]));
+            else if (req.method === 'GET') response = json(await matchById(parts[3]));
             else {
               const chunks: Buffer[] = [];
               for await (const chunk of req) chunks.push(Buffer.from(chunk));
