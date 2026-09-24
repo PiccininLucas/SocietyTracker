@@ -108,7 +108,14 @@ const server = await createServer({
                 })
               );
             } else if (path === '/api/sessions') response = json({ id: sid, teams });
-            else if (path.includes('/sessions/')) response = json(await snapshot(parts[3]));
+            else if (req.method === 'PATCH' && parts[2] === 'sessions' && parts.length === 4) {
+              // Encerrar/reabrir: a mesma função SQL que o SupabaseSessionRepository chama.
+              const chunks: Buffer[] = [];
+              for await (const chunk of req) chunks.push(Buffer.from(chunk));
+              const { status } = JSON.parse(Buffer.concat(chunks).toString());
+              await db.query('SELECT society_set_session_status($1,$2)', [parts[3], status]);
+              response = json({ sessionId: parts[3], status });
+            } else if (path.includes('/sessions/')) response = json(await snapshot(parts[3]));
             else if (req.method === 'GET') response = json(await matchById(parts[3]));
             else {
               const chunks: Buffer[] = [];

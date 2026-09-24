@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { APIContext, APIRoute } from 'astro';
 import * as sessions from '../src/pages/api/sessions/index.ts';
+import * as session from '../src/pages/api/sessions/[id]/index.ts';
 import * as sessionTeams from '../src/pages/api/sessions/[id]/teams.ts';
 import * as sessionMatches from '../src/pages/api/sessions/[id]/matches.ts';
 import * as players from '../src/pages/api/players/index.ts';
@@ -143,6 +144,25 @@ describe('validação das rotas', () => {
       }),
       /^teams\[0\]\.id: /
     );
+  });
+
+  it('encerrar ou reabrir a rodada: id e status validados antes do banco', async () => {
+    const patch = (id: string, body: unknown) =>
+      call(session.PATCH, `/api/sessions/${id}`, {
+        method: 'PATCH',
+        params: { id },
+        body: JSON.stringify(body),
+      });
+    await expectRefused(patch('abc', { status: 'finished' }), /rodada/);
+    await expectRefused(patch(ID, { status: 'closed' }), /^status: /);
+    await expectRefused(patch(ID, {}), /^status: /);
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      assert.equal((await patch(ID, { status: 'finished' })).status, 503);
+    } finally {
+      console.error = originalError;
+    }
   });
 
   it('teams só aceita PUT: a escalação é regravada inteira', () => {

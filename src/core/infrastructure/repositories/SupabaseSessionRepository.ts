@@ -196,15 +196,16 @@ export class SupabaseSessionRepository implements ISessionRepository {
     return created;
   }
 
+  /**
+   * Pela RPC (202609240003), e não por um UPDATE direto: ela trava a rodada e recusa
+   * encerrar com partida em andamento, na mesma transação.
+   */
   public async updateStatus(id: string, status: SessionStatus): Promise<void> {
-    const { error } = await this.client.from('sessions').update({ status }).eq('id', id);
-
-    if (error) {
-      throw new DatabaseError(
-        `Erro ao atualizar status da sessão (${id}): ${error.message}`,
-        error.code
-      );
-    }
+    const { error } = await this.client.rpc('society_set_session_status', {
+      p_session_id: id,
+      p_status: status,
+    });
+    if (error) throw new DatabaseError(error.message, error.code);
   }
 
   public async getTeamsBySessionId(sessionId: string): Promise<Team[]> {

@@ -31,5 +31,6 @@ export const rounds = {
   tabs: round(5, '2026-10-01'),
   touch: round(6, '2026-10-08'),
   touchTeams: round(7, '2026-10-15'),
+  close: round(8, '2026-10-22'),
 };
 export type RoundName = keyof typeof rounds;

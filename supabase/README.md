@@ -104,6 +104,20 @@ A exclusão é lógica: `matches.deleted_at` e `deleted_snapshot` preservam a s�
 
 Os números de sequência não são reutilizados: apagar a partida #5 faz a próxima ser #6. A exclusão não altera times nem jogadores da rodada. O cliente só retira a partida após confirmação do servidor; uma falha de rede mantém a operação pendente para nova tentativa.
 
+## Encerrar rodada (202609240003)
+
+O mesário encerra a rodada pelo botão “Encerrar rodada”, que só aparece sem partida em
+andamento. `society_set_session_status` trava a rodada, recusa encerrar com partida em
+andamento (409) e grava `sessions.status`. Um trigger em `matches` recusa partida nova em
+rodada encerrada, inclusive um início que estava na fila do celular. Corrigir e apagar as
+três últimas partidas e ajustar goleiro ou capitão continuam liberados. “Reabrir rodada”
+desfaz o encerramento.
+
+Ao ser aplicada, a migration encerra as rodadas anteriores à mais recente que não têm
+partida em andamento. Todas já acabaram, e nenhuma tinha sido encerrada porque o botão não
+existia. A mais recente fica como está, porque pode ser a da noite. Aplique antes do deploy:
+sem a função, o botão responde 503.
+
 ## Validação local
 
 ```text

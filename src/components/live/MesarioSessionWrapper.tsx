@@ -7,7 +7,13 @@ import { UndoToast } from './UndoToast';
 import { useMatchSession } from './useMatchSession';
 import { useTabLock } from './useTabLock';
 import { useWakeLock } from './useWakeLock';
-import { projectPending, type PendingCommand, type TimerState } from './matchSync';
+import {
+  AuthRequiredError,
+  describeNetworkError,
+  projectPending,
+  type PendingCommand,
+  type TimerState,
+} from './matchSync';
 import { recentMatches, sequences } from '../../core/domain/services/CompetitionService';
 import { TeamStandings } from '../stats/TeamStandings';
 import { ModalPortal } from '../ui/ModalPortal';
@@ -67,6 +73,10 @@ export function MesarioSessionWrapper({
   const [selected, setSelected] = useState<string | null>(null),
     [modal, setModal] = useState<'rosters' | 'edit' | null>(null),
     [lastGoal, setLastGoal] = useState<LastGoal | null>(null);
+  const [roundStatus, setRoundStatus] = useState(session.status),
+    [roundBusy, setRoundBusy] = useState(false),
+    [roundError, setRoundError] = useState('');
+  const closed = roundStatus === 'finished';
   const lock = useTabLock('society_mesario:' + session.id);
   const owner = lock.role === 'owner';
   const sync = useMatchSession(session.id, { active: owner });
@@ -152,6 +162,43 @@ export function MesarioSessionWrapper({
     setSelected(goal.matchId);
   };
 
+  /**
+   * Encerrar ou reabrir a rodada vai direto ao servidor, sem a fila do aparelho: não tem
+   * pressa (é o fim da noite) e depende de o servidor saber que nenhuma partida está em
+   * andamento. Sem sinal, o mesário tenta de novo depois.
+   */
+  const changeRoundStatus = async (status: 'finished' | 'ongoing') => {
+    const date = session.sessionDate.split('-').reverse().join('/');
+    const question =
+      status === 'finished'
+        ? `Encerrar a rodada de ${date}? Nenhuma partida nova poderá ser iniciada até reabrir. As três últimas continuam corrigíveis.`
+        : `Reabrir a rodada de ${date} para iniciar novas partidas?`;
+    if (roundBusy || !window.confirm(question)) return;
+    setRoundBusy(true);
+    setRoundError('');
+    try {
+      const res = await fetch('/api/sessions/' + session.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.status === 401) throw new AuthRequiredError();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? 'Servidor indisponível no momento.');
+      setRoundStatus(status);
+      setChoosingNext(false);
+    } catch (e) {
+      setRoundError(
+        e instanceof AuthRequiredError
+          ? 'Sessão de mesário expirada. Entre com o PIN de novo.'
+          : describeNetworkError(e) + ' Tente novamente.'
+      );
+    } finally {
+      setRoundBusy(false);
+    }
+  };
+
   const next = () => {
     if (!current || current.status !== 'finished') return;
     const queue = waitingOrder(teams, projected);
@@ -184,8 +231,8 @@ export function MesarioSessionWrapper({
       <header className="glass-card rounded-2xl p-4 space-y-3">
         <h1 className="font-display text-2xl font-black">Modo Mesário</h1>
         <p className="text-gray-300 text-sm">
-          Rodada de {session.sessionDate.split('-').reverse().join('/')} · times exclusivos desta
-          rodada
+          Rodada de {session.sessionDate.split('-').reverse().join('/')} ·{' '}
+          {closed ? 'rodada encerrada' : 'times exclusivos desta rodada'}
         </p>
         <div className="flex flex-wrap gap-2">
           <button className={actionClass} onClick={() => setModal('rosters')}>
@@ -198,7 +245,22 @@ export function MesarioSessionWrapper({
           >
             Editar times
           </button>
+          {/* Só sem partida em andamento: o servidor recusa encerrar com jogo aberto. */}
+          {owner && sync.ready && !closed && !active && (
+            <button
+              className={actionClass + ' border-rose-400/60 text-rose-200'}
+              disabled={pending || roundBusy}
+              onClick={() => void changeRoundStatus('finished')}
+            >
+              Encerrar rodada
+            </button>
+          )}
         </div>
+        {roundError && (
+          <p role="alert" className="text-sm text-rose-300">
+            {roundError}
+          </p>
+        )}
       </header>
       {lock.role === 'follower' && (
         <div
@@ -268,7 +330,32 @@ export function MesarioSessionWrapper({
       )}
       {!sync.ready || lock.role === 'checking' ? (
         <p role="status">Carregando partidas…</p>
-      ) : !owner ? null : current ? (
+      ) : !owner ? null : closed && !active ? (
+        <section className="glass-card rounded-2xl p-4 space-y-3" aria-label="Rodada encerrada">
+          <h2 className="text-xl font-bold">Rodada encerrada</h2>
+          <p className="text-sm text-gray-300">
+            {finished.length
+              ? 'As três últimas partidas continuam corrigíveis logo abaixo.'
+              : 'Nenhuma partida foi finalizada nesta rodada.'}{' '}
+            Para iniciar outra partida, reabra a rodada.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a className={actionClass + ' inline-flex items-center'} href="/relatorios">
+              Cards da rodada
+            </a>
+            <a className={actionClass + ' inline-flex items-center'} href="/rodada/nova">
+              Montar próxima rodada
+            </a>
+            <button
+              className={actionClass}
+              disabled={roundBusy}
+              onClick={() => void changeRoundStatus('ongoing')}
+            >
+              Reabrir rodada
+            </button>
+          </div>
+        </section>
+      ) : current ? (
         <>
           <LiveScoreboard
             key={current.matchId}
