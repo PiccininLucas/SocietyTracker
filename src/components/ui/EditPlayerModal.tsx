@@ -69,8 +69,8 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
       const updated: EditablePlayerData = await res.json();
       onSaved(updated);
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao conectar ao servidor.');
+    } catch (err) {
+      setErrorMessage((err instanceof Error && err.message) || 'Erro ao conectar ao servidor.');
     } finally {
       setIsSaving(false);
     }

@@ -1,3 +1,6 @@
+import type { MatchSummary } from '../../domain/repositories/IMatchRepository';
+import type { HistoricalPlayerTotal } from '../../domain/entities/HistoricalPlayerTotal';
+
 export interface LeaderboardRankedItemDTO {
   rank: number;
   playerId: string;
@@ -15,9 +18,9 @@ export interface LeaderboardRankedItemDTO {
 }
 
 export interface PreloadedLeaderboardData {
-  matches: any[];
+  matches: MatchSummary[];
   players: { id: string; name: string; nickname?: string | null; avatarUrl?: string | null; isActive?: boolean }[];
-  historical: any[];
+  historical: HistoricalPlayerTotal[];
 }
 
 export interface GetPeriodLeaderboardInputDTO {

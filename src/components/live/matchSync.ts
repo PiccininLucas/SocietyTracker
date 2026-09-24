@@ -116,7 +116,7 @@ export async function sendCommand(command: PendingCommand): Promise<MatchSummary
       ...(method === 'DELETE' ? {} : { body: JSON.stringify(command.input) }),
     });
   } catch (error) {
-    throw new Error(describeNetworkError(error));
+    throw new Error(describeNetworkError(error), { cause: error });
   }
 
   // Um 502/504 do gateway responde HTML: `res.json()` lançaria SyntaxError antes de

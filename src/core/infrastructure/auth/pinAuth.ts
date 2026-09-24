@@ -15,15 +15,18 @@ const DEV_FALLBACK_SECRET = 'society_salt_2026_default_secret_key';
  * acabava em texto claro no bundle de servidor e trocá-lo no painel da Vercel não tinha
  * efeito sem um novo deploy.
  */
+/** `process` visto por `globalThis`, para runtimes em que o identificador global não existe. */
+type GlobalWithProcess = { process?: { env?: Record<string, string | undefined> } };
+
 function readSecretEnv(key: 'ADMIN_PIN' | 'SESSION_SECRET'): string {
-  const g = globalThis as any;
+  const g = globalThis as GlobalWithProcess;
   const fromProcess = typeof process !== 'undefined' ? process.env?.[key] : undefined;
   const fromGlobalProcess = typeof g.process !== 'undefined' ? g.process?.env?.[key] : undefined;
   return String(fromProcess || fromGlobalProcess || '').trim();
 }
 
 function isProduction(): boolean {
-  const g = globalThis as any;
+  const g = globalThis as GlobalWithProcess;
   const nodeEnv =
     (typeof process !== 'undefined' ? process.env?.NODE_ENV : undefined) ||
     (typeof g.process !== 'undefined' ? g.process?.env?.NODE_ENV : undefined);

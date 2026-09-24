@@ -14,6 +14,9 @@ import {
 import type { MatchSummary } from '../src/core/domain/repositories/IMatchRepository.ts';
 import { resolveMatchesPlayed } from '../src/core/application/dtos/performanceLeaderboard.ts';
 
+// `totalSessionsPlayed` não faz parte do parâmetro: é o campo que o fallback antigo usava.
+type MatchesPlayedInput = Parameters<typeof resolveMatchesPlayed>[0];
+
 const HOME = 'team-home';
 const AWAY = 'team-away';
 
@@ -308,11 +311,11 @@ describe('resolveMatchesPlayed', () => {
     // diferentes. O fallback antigo testava só `=== null`, então `undefined` escorregava
     // para totalSessionsPlayed e inflava o G/J em ~5x.
     assert.equal(
-      resolveMatchesPlayed({ totalMatchesPlayed: undefined, totalSessionsPlayed: 3 } as any),
+      resolveMatchesPlayed({ totalMatchesPlayed: undefined, totalSessionsPlayed: 3 } as MatchesPlayedInput),
       null
     );
     assert.equal(
-      resolveMatchesPlayed({ totalMatchesPlayed: null, totalSessionsPlayed: 3 } as any),
+      resolveMatchesPlayed({ totalMatchesPlayed: null, totalSessionsPlayed: 3 } as MatchesPlayedInput),
       null
     );
   });

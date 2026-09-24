@@ -10,18 +10,19 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "check": "tsc --noEmit",
+    "check": "astro sync && tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
-    "check:astro": "astro check"
+    "check:astro": "astro check",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{js,mjs,ts}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"*.{js,mjs,ts}\""
   },
   "dependencies": {
     "@astrojs/react": "^6.0.2",
     "@astrojs/vercel": "^11.0.5",
     "@supabase/supabase-js": "^2.112.3",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
     "astro": "^7.2.2",
     "clsx": "^2.1.1",
     "html-to-image": "^1.11.13",
@@ -34,9 +35,20 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@electric-sql/pglite": "^0.5.8",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.2.0",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "pg": "^8.23.0",
+    "prettier": "^3.9.6",
     "tsx": "^4.19.3",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.2.1"
   }
 }

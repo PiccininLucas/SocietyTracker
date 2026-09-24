@@ -1,0 +1,12 @@
+dist/
+.astro/
+.vercel/
+node_modules/
+test-results/
+playwright-report/
+package-lock.json
+*.md
+*.sql
+*.astro
+supabase/
+society-tracker-specs/

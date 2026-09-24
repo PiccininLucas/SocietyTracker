@@ -141,8 +141,8 @@ export async function shareElementAsPng(
     }
 
     return false;
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
+  } catch (error) {
+    if ((error as { name?: unknown } | null)?.name === 'AbortError') {
       // Usuário fechou ou cancelou o menu de compartilhamento do sistema
       return true;
     }

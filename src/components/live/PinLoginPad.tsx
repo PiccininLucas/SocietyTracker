@@ -51,11 +51,11 @@ export const PinLoginPad: React.FC<PinLoginPadProps> = ({
         setTimeout(() => {
           window.location.href = redirectUrl;
         }, 500);
-      } catch (err: any) {
+      } catch (err) {
         soundFx.playClickBeep('low');
         hapticFeedback.cancel();
         setIsShaking(true);
-        setErrorMessage(err.message || 'PIN incorreto. Tente novamente.');
+        setErrorMessage((err instanceof Error && err.message) || 'PIN incorreto. Tente novamente.');
         setPin('');
         setTimeout(() => setIsShaking(false), 500);
       } finally {

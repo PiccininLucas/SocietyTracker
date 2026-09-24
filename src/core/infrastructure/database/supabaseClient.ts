@@ -1,8 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+/** `process` visto por `globalThis`, para runtimes em que o identificador global não existe. */
+type GlobalWithProcess = { process?: { env?: Record<string, string | undefined> } };
+
 // Função para buscar e limpar variáveis de ambiente
 function getEnv(key: string): string {
-  const g = globalThis as any;
+  const g = globalThis as GlobalWithProcess;
   // Só `process.env`. Um acesso por índice dinâmico em `import.meta.env` não é
   // substituído estaticamente pelo Vite: em vez disso ele embute o objeto de ambiente
   // INTEIRO no artefato de servidor — inclusive ADMIN_PIN e as chaves do Supabase.
@@ -80,7 +83,7 @@ function getServerSecretKey(): string {
   // Nunca `import.meta.env` aqui: é acesso estático, então o Vite grava a chave secreta
   // em texto claro dentro do bundle de servidor em tempo de build. A chave é lida do
   // ambiente em tempo de execução.
-  const g = globalThis as any;
+  const g = globalThis as GlobalWithProcess;
   const key = (
     (typeof process !== 'undefined' && (process.env?.SUPABASE_SECRET_KEY || process.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
     (typeof g.process !== 'undefined' && (g.process?.env?.SUPABASE_SECRET_KEY || g.process?.env?.SUPABASE_SERVICE_ROLE_KEY)) ||
@@ -144,7 +147,7 @@ export const supabaseAdmin: SupabaseClient = new Proxy({} as SupabaseClient, {
       );
     }
     if (!adminClient) adminClient = getSupabaseAdminClient();
-    const value = (adminClient as any)[prop];
+    const value = Reflect.get(adminClient, prop);
     return typeof value === 'function' ? value.bind(adminClient) : value;
   },
 });

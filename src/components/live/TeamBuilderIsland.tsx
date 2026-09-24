@@ -564,8 +564,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       setNewPlayerNickname('');
       setNewPlayerIsGoalkeeper(false);
       setIsAddPlayerModalOpen(false);
-    } catch (err: any) {
-      alert(err.message || 'Erro ao cadastrar jogador.');
+    } catch (err) {
+      alert((err instanceof Error && err.message) || 'Erro ao cadastrar jogador.');
     } finally {
       setIsCreatingPlayer(false);
     }
@@ -661,8 +661,8 @@ export const TeamBuilderIsland: React.FC<TeamBuilderIslandProps> = ({ initialPla
       clearDraft();
       // Redireciona para o Mesário
       window.location.href = `/rodada/mesario?sessionId=${created.id}`;
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao conectar ao servidor.');
+    } catch (err) {
+      setErrorMessage((err instanceof Error && err.message) || 'Erro ao conectar ao servidor.');
       setIsSaving(false);
     }
   };

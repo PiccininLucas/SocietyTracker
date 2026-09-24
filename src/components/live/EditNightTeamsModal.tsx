@@ -16,6 +16,25 @@ import { cn } from '../ui/utils';
 import { hapticFeedback } from '../ui/vibration';
 import { soundFx } from '../ui/audio';
 
+/** Resposta de PUT /api/sessions/[id]/teams. */
+interface SavedPlayer {
+  id: string;
+  name: string;
+  nickname?: string | null;
+  avatarUrl?: string | null;
+  isGoalkeeper?: boolean;
+  isLoaned?: boolean;
+  isCaptain?: boolean;
+}
+interface SavedTeam {
+  id: string;
+  sessionId: string;
+  name: string;
+  colorHex: string;
+  captainId?: string | null;
+  players?: SavedPlayer[];
+}
+
 interface EditNightTeamsModalProps {
   isOpen: boolean;
   sessionId: string;
@@ -268,18 +287,18 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
         throw new Error(errData.error || 'Erro ao salvar alterações dos times.');
       }
 
-      const data = await res.json();
+      const data: { teams?: SavedTeam[] } = await res.json();
       setSuccessMessage('Times e elencos atualizados com sucesso!');
       soundFx.playWhistle();
 
       // Monta a nova lista de LiveTeam com base nos dados retornados
-      const updatedLiveTeams: LiveTeam[] = (data.teams || []).map((t: any) => ({
+      const updatedLiveTeams: LiveTeam[] = (data.teams || []).map((t) => ({
         id: t.id,
         sessionId: t.sessionId,
         name: t.name,
         colorHex: t.colorHex,
         captainId: t.captainId || null,
-        players: (t.players || []).map((p: any) => ({
+        players: (t.players || []).map((p) => ({
           id: p.id,
           name: p.name,
           nickname: p.nickname || null,
@@ -295,8 +314,10 @@ export const EditNightTeamsModal: React.FC<EditNightTeamsModalProps> = ({
       setTimeout(() => {
         onClose();
       }, 700);
-    } catch (error: any) {
-      setErrorMessage(error.message || 'Ocorreu um erro ao salvar os times.');
+    } catch (error) {
+      setErrorMessage(
+        (error instanceof Error && error.message) || 'Ocorreu um erro ao salvar os times.'
+      );
     } finally {
       setIsSaving(false);
     }
